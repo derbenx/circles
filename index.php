@@ -4,6 +4,7 @@
 </head>
 <!-- body -->
 <?php include'load.php'; ?>
+<script src='gl-matrix.min.js'></script>
 <script src='js.js'></script>
 <div id='btg'><a href='..'>back to games</a></div>
 </html>
