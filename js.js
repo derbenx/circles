@@ -925,58 +925,56 @@ async function runXRRendering(session, mode) {
             let leftController = null;
             let rightController = null;
 
-            if (mode === 'immersive-vr') {
-                for (const source of frame.session.inputSources) {
-                    if (source.handedness === 'left') {
-                        leftController = source;
-                    } else if (source.handedness === 'right') {
-                        rightController = source;
+            for (const source of frame.session.inputSources) {
+                if (source.handedness === 'left') {
+                    leftController = source;
+                } else if (source.handedness === 'right') {
+                    rightController = source;
+                }
+            }
+
+            if (leftController && leftController.gamepad) {
+                const thumbstickX = leftController.gamepad.axes[2];
+                const thumbstickY = leftController.gamepad.axes[3];
+                const moveSpeed = 0.02;
+                if (Math.abs(thumbstickX) > 0.1) { vrCanvasPosition[0] += thumbstickX * moveSpeed; }
+                if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[1] -= thumbstickY * moveSpeed; }
+                const yButton = leftController.gamepad.buttons[5];
+                if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+                    document.getElementById("btn-vr").disabled = false;
+                    session.end();
+                }
+                yButtonPressedLastFrame = yButton ? yButton.pressed : false;
+            }
+
+            if (rightController) {
+                if (rightController.gripSpace) {
+                    const gripPose = frame.getPose(rightController.gripSpace, referenceSpace);
+                    if (gripPose) {
+                        const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
+                        if (intersection) {
+                            vrIntersectionPoint = intersection.world;
+                            mx = ((intersection.local[0] + 1) / 2) * ww;
+                            my = ((1 - intersection.local[1]) / 2) * hh;
+                        }
                     }
                 }
-
-                if (leftController && leftController.gamepad) {
-                    const thumbstickX = leftController.gamepad.axes[2];
-                    const thumbstickY = leftController.gamepad.axes[3];
-                    const moveSpeed = 0.02;
-                    if (Math.abs(thumbstickX) > 0.1) { vrCanvasPosition[0] += thumbstickX * moveSpeed; }
-                    if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[1] -= thumbstickY * moveSpeed; }
-                    const yButton = leftController.gamepad.buttons[5];
-                    if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
-                        document.getElementById("btn-vr").disabled = false;
-                        session.end();
-                    }
-                    yButtonPressedLastFrame = yButton ? yButton.pressed : false;
-                }
-
-                if (rightController) {
-                    if (rightController.gripSpace) {
-                        const gripPose = frame.getPose(rightController.gripSpace, referenceSpace);
-                        if (gripPose) {
-                            const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
-                            if (intersection) {
-                                vrIntersectionPoint = intersection.world;
-                                mx = ((intersection.local[0] + 1) / 2) * ww;
-                                my = ((1 - intersection.local[1]) / 2) * hh;
+                if (rightController.gamepad) {
+                    const thumbstickY = rightController.gamepad.axes[3];
+                    const zoomSpeed = 0.05;
+                    if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
+                    const aButton = rightController.gamepad.buttons[4];
+                    if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
+                        if (vrIntersectionPoint) {
+                            let gx_for_rotate = Math.floor((mx/ww)*xx);
+                            let gy_for_rotate = Math.floor((my/hh)*yy);
+                            if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
+                                rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
+                                sCook("prog", prog());
                             }
                         }
                     }
-                    if (rightController.gamepad) {
-                        const thumbstickY = rightController.gamepad.axes[3];
-                        const zoomSpeed = 0.05;
-                        if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
-                        const aButton = rightController.gamepad.buttons[4];
-                        if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
-                            if (vrIntersectionPoint) {
-                                let gx_for_rotate = Math.floor((mx/ww)*xx);
-                                let gy_for_rotate = Math.floor((my/hh)*yy);
-                                if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
-                                    rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
-                                    sCook("prog", prog());
-                                }
-                            }
-                        }
-                        aButtonPressedLastFrame = aButton ? aButton.pressed : false;
-                    }
+                    aButtonPressedLastFrame = aButton ? aButton.pressed : false;
                 }
             }
 
