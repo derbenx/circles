@@ -745,6 +745,10 @@ async function activateVR() {
     });
 
     const sourceCanvas = document.getElementById("can");
+    const spriteCanvas = document.getElementById("spr");
+    const compositeCanvas = document.createElement("canvas");
+    const compositeCtx = compositeCanvas.getContext("2d");
+
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
 
@@ -801,7 +805,7 @@ async function activateVR() {
     const buffers = initBuffers(gl);
     let texture = initTexture(gl, sourceCanvas);
 
-    const vrCanvasPosition = [0, 1.6, -1.5];
+    const vrCanvasPosition = [0, 1.6, -2.0];
     const canvasModelMatrix = glMatrix.mat4.create();
     glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
@@ -814,7 +818,13 @@ async function activateVR() {
       session.requestAnimationFrame(onXRFrame);
 
       draw(1);
-      updateTexture(gl, texture, sourceCanvas);
+
+      compositeCanvas.width = sourceCanvas.width;
+      compositeCanvas.height = sourceCanvas.height;
+      compositeCtx.drawImage(sourceCanvas, 0, 0);
+      compositeCtx.drawImage(spriteCanvas, 0, 0);
+
+      updateTexture(gl, texture, compositeCanvas);
 
       const pose = frame.getViewerPose(referenceSpace);
       if (pose) {
@@ -826,7 +836,7 @@ async function activateVR() {
           if (source.handedness === 'left' && source.gamepad) {
             const thumbstickX = source.gamepad.axes[2];
             const thumbstickY = source.gamepad.axes[3];
-            const moveSpeed = 0.05;
+            const moveSpeed = 0.02;
 
             if (Math.abs(thumbstickX) > 0.1) {
               vrCanvasPosition[0] += thumbstickX * moveSpeed;
