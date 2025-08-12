@@ -3,6 +3,7 @@
 <button id='circtogsetup'>-Settings Toggle-</button>
 <button id='circtoghelp'>-Help Toggle-</button>
 <button id='btn-vr'>Start VR</button>
+<button id='btn-xr'>Start XR</button>
 </center></div>
 <div id="circhelp" style="display:none">
 <center>

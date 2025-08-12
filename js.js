@@ -979,7 +979,6 @@ async function activateVR() {
     }
 
     vrSession.requestAnimationFrame(onXRFrame);
-    vrButton.disabled = true;
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -1142,3 +1141,4 @@ function toggleVR() {
 }
 
 document.getElementById("btn-vr").onclick = toggleVR;
+document.getElementById("btn-xr").onclick = toggleVR;
