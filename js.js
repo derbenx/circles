@@ -766,6 +766,7 @@ async function activateVR() {
 
     // Fragment shader
     const fsSource = `
+      precision mediump float;
       varying highp vec2 vTextureCoord;
       uniform sampler2D uSampler;
       uniform bool uUseSolidColor;
