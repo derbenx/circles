@@ -752,6 +752,7 @@ async function activateVR() {
     session.addEventListener('selectstart', () => {
       if (vrShowAlert) {
         vrShowAlert = false;
+        wipe();
         return;
       }
       if (vrIntersectionPoint) {
@@ -781,7 +782,7 @@ async function activateVR() {
     pointerCanvas.width = 64;
     pointerCanvas.height = 64;
     const pointerCtx = pointerCanvas.getContext("2d");
-    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.25)";
+    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.5)";
     pointerCtx.beginPath();
     pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
     pointerCtx.fill();
@@ -903,7 +904,7 @@ async function activateVR() {
           glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
           glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
-          const yButton = leftController.gamepad.buttons[4]; // Y button
+          const yButton = leftController.gamepad.buttons[5]; // Y button
           if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
             document.getElementById("btn-vr").disabled = false;
             session.end();
@@ -1081,6 +1082,11 @@ function intersectPlane(transform, quadModelMatrix) {
   // Ray in world space
   const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
   const rayDirection = vec3.fromValues(0, 0, -1);
+
+  // Apply a downward rotation to the ray
+  const rotationX = mat4.fromXRotation(mat4.create(), -Math.PI / 6); // -30 degrees
+  vec3.transformMat4(rayDirection, rayDirection, rotationX);
+
   vec3.transformQuat(rayDirection, rayDirection, [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
 
   // Transform ray to quad's local space
