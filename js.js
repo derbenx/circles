@@ -732,8 +732,9 @@ async function activateVR() {
     });
     session.addEventListener("end", onSessionEnded);
 
-    const canvas = document.getElementById("can");
-    const gl = canvas.getContext("webgl", { xrCompatible: true });
+    const sourceCanvas = document.getElementById("can");
+    const glCanvas = document.createElement("canvas");
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
 
     // Vertex shader
     const vsSource = `
@@ -777,7 +778,7 @@ async function activateVR() {
     };
 
     const buffers = initBuffers(gl);
-    let texture = initTexture(gl, canvas);
+    let texture = initTexture(gl, sourceCanvas);
 
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
@@ -788,7 +789,7 @@ async function activateVR() {
       session.requestAnimationFrame(onXRFrame);
 
       draw(1);
-      updateTexture(gl, texture, canvas);
+      updateTexture(gl, texture, sourceCanvas);
 
       const pose = frame.getViewerPose(referenceSpace);
       if (pose) {
