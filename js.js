@@ -17,12 +17,32 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 //const colr='grybvcplei';
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
+
+// --- XR State Variables ---
 var inVR = false;
+var inAR = false;
 var vrShowAlert = false;
 var vrAlertMessage = "";
 var vrAlertNeedsUpdate = false;
 let ignoreNextSelectEnd = false;
 let vrSession = null;
+let arSession = null;
+let gl = null;
+let programInfo = null;
+let buffers = null;
+let texture = null;
+let pointerTexture = null;
+let vrCanvasPosition = null;
+let canvasModelMatrix = null;
+let compositeCanvas = null;
+let compositeCtx = null;
+let vrIntersectionPoint = null;
+let yButtonPressedLastFrame = false;
+let aButtonPressedLastFrame = false;
+let vrReferenceSpace = null;
+let arReferenceSpace = null;
+// --- End XR State ---
+
 
 document.getElementById("wxh").onchange = function(){ ttf(); }
 document.getElementById("rat").onchange = function(){ ttf(); }
@@ -643,7 +663,7 @@ function fini(){
  elem.style.display='none';
  var msg='Congrats you won!\n\nTry a new puzzle, change some settings!\n\nYou can now save this image to share with others!\n\n';
  //sav(msg);
- if (inVR) {
+ if (inVR || inAR) {
     vrShowAlert = true;
     vrAlertMessage = msg;
     vrAlertNeedsUpdate = true;
@@ -738,11 +758,19 @@ function openFileDialog(accept, callback) {
 // VR
 function onSessionEnded() {
   inVR = false;
-  vrSession.removeEventListener("end", onSessionEnded);
+  inAR = false;
+  if(vrSession) vrSession.removeEventListener("end", onSessionEnded);
+  if(arSession) arSession.removeEventListener("end", onSessionEnded);
   vrSession = null;
+  arSession = null;
+
   const vrButton = document.getElementById("btn-vr");
   vrButton.textContent = "Start VR";
   vrButton.disabled = false;
+
+  const arButton = document.getElementById("btn-xr");
+  arButton.textContent = "Start XR";
+  arButton.disabled = false;
 }
 
 async function activateVR() {
@@ -869,6 +897,8 @@ function onXFrame(time, frame) {
 
     draw(1);
 
+    const sourceCanvas = document.getElementById("can");
+    const spriteCanvas = document.getElementById("spr");
     compositeCanvas.width = sourceCanvas.width;
     compositeCanvas.height = sourceCanvas.height;
     compositeCtx.drawImage(sourceCanvas, 0, 0);
@@ -887,7 +917,8 @@ function onXFrame(time, frame) {
 
     const pose = frame.getViewerPose(referenceSpace);
     if (pose) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+      const glLayer = session.renderState.baseLayer;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
       if (inAR) {
         gl.clearColor(0, 0, 0, 0);
       } else {
@@ -925,7 +956,6 @@ function onXFrame(time, frame) {
 
         const yButton = leftController.gamepad.buttons[5]; // Y button
         if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
-          document.getElementById("btn-vr").disabled = false;
           session.end();
         }
         yButtonPressedLastFrame = yButton ? yButton.pressed : false;
@@ -966,7 +996,7 @@ function onXFrame(time, frame) {
       }
 
       for (const view of pose.views) {
-        const viewport = session.renderState.baseLayer.getViewport(view);
+        const viewport = glLayer.getViewport(view);
         gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
 
         const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
@@ -1136,26 +1166,7 @@ function toggleVR() {
   }
 }
 
-document.getElementById("btn-xr").onclick = toggleAR;
-
-(async () => {
-    if (navigator.xr) {
-        const xrButton = document.getElementById('btn-xr');
-        try {
-            const supported = await navigator.xr.isSessionSupported('immersive-ar');
-            if (supported) {
-                xrButton.style.display = 'inline';
-            } else {
-                xrButton.style.display = 'none';
-            }
-        } catch (e) {
-            xrButton.style.display = 'none';
-            console.error("Error checking AR support:", e);
-        }
-    } else {
-        document.getElementById('btn-xr').style.display = 'none';
-    }
-})();
+document.getElementById("btn-vr").onclick = toggleVR;
 
 function toggleAR() {
     if (arSession) {
@@ -1206,3 +1217,24 @@ async function activateAR() {
         arButton.disabled = false;
     }
 }
+
+document.getElementById("btn-xr").onclick = toggleAR;
+
+(async () => {
+    if (navigator.xr) {
+        const xrButton = document.getElementById('btn-xr');
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-ar');
+            if (supported) {
+                xrButton.style.display = 'inline';
+            } else {
+                xrButton.style.display = 'none';
+            }
+        } catch (e) {
+            xrButton.style.display = 'none';
+            console.error("Error checking AR support:", e);
+        }
+    } else {
+        document.getElementById('btn-xr').style.display = 'none';
+    }
+})();
