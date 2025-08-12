@@ -17,32 +17,14 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 //const colr='grybvcplei';
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
-
-// --- XR State Variables ---
 var inVR = false;
-var inAR = false;
 var vrShowAlert = false;
 var vrAlertMessage = "";
 var vrAlertNeedsUpdate = false;
 let ignoreNextSelectEnd = false;
 let vrSession = null;
+var inAR = false;
 let arSession = null;
-let gl = null;
-let programInfo = null;
-let buffers = null;
-let texture = null;
-let pointerTexture = null;
-let vrCanvasPosition = null;
-let canvasModelMatrix = null;
-let compositeCanvas = null;
-let compositeCtx = null;
-let vrIntersectionPoint = null;
-let yButtonPressedLastFrame = false;
-let aButtonPressedLastFrame = false;
-let vrReferenceSpace = null;
-let arReferenceSpace = null;
-// --- End XR State ---
-
 
 document.getElementById("wxh").onchange = function(){ ttf(); }
 document.getElementById("rat").onchange = function(){ ttf(); }
@@ -424,12 +406,8 @@ function draw(pri=0){ //priority, drag low, drop high.
  //console.log(drag,gx,gy);
  ctx = can.getContext('2d');
  //ctx.clearRect(0, 0, can.width, can.height);
-  if (!inAR) {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, can.width, can.height);
-  } else {
-    ctx.clearRect(0, 0, can.width, can.height);
-  }
+   ctx.fillStyle = "black";
+   ctx.fillRect(0, 0, can.width, can.height);
  if (px){
   gx=px;gy=py;
  }
@@ -1167,6 +1145,79 @@ function toggleVR() {
 }
 
 document.getElementById("btn-vr").onclick = toggleVR;
+
+function toggleAR() {
+    if (arSession) {
+        arSession.end();
+    } else {
+        activateAR();
+    }
+}
+
+async function activateAR() {
+    const arButton = document.getElementById("btn-xr");
+    try {
+        arSession = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["local", "hit-test"] });
+        inAR = true;
+
+        const onAREnd = () => {
+            inAR = false;
+            if(arSession) arSession.removeEventListener('end', onAREnd);
+            arSession = null;
+            arButton.textContent = "Start XR";
+            arButton.disabled = false;
+        };
+        arSession.addEventListener('end', onAREnd);
+        arButton.textContent = "Stop XR";
+        arButton.disabled = false;
+
+        const gl = document.createElement("canvas").getContext("webgl", { xrCompatible: true });
+        await gl.makeXRCompatible();
+        arSession.updateRenderState({ baseLayer: new XRWebGLLayer(arSession, gl) });
+        const referenceSpace = await arSession.requestReferenceSpace('local');
+
+        const onARFrame = (time, frame) => {
+            const session = frame.session;
+            session.requestAnimationFrame(onARFrame);
+            let pose = frame.getViewerPose(referenceSpace);
+            if (!pose) return;
+
+            const glLayer = session.renderState.baseLayer;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        };
+        arSession.requestAnimationFrame(onARFrame);
+
+    } catch (e) {
+        console.error("Failed to start AR session:", e);
+        arSession = null;
+        inAR = false;
+        arButton.textContent = "Start XR";
+        arButton.disabled = false;
+    }
+}
+
+document.getElementById("btn-xr").onclick = toggleAR;
+
+(async () => {
+    if (navigator.xr) {
+        const xrButton = document.getElementById('btn-xr');
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-ar');
+            if (supported) {
+                xrButton.style.display = 'inline';
+            } else {
+                xrButton.style.display = 'none';
+            }
+        } catch (e) {
+            xrButton.style.display = 'none';
+            console.error("Error checking AR support:", e);
+        }
+    } else {
+        document.getElementById('btn-xr').style.display = 'none';
+    }
+})();
 
 function toggleAR() {
     if (arSession) {
