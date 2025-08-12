@@ -858,13 +858,13 @@ async function activateVR() {
     const canvasModelMatrix = glMatrix.mat4.create();
     glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+    vrSession.updateRenderState({ baseLayer: new XRWebGLLayer(vrSession, gl) });
 
-    const referenceSpace = await session.requestReferenceSpace("local-floor");
+    const referenceSpace = await vrSession.requestReferenceSpace("local-floor");
 
     function onXRFrame(time, frame) {
       const session = frame.session;
-      session.requestAnimationFrame(onXRFrame);
+      vrSession.requestAnimationFrame(onXRFrame);
 
       draw(1);
 
