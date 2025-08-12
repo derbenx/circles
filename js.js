@@ -17,6 +17,12 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 //const colr='grybvcplei';
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
+var inVR = false;
+var vrShowAlert = false;
+var vrAlertMessage = "";
+var vrAlertNeedsUpdate = false;
+let ignoreNextSelectEnd = false;
+let vrSession = null;
 
 document.getElementById("wxh").onchange = function(){ ttf(); }
 document.getElementById("rat").onchange = function(){ ttf(); }
@@ -194,7 +200,7 @@ function dbstart(json){
    outt=outt+"!"+x+"x"+y+"="+grid[x][y];
   }
  }
- 
+
  //console.log(grid);
  //console.log('ot: '+outt);
  sCook('orig',outt);
@@ -286,7 +292,7 @@ function clku(evn){
   done=1;
   setTimeout(fini, 300);
   //fini();
- } 
+ }
 }
 function clkd(evn){
  if (done) { return; }
@@ -300,7 +306,7 @@ function clkd(evn){
  gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  //console.log('DD',mx,my,"g",gx,gy);
  //db.value='d:'+gx+'x'+gy;
- //console.log(grid[gx][gy]); 
+ //console.log(grid[gx][gy]);
  if (grid[gx][gy].charAt(0)>1) {
   drag='y';
  }
@@ -389,7 +395,7 @@ function scale(){
  draw(1);
 }
 function draw(pri=0){ //priority, drag low, drop high.
- 
+
  var fc= new Date();
  var fps = 1000 / (fc - fo);
  fo = fc;
@@ -418,7 +424,7 @@ function draw(pri=0){ //priority, drag low, drop high.
      drci(sz,mx,(y*yyy)+(yyy/2),grid[x][y],1);
     }
    }else{
-    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]); 
+    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]);
    }
    ctx.lineWidth = 3;
    ctx.strokeStyle = "green";
@@ -427,7 +433,7 @@ function draw(pri=0){ //priority, drag low, drop high.
  }
 }
 function rd(x,y=0){
- return Math.floor(Math.random()*x)+y; 
+ return Math.floor(Math.random()*x)+y;
 }
 function rotate(x,y,t=1){
  pos=grid[x][y];
@@ -470,7 +476,7 @@ function drci(rad,x,y,p,s=0) {
  if (pp.charAt(0)>0) {
  //console.log('big');
   tmp.beginPath();
-  
+
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI, false);
   tmp.fillStyle = gc(col.charAt(0));
   tmp.fill();
@@ -479,7 +485,7 @@ function drci(rad,x,y,p,s=0) {
   tmp.strokeStyle = s==1 ? 'red' : ol;
   tmp.lineWidth = 3;
   tmp.stroke();
- 
+
  rx=rad/3;
  $i=0;
 
@@ -496,9 +502,9 @@ function drci(rad,x,y,p,s=0) {
    tmp.strokeStyle = 'black';
    tmp.moveTo(x-(rad/3), y);
    tmp.lineTo(x+(rad/3), y);
-   tmp.stroke(); 
+   tmp.stroke();
   }
- 
+
  $i++;
  if (pp.charAt($i)!='0') {
   //click: 0=nothing 1=rotate:O 2=flipH:U 3=flipV:C
@@ -523,13 +529,13 @@ function drci(rad,x,y,p,s=0) {
    tmp.lineWidth = 3;
    tmp.stroke();
   }
-  
+
  }
   $i++;
  //2+: tag colors 0=null ryvb
  if (pp.charAt($i)!='0') {
   //console.log('left');
-  
+
   tmp.beginPath();
   tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -542,7 +548,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('up');
-  
+
   tmp.beginPath();
   tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -555,7 +561,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('righ');
-  
+
   tmp.beginPath();
   tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -568,7 +574,7 @@ function drci(rad,x,y,p,s=0) {
 $i++;
  if (pp.charAt($i)!='0') {
   //console.log('down');
-  
+
   tmp.beginPath();
   tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -633,7 +639,13 @@ function fini(){
  elem.style.display='none';
  var msg='Congrats you won!\n\nTry a new puzzle, change some settings!\n\nYou can now save this image to share with others!\n\n';
  //sav(msg);
- alert(msg);
+ if (inVR) {
+    vrShowAlert = true;
+    vrAlertMessage = msg;
+    vrAlertNeedsUpdate = true;
+ } else {
+    alert(msg);
+ }
  return;
 }
 
@@ -707,9 +719,9 @@ function loadr(event){
   sCook('prog',result);
   sCook('orig',result);
   // start game
-  newg() 
+  newg()
  });
- reader.readAsText(file); 
+ reader.readAsText(file);
 }
 function openFileDialog(accept, callback) {
  var inputElement = document.createElement("input");
@@ -718,3 +730,415 @@ function openFileDialog(accept, callback) {
  inputElement.addEventListener("change", callback);
  inputElement.dispatchEvent(new MouseEvent("click"));
 }
+
+// VR
+function onSessionEnded() {
+  inVR = false;
+  vrSession.removeEventListener("end", onSessionEnded);
+  vrSession = null;
+  const vrButton = document.getElementById("btn-vr");
+  vrButton.textContent = "Start VR";
+  vrButton.disabled = false;
+}
+
+async function activateVR() {
+  inVR = true;
+  let vrIntersectionPoint = null;
+  const vrButton = document.getElementById("btn-vr");
+  try {
+    vrSession = await navigator.xr.requestSession("immersive-vr", {
+      requiredFeatures: ["local-floor"],
+    });
+    vrSession.addEventListener("end", onSessionEnded);
+    vrButton.textContent = "Stop VR";
+    vrButton.disabled = false;
+
+    let vrSelectIsDown = false;
+    let yButtonPressedLastFrame = false;
+    let aButtonPressedLastFrame = false;
+
+    vrSession.addEventListener('selectstart', () => {
+      if (vrShowAlert) {
+        vrShowAlert = false;
+        ignoreNextSelectEnd = true;
+        wipe();
+        return;
+      }
+      if (vrIntersectionPoint) {
+        vrSelectIsDown = true;
+        clkd({ preventDefault: () => {} });
+      }
+    });
+
+    vrSession.addEventListener('selectend', () => {
+      if (ignoreNextSelectEnd) {
+        ignoreNextSelectEnd = false;
+        return;
+      }
+      if (vrIntersectionPoint) {
+        vrSelectIsDown = false;
+        clku({ preventDefault: () => {} });
+      }
+    });
+
+    const sourceCanvas = document.getElementById("can");
+    const spriteCanvas = document.getElementById("spr");
+    const compositeCanvas = document.createElement("canvas");
+    const compositeCtx = compositeCanvas.getContext("2d");
+
+    const glCanvas = document.createElement("canvas");
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const pointerCanvas = document.createElement("canvas");
+    pointerCanvas.width = 64;
+    pointerCanvas.height = 64;
+    const pointerCtx = pointerCanvas.getContext("2d");
+    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.5)";
+    pointerCtx.beginPath();
+    pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
+    pointerCtx.fill();
+    const pointerTexture = initTexture(gl, pointerCanvas);
+
+    // Vertex shader
+    const vsSource = `
+      attribute vec4 aVertexPosition;
+      attribute vec2 aTextureCoord;
+
+      uniform mat4 uModelViewMatrix;
+      uniform mat4 uProjectionMatrix;
+
+      varying highp vec2 vTextureCoord;
+
+      void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        vTextureCoord = aTextureCoord;
+      }
+    `;
+
+    // Fragment shader
+    const fsSource = `
+      precision mediump float;
+      varying highp vec2 vTextureCoord;
+      uniform sampler2D uSampler;
+      uniform bool uUseSolidColor;
+      uniform vec4 uSolidColor;
+
+      void main(void) {
+        if (uUseSolidColor) {
+          gl_FragColor = uSolidColor;
+        } else {
+          gl_FragColor = texture2D(uSampler, vTextureCoord);
+        }
+      }
+    `;
+
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+    const programInfo = {
+      program: shaderProgram,
+      attribLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+        uUseSolidColor: gl.getUniformLocation(shaderProgram, "uUseSolidColor"),
+        uSolidColor: gl.getUniformLocation(shaderProgram, "uSolidColor"),
+      },
+    };
+
+    const buffers = initBuffers(gl);
+    let texture = initTexture(gl, sourceCanvas);
+
+    const vrCanvasPosition = [0, 1.6, -2.0];
+    const canvasModelMatrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+
+    vrSession.updateRenderState({ baseLayer: new XRWebGLLayer(vrSession, gl) });
+
+    const referenceSpace = await vrSession.requestReferenceSpace("local-floor");
+
+    function onXRFrame(time, frame) {
+      const session = frame.session;
+      vrSession.requestAnimationFrame(onXRFrame);
+
+      draw(1);
+
+      compositeCanvas.width = sourceCanvas.width;
+      compositeCanvas.height = sourceCanvas.height;
+      compositeCtx.drawImage(sourceCanvas, 0, 0);
+      compositeCtx.drawImage(spriteCanvas, 0, 0);
+
+      if (vrShowAlert) {
+        compositeCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        compositeCtx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+        compositeCtx.fillStyle = "white";
+        compositeCtx.font = "40px sans-serif";
+        compositeCtx.textAlign = "center";
+        compositeCtx.fillText("You Won!", compositeCanvas.width / 2, compositeCanvas.height / 2);
+      }
+
+      updateTexture(gl, texture, compositeCanvas);
+
+      const pose = frame.getViewerPose(referenceSpace);
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        vrIntersectionPoint = null;
+        let leftController = null;
+        let rightController = null;
+
+        for (const source of frame.session.inputSources) {
+          if (source.handedness === 'left') {
+            leftController = source;
+          } else if (source.handedness === 'right') {
+            rightController = source;
+          }
+        }
+
+        if (leftController && leftController.gamepad) {
+          const thumbstickX = leftController.gamepad.axes[2];
+          const thumbstickY = leftController.gamepad.axes[3];
+          const moveSpeed = 0.02;
+
+          if (Math.abs(thumbstickX) > 0.1) {
+            vrCanvasPosition[0] += thumbstickX * moveSpeed;
+          }
+          if (Math.abs(thumbstickY) > 0.1) {
+            vrCanvasPosition[1] -= thumbstickY * moveSpeed;
+          }
+
+          const aspectRatio = ww / hh;
+          glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+          glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
+
+          const yButton = leftController.gamepad.buttons[5]; // Y button
+          if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+            document.getElementById("btn-vr").disabled = false;
+            session.end();
+          }
+          yButtonPressedLastFrame = yButton ? yButton.pressed : false;
+        }
+
+        if (rightController) {
+          if (rightController.gripSpace) {
+            const gripPose = frame.getPose(rightController.gripSpace, referenceSpace);
+            if (gripPose) {
+              const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
+              if (intersection) {
+                vrIntersectionPoint = intersection.world;
+                mx = ((intersection.local[0] + 1) / 2) * ww;
+                my = ((1 - intersection.local[1]) / 2) * hh;
+              }
+            }
+          }
+          if (rightController.gamepad) {
+            const thumbstickY = rightController.gamepad.axes[3];
+            const zoomSpeed = 0.05;
+            if (Math.abs(thumbstickY) > 0.1) {
+              vrCanvasPosition[2] += thumbstickY * zoomSpeed;
+            }
+
+            const aButton = rightController.gamepad.buttons[4]; // A button
+            if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
+              if (vrIntersectionPoint) {
+                let gx_for_rotate = Math.floor((mx/ww)*xx);
+                let gy_for_rotate = Math.floor((my/hh)*yy);
+                if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
+                    rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
+                    sCook("prog", prog());
+                }
+              }
+            }
+            aButtonPressedLastFrame = aButton ? aButton.pressed : false;
+          }
+        }
+
+        for (const view of pose.views) {
+          const viewport = session.renderState.baseLayer.getViewport(view);
+          gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+
+          const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
+          drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+
+          if (vrIntersectionPoint) {
+            const { mat4 } = glMatrix;
+            const pointerMatrix = mat4.create();
+            mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
+            mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
+            mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
+            drawScene(gl, programInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
+          }
+        }
+      }
+    }
+
+    vrSession.requestAnimationFrame(onXRFrame);
+    vrButton.disabled = true;
+  } catch (error) {
+    console.error("Failed to enter VR mode:", error);
+    vrSession = null;
+    inVR = false;
+    vrButton.textContent = "Start VR";
+    vrButton.disabled = false;
+  }
+}
+
+function initShaderProgram(gl, vsSource, fsSource) {
+  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+  const shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert("Unable to initialize the shader program: " + gl.getProgramInfoLog(shaderProgram));
+    return null;
+  }
+
+  return shaderProgram;
+}
+
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+
+  return shader;
+}
+
+function initBuffers(gl) {
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  const textureCoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+  const textureCoordinates = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates), gl.STATIC_DRAW);
+
+  return {
+    position: positionBuffer,
+    textureCoord: textureCoordBuffer,
+  };
+}
+
+function initTexture(gl, source) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  return texture;
+}
+
+function updateTexture(gl, texture, source) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+}
+
+function drawScene(gl, programInfo, buffers, texture, projectionMatrix, modelViewMatrix, useSolidColor = false, solidColor = [1, 0, 0, 1]) {
+  gl.useProgram(programInfo.program);
+
+  gl.uniform1i(programInfo.uniformLocations.uUseSolidColor, useSolidColor);
+  if (useSolidColor) {
+    gl.uniform4fv(programInfo.uniformLocations.uSolidColor, solidColor);
+  }
+
+  {
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  }
+
+  {
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textureCoord);
+    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
+  }
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+
+  gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+  gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function intersectPlane(transform, quadModelMatrix) {
+  const { vec3, mat4 } = glMatrix;
+
+  // Ray in world space
+  const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
+  const rayDirection = vec3.fromValues(0, 0, -1);
+
+  // Apply a downward rotation to the ray
+  const rotationX = mat4.fromXRotation(mat4.create(), -Math.PI / 6); // -30 degrees
+  vec3.transformMat4(rayDirection, rayDirection, rotationX);
+
+  vec3.transformQuat(rayDirection, rayDirection, [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
+
+  // Transform ray to quad's local space
+  const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
+  const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModelMatrix);
+  const rayDirectionLocal = vec3.transformMat4(vec3.create(), rayDirection, invModelMatrix);
+  vec3.subtract(rayDirectionLocal, rayDirectionLocal, vec3.transformMat4(vec3.create(), [0,0,0], invModelMatrix));
+  vec3.normalize(rayDirectionLocal, rayDirectionLocal);
+
+  // Intersect with Z=0 plane in local space
+  const planeNormal = vec3.fromValues(0, 0, 1);
+  const denom = vec3.dot(planeNormal, rayDirectionLocal);
+
+  if (Math.abs(denom) > 0.0001) {
+    const t = -rayOriginLocal[2] / denom;
+    if (t >= 0) {
+      const intersectionLocal = vec3.add(vec3.create(), rayOriginLocal, vec3.scale(vec3.create(), rayDirectionLocal, t));
+
+      if (intersectionLocal[0] >= -1 && intersectionLocal[0] <= 1 && intersectionLocal[1] >= -1 && intersectionLocal[1] <= 1) {
+        const intersectionWorld = vec3.transformMat4(vec3.create(), intersectionLocal, quadModelMatrix);
+        return {
+          world: intersectionWorld,
+          local: intersectionLocal
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function toggleVR() {
+  if (vrSession) {
+    vrSession.end();
+  } else {
+    activateVR();
+  }
+}
+
+document.getElementById("btn-vr").onclick = toggleVR;
