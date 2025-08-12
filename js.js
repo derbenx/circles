@@ -404,9 +404,12 @@ function draw(pri=0){ //priority, drag low, drop high.
  //debug(2000,fps.toFixed(1));
  //console.log(drag,gx,gy);
  ctx = can.getContext('2d');
- //ctx.clearRect(0, 0, can.width, can.height);
-   ctx.fillStyle = "black";
-   ctx.fillRect(0, 0, can.width, can.height);
+ if (inAR) {
+    ctx.clearRect(0, 0, can.width, can.height);
+ } else {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, can.width, can.height);
+ }
  if (px){
   gx=px;gy=py;
  }
@@ -732,54 +735,7 @@ function openFileDialog(accept, callback) {
  inputElement.dispatchEvent(new MouseEvent("click"));
 }
 
-// VR
 let arSession = null;
-
-async function activateAR() {
-    const xrButton = document.getElementById('btn-xr');
-    try {
-        arSession = await navigator.xr.requestSession('immersive-ar', {
-            optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: document.body }
-        });
-        inAR = true;
-
-        arSession.addEventListener('end', onSessionEnded);
-        xrButton.textContent = 'Stop AR';
-        xrButton.disabled = false;
-
-        const glCanvas = document.createElement('canvas');
-        let gl = glCanvas.getContext('webgl', { xrCompatible: true });
-        await gl.makeXRCompatible();
-
-        let arReferenceSpace = await arSession.requestReferenceSpace('local');
-
-        arSession.updateRenderState({
-            baseLayer: new XRWebGLLayer(arSession, gl)
-        });
-
-        function onXRFrame(time, frame) {
-            const session = frame.session;
-            session.requestAnimationFrame(onXRFrame);
-
-            const pose = frame.getViewerPose(arReferenceSpace);
-            if (pose) {
-                const glLayer = session.renderState.baseLayer;
-                gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-                gl.clearColor(0, 0, 0, 0);
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            }
-        }
-        arSession.requestAnimationFrame(onXRFrame);
-
-    } catch (error) {
-        console.error("Failed to enter AR mode:", error);
-        arSession = null;
-        inAR = false;
-        xrButton.textContent = 'Start AR';
-        xrButton.disabled = false;
-    }
-}
 
 function toggleAR() {
     if (arSession) {
@@ -789,6 +745,45 @@ function toggleAR() {
     }
 }
 
+async function activateAR() {
+    const xrButton = document.getElementById('btn-xr');
+    try {
+        arSession = await navigator.xr.requestSession('immersive-ar', {
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        });
+        inAR = true;
+        arSession.addEventListener('end', onSessionEnded);
+        xrButton.textContent = 'Stop XR';
+
+        const glCanvas = document.createElement('canvas');
+        const gl = glCanvas.getContext('webgl', { xrCompatible: true });
+        await gl.makeXRCompatible();
+
+        const referenceSpace = await arSession.requestReferenceSpace('local');
+        arSession.updateRenderState({ baseLayer: new XRWebGLLayer(arSession, gl) });
+
+        const onXRFrame = (time, frame) => {
+            const session = frame.session;
+            session.requestAnimationFrame(onXRFrame);
+
+            const pose = frame.getViewerPose(referenceSpace);
+            if (pose) {
+                const glLayer = session.renderState.baseLayer;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            }
+        };
+        arSession.requestAnimationFrame(onXRFrame);
+
+    } catch (e) {
+        console.error("Failed to start AR session:", e);
+        xrButton.textContent = 'Start XR';
+    }
+}
+
+// VR
 function onSessionEnded(event) {
     const session = event.session;
     if (session === vrSession) {
@@ -801,100 +796,26 @@ function onSessionEnded(event) {
         inAR = false;
         arSession = null;
         const xrButton = document.getElementById('btn-xr');
-        xrButton.textContent = 'Start AR';
-        xrButton.disabled = false;
+        xrButton.textContent = 'Start XR';
     }
     session.removeEventListener('end', onSessionEnded);
 }
 
 async function activateVR() {
+  inVR = true;
+  let vrIntersectionPoint = null;
   const vrButton = document.getElementById("btn-vr");
   try {
-    vrSession = await navigator.xr.requestSession("immersive-vr", { optionalFeatures: ["local-floor"] });
-    inVR = true;
-
+    vrSession = await navigator.xr.requestSession("immersive-vr", {
+      optionalFeatures: ["local-floor"],
+    });
     vrSession.addEventListener("end", onSessionEnded);
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
 
-    // Initialize rendering context and state
-    const sourceCanvas = document.getElementById("can");
-    const glCanvas = document.createElement("canvas");
-    let gl = glCanvas.getContext("webgl", { xrCompatible: true });
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    await gl.makeXRCompatible();
-    vrSession.updateRenderState({ baseLayer: new XRWebGLLayer(vrSession, gl) });
-
-    let vrReferenceSpace;
-    try {
-        vrReferenceSpace = await vrSession.requestReferenceSpace('local-floor');
-    } catch (e) {
-        console.warn("local-floor not supported, falling back to local");
-        vrReferenceSpace = await vrSession.requestReferenceSpace('local');
-    }
-
-    // Initialize shared state
-    let vrIntersectionPoint = null;
+    let vrSelectIsDown = false;
     let yButtonPressedLastFrame = false;
     let aButtonPressedLastFrame = false;
-    let vrCanvasPosition = [0, 1.6, -2.0];
-    let canvasModelMatrix = glMatrix.mat4.create();
-    let compositeCanvas = document.createElement("canvas");
-    let compositeCtx = compositeCanvas.getContext("2d");
-
-    const spriteCanvas = document.getElementById("spr");
-    const pointerCanvas = document.createElement("canvas");
-    pointerCanvas.width = 64;
-    pointerCanvas.height = 64;
-    const pointerCtx = pointerCanvas.getContext("2d");
-    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.5)";
-    pointerCtx.beginPath();
-    pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
-    pointerCtx.fill();
-    let pointerTexture = initTexture(gl, pointerCanvas);
-
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      attribute vec2 aTextureCoord;
-      uniform mat4 uModelViewMatrix;
-      uniform mat4 uProjectionMatrix;
-      varying highp vec2 vTextureCoord;
-      void main(void) {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        vTextureCoord = aTextureCoord;
-      }`;
-    const fsSource = `
-      precision mediump float;
-      varying highp vec2 vTextureCoord;
-      uniform sampler2D uSampler;
-      uniform bool uUseSolidColor;
-      uniform vec4 uSolidColor;
-      void main(void) {
-        if (uUseSolidColor) {
-          gl_FragColor = uSolidColor;
-        } else {
-          gl_FragColor = texture2D(uSampler, vTextureCoord);
-        }
-      }`;
-    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-    let programInfo = {
-      program: shaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
-      },
-      uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
-        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
-        uUseSolidColor: gl.getUniformLocation(shaderProgram, "uUseSolidColor"),
-        uSolidColor: gl.getUniformLocation(shaderProgram, "uSolidColor"),
-      },
-    };
-    let buffers = initBuffers(gl);
-    let texture = initTexture(gl, sourceCanvas);
 
     vrSession.addEventListener('selectstart', () => {
       if (vrShowAlert) {
@@ -920,33 +841,118 @@ async function activateVR() {
       }
     });
 
+    const sourceCanvas = document.getElementById("can");
+    const spriteCanvas = document.getElementById("spr");
+    const compositeCanvas = document.createElement("canvas");
+    const compositeCtx = compositeCanvas.getContext("2d");
+
+    const glCanvas = document.createElement("canvas");
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const pointerCanvas = document.createElement("canvas");
+    pointerCanvas.width = 64;
+    pointerCanvas.height = 64;
+    const pointerCtx = pointerCanvas.getContext("2d");
+    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.5)";
+    pointerCtx.beginPath();
+    pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
+    pointerCtx.fill();
+    const pointerTexture = initTexture(gl, pointerCanvas);
+
+    // Vertex shader
+    const vsSource = `
+      attribute vec4 aVertexPosition;
+      attribute vec2 aTextureCoord;
+
+      uniform mat4 uModelViewMatrix;
+      uniform mat4 uProjectionMatrix;
+
+      varying highp vec2 vTextureCoord;
+
+      void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        vTextureCoord = aTextureCoord;
+      }
+    `;
+
+    // Fragment shader
+    const fsSource = `
+      precision mediump float;
+      varying highp vec2 vTextureCoord;
+      uniform sampler2D uSampler;
+      uniform bool uUseSolidColor;
+      uniform vec4 uSolidColor;
+
+      void main(void) {
+        if (uUseSolidColor) {
+          gl_FragColor = uSolidColor;
+        } else {
+          gl_FragColor = texture2D(uSampler, vTextureCoord);
+        }
+      }
+    `;
+
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+    const programInfo = {
+      program: shaderProgram,
+      attribLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+        uUseSolidColor: gl.getUniformLocation(shaderProgram, "uUseSolidColor"),
+        uSolidColor: gl.getUniformLocation(shaderProgram, "uSolidColor"),
+      },
+    };
+
+    const buffers = initBuffers(gl);
+    let texture = initTexture(gl, sourceCanvas);
+
+    const vrCanvasPosition = [0, 1.6, -2.0];
+    const canvasModelMatrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+
+    vrSession.updateRenderState({ baseLayer: new XRWebGLLayer(vrSession, gl) });
+
+    let referenceSpace;
+    try {
+        referenceSpace = await vrSession.requestReferenceSpace("local-floor");
+    } catch (e) {
+        console.warn("Could not get 'local-floor' reference space, falling back to 'local'");
+        referenceSpace = await vrSession.requestReferenceSpace("local");
+    }
+
     function onXRFrame(time, frame) {
-        const session = frame.session;
-        session.requestAnimationFrame(onXRFrame);
+      const session = frame.session;
+      vrSession.requestAnimationFrame(onXRFrame);
 
-        draw(1);
+      draw(1);
 
-        compositeCanvas.width = sourceCanvas.width;
-        compositeCanvas.height = sourceCanvas.height;
-        compositeCtx.drawImage(sourceCanvas, 0, 0);
-        compositeCtx.drawImage(spriteCanvas, 0, 0);
+      compositeCanvas.width = sourceCanvas.width;
+      compositeCanvas.height = sourceCanvas.height;
+      compositeCtx.drawImage(sourceCanvas, 0, 0);
+      compositeCtx.drawImage(spriteCanvas, 0, 0);
 
-        if (vrShowAlert) {
+      if (vrShowAlert) {
         compositeCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
         compositeCtx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
         compositeCtx.fillStyle = "white";
         compositeCtx.font = "40px sans-serif";
         compositeCtx.textAlign = "center";
         compositeCtx.fillText("You Won!", compositeCanvas.width / 2, compositeCanvas.height / 2);
-        }
+      }
 
-        updateTexture(gl, texture, compositeCanvas);
+      updateTexture(gl, texture, compositeCanvas);
 
-        const pose = frame.getViewerPose(vrReferenceSpace);
-        if (pose) {
-        const glLayer = session.renderState.baseLayer;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-        gl.clearColor(0, 0, 0, 1);
+      const pose = frame.getViewerPose(referenceSpace);
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         vrIntersectionPoint = null;
@@ -954,90 +960,92 @@ async function activateVR() {
         let rightController = null;
 
         for (const source of frame.session.inputSources) {
-            if (source.handedness === 'left') {
+          if (source.handedness === 'left') {
             leftController = source;
-            } else if (source.handedness === 'right') {
+          } else if (source.handedness === 'right') {
             rightController = source;
-            }
+          }
         }
 
         if (leftController && leftController.gamepad) {
-            const thumbstickX = leftController.gamepad.axes[2];
-            const thumbstickY = leftController.gamepad.axes[3];
-            const moveSpeed = 0.02;
+          const thumbstickX = leftController.gamepad.axes[2];
+          const thumbstickY = leftController.gamepad.axes[3];
+          const moveSpeed = 0.02;
 
-            if (Math.abs(thumbstickX) > 0.1) {
+          if (Math.abs(thumbstickX) > 0.1) {
             vrCanvasPosition[0] += thumbstickX * moveSpeed;
-            }
-            if (Math.abs(thumbstickY) > 0.1) {
+          }
+          if (Math.abs(thumbstickY) > 0.1) {
             vrCanvasPosition[1] -= thumbstickY * moveSpeed;
-            }
+          }
 
-            const aspectRatio = ww / hh;
-            glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
-            glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
+          const aspectRatio = ww / hh;
+          glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+          glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
-            const yButton = leftController.gamepad.buttons[5]; // Y button
-            if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+          const yButton = leftController.gamepad.buttons[5]; // Y button
+          if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+            document.getElementById("btn-vr").disabled = false;
             session.end();
-            }
-            yButtonPressedLastFrame = yButton ? yButton.pressed : false;
+          }
+          yButtonPressedLastFrame = yButton ? yButton.pressed : false;
         }
 
         if (rightController) {
-            if (rightController.gripSpace) {
-            const gripPose = frame.getPose(rightController.gripSpace, vrReferenceSpace);
+          if (rightController.gripSpace) {
+            const gripPose = frame.getPose(rightController.gripSpace, referenceSpace);
             if (gripPose) {
-                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
-                if (intersection) {
+              const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
+              if (intersection) {
                 vrIntersectionPoint = intersection.world;
                 mx = ((intersection.local[0] + 1) / 2) * ww;
                 my = ((1 - intersection.local[1]) / 2) * hh;
-                }
+              }
             }
-            }
-            if (rightController.gamepad) {
+          }
+          if (rightController.gamepad) {
             const thumbstickY = rightController.gamepad.axes[3];
             const zoomSpeed = 0.05;
             if (Math.abs(thumbstickY) > 0.1) {
-                vrCanvasPosition[2] += thumbstickY * zoomSpeed;
+              vrCanvasPosition[2] += thumbstickY * zoomSpeed;
             }
 
             const aButton = rightController.gamepad.buttons[4]; // A button
             if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
-                if (vrIntersectionPoint) {
+              if (vrIntersectionPoint) {
                 let gx_for_rotate = Math.floor((mx/ww)*xx);
                 let gy_for_rotate = Math.floor((my/hh)*yy);
                 if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
                     rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
                     sCook("prog", prog());
                 }
-                }
+              }
             }
             aButtonPressedLastFrame = aButton ? aButton.pressed : false;
-            }
+          }
         }
 
         for (const view of pose.views) {
-            const viewport = glLayer.getViewport(view);
-            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+          const viewport = session.renderState.baseLayer.getViewport(view);
+          gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
 
-            const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
-            drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+          const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
+          drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
 
-            if (vrIntersectionPoint) {
+          if (vrIntersectionPoint) {
             const { mat4 } = glMatrix;
             const pointerMatrix = mat4.create();
             mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
             mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
             mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
             drawScene(gl, programInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
-            }
+          }
         }
-        }
+      }
     }
-    vrSession.requestAnimationFrame(onXRFrame);
 
+    vrSession.requestAnimationFrame(onXRFrame);
+    vrButton.disabled = true;
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -1204,19 +1212,13 @@ document.getElementById("btn-xr").onclick = toggleAR;
 
 (async () => {
     if (navigator.xr) {
-        const xrButton = document.getElementById('btn-xr');
         try {
             const supported = await navigator.xr.isSessionSupported('immersive-ar');
             if (supported) {
-                xrButton.style.display = 'inline';
-            } else {
-                xrButton.style.display = 'none';
+                document.getElementById('btn-xr').style.display = 'inline';
             }
         } catch (e) {
-            xrButton.style.display = 'none';
-            console.error("Error checking AR support:", e);
+            console.error("Error checking for AR support:", e);
         }
-    } else {
-        document.getElementById('btn-xr').style.display = 'none';
     }
 })();
