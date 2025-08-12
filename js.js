@@ -810,7 +810,7 @@ function onSessionEnded(event) {
 async function activateVR() {
   const vrButton = document.getElementById("btn-vr");
   try {
-    vrSession = await navigator.xr.requestSession("immersive-vr", { requiredFeatures: ["local-floor"] });
+    vrSession = await navigator.xr.requestSession("immersive-vr", { optionalFeatures: ["local-floor"] });
     inVR = true;
 
     vrSession.addEventListener("end", onSessionEnded);
@@ -826,7 +826,14 @@ async function activateVR() {
 
     await gl.makeXRCompatible();
     vrSession.updateRenderState({ baseLayer: new XRWebGLLayer(vrSession, gl) });
-    let vrReferenceSpace = await vrSession.requestReferenceSpace('local-floor');
+
+    let vrReferenceSpace;
+    try {
+        vrReferenceSpace = await vrSession.requestReferenceSpace('local-floor');
+    } catch (e) {
+        console.warn("local-floor not supported, falling back to local");
+        vrReferenceSpace = await vrSession.requestReferenceSpace('local');
+    }
 
     // Initialize shared state
     let vrIntersectionPoint = null;
