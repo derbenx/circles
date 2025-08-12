@@ -23,6 +23,8 @@ var vrAlertMessage = "";
 var vrAlertNeedsUpdate = false;
 let ignoreNextSelectEnd = false;
 let vrSession = null;
+let arSession = null;
+var inAR = false;
 
 document.getElementById("wxh").onchange = function(){ ttf(); }
 document.getElementById("rat").onchange = function(){ ttf(); }
@@ -404,8 +406,12 @@ function draw(pri=0){ //priority, drag low, drop high.
  //console.log(drag,gx,gy);
  ctx = can.getContext('2d');
  //ctx.clearRect(0, 0, can.width, can.height);
-   ctx.fillStyle = "black";
-   ctx.fillRect(0, 0, can.width, can.height);
+  if (!inAR) {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, can.width, can.height);
+  } else {
+    ctx.clearRect(0, 0, can.width, can.height);
+  }
  if (px){
   gx=px;gy=py;
  }
@@ -1141,4 +1147,143 @@ function toggleVR() {
 }
 
 document.getElementById("btn-vr").onclick = toggleVR;
-document.getElementById("btn-xr").onclick = toggleVR;
+
+function toggleAR() {
+    if (arSession) {
+        arSession.end();
+    } else {
+        activateAR();
+    }
+}
+
+async function activateAR() {
+    inAR = true;
+    const arButton = document.getElementById("btn-xr");
+    try {
+        arSession = await navigator.xr.requestSession("immersive-ar", {
+            requiredFeatures: ['local', 'hit-test'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        });
+
+        const onAREnd = () => {
+            inAR = false;
+            arSession.removeEventListener('end', onAREnd);
+            arSession = null;
+            arButton.textContent = "Start XR";
+        };
+        arSession.addEventListener('end', onAREnd);
+        arButton.textContent = "Stop XR";
+
+        const gl = document.createElement("canvas").getContext("webgl", { xrCompatible: true });
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        const sourceCanvas = document.getElementById("can");
+        const spriteCanvas = document.getElementById("spr");
+        const compositeCanvas = document.createElement("canvas");
+        const compositeCtx = compositeCanvas.getContext("2d");
+
+        const vsSource = `
+            attribute vec4 aVertexPosition;
+            attribute vec2 aTextureCoord;
+            uniform mat4 uModelViewMatrix;
+            uniform mat4 uProjectionMatrix;
+            varying highp vec2 vTextureCoord;
+            void main(void) {
+                gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+                vTextureCoord = aTextureCoord;
+            }
+        `;
+        const fsSource = `
+            precision mediump float;
+            varying highp vec2 vTextureCoord;
+            uniform sampler2D uSampler;
+            void main(void) {
+                gl_FragColor = texture2D(uSampler, vTextureCoord);
+            }
+        `;
+        const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+        const programInfo = {
+            program: shaderProgram,
+            attribLocations: {
+                vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+                textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+            },
+            uniformLocations: {
+                projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+                modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+                uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+            },
+        };
+        const buffers = initBuffers(gl);
+        let texture = initTexture(gl, sourceCanvas);
+
+        await gl.makeXRCompatible();
+        arSession.updateRenderState({ baseLayer: new XRWebGLLayer(arSession, gl) });
+        const referenceSpace = await arSession.requestReferenceSpace('local');
+
+        const onARFrame = (time, frame) => {
+            const session = frame.session;
+            session.requestAnimationFrame(onARFrame);
+
+            let pose = frame.getViewerPose(referenceSpace);
+            if (!pose) return;
+
+            draw(1);
+            compositeCanvas.width = sourceCanvas.width;
+            compositeCanvas.height = sourceCanvas.height;
+            compositeCtx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+            compositeCtx.drawImage(sourceCanvas, 0, 0);
+            compositeCtx.drawImage(spriteCanvas, 0, 0);
+            updateTexture(gl, texture, compositeCanvas);
+
+            const glLayer = session.renderState.baseLayer;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            for (let view of pose.views) {
+                const viewport = glLayer.getViewport(view);
+                gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+
+                const modelViewMatrix = glMatrix.mat4.create();
+                // Simple positioning in front of the user. Hit-testing would be needed for real AR placement.
+                glMatrix.mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -1.5]);
+                const aspectRatio = ww / hh;
+                glMatrix.mat4.scale(modelViewMatrix, modelViewMatrix, [aspectRatio, 1, 1]);
+                glMatrix.mat4.multiply(modelViewMatrix, view.transform.inverse.matrix, modelViewMatrix);
+
+                drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+            }
+        };
+        arSession.requestAnimationFrame(onARFrame);
+
+    } catch (e) {
+        console.error("Failed to start AR session:", e);
+        arSession = null;
+        inAR = false;
+        arButton.textContent = "Start XR";
+    }
+}
+
+document.getElementById("btn-xr").onclick = toggleAR;
+
+(async () => {
+    if (navigator.xr) {
+        const xrButton = document.getElementById('btn-xr');
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-ar');
+            if (supported) {
+                xrButton.style.display = 'inline';
+            } else {
+                xrButton.style.display = 'none';
+            }
+        } catch (e) {
+            xrButton.style.display = 'none';
+            console.error("Error checking AR support:", e);
+        }
+    } else {
+        document.getElementById('btn-xr').style.display = 'none';
+    }
+})();
