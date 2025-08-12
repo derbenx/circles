@@ -726,11 +726,23 @@ function onSessionEnded(session) {
 }
 
 async function activateVR() {
+  let vrIntersectionPoint = null;
   try {
     const session = await navigator.xr.requestSession("immersive-vr", {
       requiredFeatures: ["local-floor"],
     });
     session.addEventListener("end", onSessionEnded);
+
+    let vrSelectIsDown = false;
+    session.addEventListener('selectstart', () => {
+      vrSelectIsDown = true;
+      clkd({ preventDefault: () => {} });
+    });
+
+    session.addEventListener('selectend', () => {
+      vrSelectIsDown = false;
+      clku({ preventDefault: () => {} });
+    });
 
     const sourceCanvas = document.getElementById("can");
     const glCanvas = document.createElement("canvas");
@@ -756,9 +768,15 @@ async function activateVR() {
     const fsSource = `
       varying highp vec2 vTextureCoord;
       uniform sampler2D uSampler;
+      uniform bool uUseSolidColor;
+      uniform vec4 uSolidColor;
 
       void main(void) {
-        gl_FragColor = texture2D(uSampler, vTextureCoord);
+        if (uUseSolidColor) {
+          gl_FragColor = uSolidColor;
+        } else {
+          gl_FragColor = texture2D(uSampler, vTextureCoord);
+        }
       }
     `;
 
@@ -774,6 +792,8 @@ async function activateVR() {
         projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
         uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+        uUseSolidColor: gl.getUniformLocation(shaderProgram, "uUseSolidColor"),
+        uSolidColor: gl.getUniformLocation(shaderProgram, "uSolidColor"),
       },
     };
 
@@ -796,10 +816,39 @@ async function activateVR() {
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+        vrIntersectionPoint = null;
+        for (const source of frame.session.inputSources) {
+          if (source.gripSpace) {
+            const gripPose = frame.getPose(source.gripSpace, referenceSpace);
+            if (gripPose) {
+              const intersection = intersectPlane(gripPose.transform);
+              if (intersection) {
+                vrIntersectionPoint = intersection;
+                // Convert intersection point to canvas coordinates
+                mx = ((intersection[0] + 1) / 2) * ww;
+                my = ((1 - intersection[1]) / 2) * hh;
+
+                if (vrSelectIsDown) {
+                  movr({ preventDefault: () => {} });
+                }
+              }
+            }
+          }
+        }
+
         for (const view of pose.views) {
           const viewport = session.renderState.baseLayer.getViewport(view);
           gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
           drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, view.transform.inverse.matrix);
+
+          if (vrIntersectionPoint) {
+            const { mat4 } = glMatrix;
+            const pointerMatrix = mat4.create();
+            mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
+            mat4.scale(pointerMatrix, pointerMatrix, [0.05, 0.05, 0.05]);
+            mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
+            drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, pointerMatrix, true, [1, 0, 0, 1]);
+          }
         }
       }
     }
@@ -875,8 +924,13 @@ function updateTexture(gl, texture, source) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
 }
 
-function drawScene(gl, programInfo, buffers, texture, projectionMatrix, modelViewMatrix) {
+function drawScene(gl, programInfo, buffers, texture, projectionMatrix, modelViewMatrix, useSolidColor = false, solidColor = [1, 0, 0, 1]) {
   gl.useProgram(programInfo.program);
+
+  gl.uniform1i(programInfo.uniformLocations.uUseSolidColor, useSolidColor);
+  if (useSolidColor) {
+    gl.uniform4fv(programInfo.uniformLocations.uSolidColor, solidColor);
+  }
 
   {
     const numComponents = 2;
@@ -908,6 +962,29 @@ function drawScene(gl, programInfo, buffers, texture, projectionMatrix, modelVie
   gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function intersectPlane(transform) {
+  const { vec3 } = glMatrix;
+  const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
+  const rayDirection = vec3.fromValues(0, 0, -1);
+  vec3.transformQuat(rayDirection, rayDirection, [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
+
+  const planeNormal = vec3.fromValues(0, 0, 1);
+  const planePoint = vec3.fromValues(0, 0, -1); // Plane is at z = -1
+
+  const denom = vec3.dot(planeNormal, rayDirection);
+  if (Math.abs(denom) > 0.0001) {
+    const t = vec3.dot(vec3.subtract(vec3.create(), planePoint, rayOrigin), planeNormal) / denom;
+    if (t >= 0) {
+      const intersectionPoint = vec3.add(vec3.create(), rayOrigin, vec3.scale(vec3.create(), rayDirection, t));
+      // Check if intersection is within the quad [-1, 1]
+      if (intersectionPoint[0] >= -1 && intersectionPoint[0] <= 1 && intersectionPoint[1] >= -1 && intersectionPoint[1] <= 1) {
+        return intersectionPoint;
+      }
+    }
+  }
+  return null;
 }
 
 document.getElementById("btn-vr").onclick = activateVR;
