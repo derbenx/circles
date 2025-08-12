@@ -21,6 +21,8 @@ var inVR = false;
 var vrShowAlert = false;
 var vrAlertMessage = "";
 var vrAlertNeedsUpdate = false;
+let ignoreNextSelectEnd = false;
+let vrSession = null;
 
 document.getElementById("wxh").onchange = function(){ ttf(); }
 document.getElementById("rat").onchange = function(){ ttf(); }
@@ -730,28 +732,35 @@ function openFileDialog(accept, callback) {
 }
 
 // VR
-function onSessionEnded(session) {
+function onSessionEnded() {
   inVR = false;
-  session.removeEventListener("end", onSessionEnded);
-  document.getElementById("btn-vr").disabled = false;
+  vrSession.removeEventListener("end", onSessionEnded);
+  vrSession = null;
+  const vrButton = document.getElementById("btn-vr");
+  vrButton.textContent = "Start VR";
+  vrButton.disabled = false;
 }
 
 async function activateVR() {
   inVR = true;
   let vrIntersectionPoint = null;
+  const vrButton = document.getElementById("btn-vr");
   try {
-    const session = await navigator.xr.requestSession("immersive-vr", {
+    vrSession = await navigator.xr.requestSession("immersive-vr", {
       requiredFeatures: ["local-floor"],
     });
-    session.addEventListener("end", onSessionEnded);
+    vrSession.addEventListener("end", onSessionEnded);
+    vrButton.textContent = "Stop VR";
+    vrButton.disabled = false;
 
     let vrSelectIsDown = false;
     let yButtonPressedLastFrame = false;
     let aButtonPressedLastFrame = false;
 
-    session.addEventListener('selectstart', () => {
+    vrSession.addEventListener('selectstart', () => {
       if (vrShowAlert) {
         vrShowAlert = false;
+        ignoreNextSelectEnd = true;
         wipe();
         return;
       }
@@ -761,7 +770,11 @@ async function activateVR() {
       }
     });
 
-    session.addEventListener('selectend', () => {
+    vrSession.addEventListener('selectend', () => {
+      if (ignoreNextSelectEnd) {
+        ignoreNextSelectEnd = false;
+        return;
+      }
       if (vrIntersectionPoint) {
         vrSelectIsDown = false;
         clku({ preventDefault: () => {} });
@@ -966,11 +979,13 @@ async function activateVR() {
     }
 
     session.requestAnimationFrame(onXRFrame);
-    document.getElementById("btn-vr").disabled = true;
+    vrButton.disabled = true;
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
-    document.getElementById("btn-vr").disabled = false;
+    vrSession = null;
     inVR = false;
+    vrButton.textContent = "Start VR";
+    vrButton.disabled = false;
   }
 }
 
@@ -1118,4 +1133,12 @@ function intersectPlane(transform, quadModelMatrix) {
   return null;
 }
 
-document.getElementById("btn-vr").onclick = activateVR;
+function toggleVR() {
+  if (vrSession) {
+    vrSession.end();
+  } else {
+    activateVR();
+  }
+}
+
+document.getElementById("btn-vr").onclick = toggleVR;
