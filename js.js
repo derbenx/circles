@@ -771,12 +771,11 @@ async function activateVR() {
     const spriteCanvas = document.getElementById("spr");
     const compositeCanvas = document.createElement("canvas");
     const compositeCtx = compositeCanvas.getContext("2d");
+    const alertCanvas = document.createElement("canvas");
+    const alertCtx = alertCanvas.getContext("2d");
 
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
-
-    const alertCanvas = document.createElement("canvas");
-    const alertCtx = alertCanvas.getContext("2d");
     let alertTexture = initTexture(gl, alertCanvas);
 
     // Vertex shader
