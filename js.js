@@ -931,7 +931,7 @@ async function activateVR() {
               vrCanvasPosition[2] += thumbstickY * zoomSpeed;
             }
 
-            const aButton = rightController.gamepad.buttons[3]; // A button
+            const aButton = rightController.gamepad.buttons[4]; // A button
             if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
               if (vrIntersectionPoint) {
                 let gx_for_rotate = Math.floor((mx/ww)*xx);
@@ -968,8 +968,9 @@ async function activateVR() {
     session.requestAnimationFrame(onXRFrame);
     document.getElementById("btn-vr").disabled = true;
   } catch (error) {
-    console.error(error);
-    alert("Failed to enter VR mode.");
+    console.error("Failed to enter VR mode:", error);
+    document.getElementById("btn-vr").disabled = false;
+    inVR = false;
   }
 }
 
