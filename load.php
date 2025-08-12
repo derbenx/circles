@@ -2,6 +2,7 @@
 <button id='circstart'>-New Game-</button>
 <button id='circtogsetup'>-Settings Toggle-</button>
 <button id='circtoghelp'>-Help Toggle-</button>
+<button id='btn-vr'>-VR-</button>
 </center></div>
 <div id="circhelp" style="display:none">
 <center>
