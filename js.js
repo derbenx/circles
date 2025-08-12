@@ -771,12 +771,21 @@ async function activateVR() {
     const spriteCanvas = document.getElementById("spr");
     const compositeCanvas = document.createElement("canvas");
     const compositeCtx = compositeCanvas.getContext("2d");
-    const alertCanvas = document.createElement("canvas");
-    const alertCtx = alertCanvas.getContext("2d");
 
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
-    let alertTexture = initTexture(gl, alertCanvas);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const pointerCanvas = document.createElement("canvas");
+    pointerCanvas.width = 64;
+    pointerCanvas.height = 64;
+    const pointerCtx = pointerCanvas.getContext("2d");
+    pointerCtx.fillStyle = "rgba(255, 0, 0, 0.25)";
+    pointerCtx.beginPath();
+    pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
+    pointerCtx.fill();
+    const pointerTexture = initTexture(gl, pointerCanvas);
 
     // Vertex shader
     const vsSource = `
@@ -850,6 +859,15 @@ async function activateVR() {
       compositeCtx.drawImage(sourceCanvas, 0, 0);
       compositeCtx.drawImage(spriteCanvas, 0, 0);
 
+      if (vrShowAlert) {
+        compositeCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        compositeCtx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+        compositeCtx.fillStyle = "white";
+        compositeCtx.font = "40px sans-serif";
+        compositeCtx.textAlign = "center";
+        compositeCtx.fillText("You Won!", compositeCanvas.width / 2, compositeCanvas.height / 2);
+      }
+
       updateTexture(gl, texture, compositeCanvas);
 
       const pose = frame.getViewerPose(referenceSpace);
@@ -880,7 +898,10 @@ async function activateVR() {
           if (Math.abs(thumbstickY) > 0.1) {
             vrCanvasPosition[1] -= thumbstickY * moveSpeed;
           }
+
+          const aspectRatio = ww / hh;
           glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+          glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
           const yButton = leftController.gamepad.buttons[4]; // Y button
           if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
@@ -903,6 +924,12 @@ async function activateVR() {
             }
           }
           if (rightController.gamepad) {
+            const thumbstickY = rightController.gamepad.axes[3];
+            const zoomSpeed = 0.05;
+            if (Math.abs(thumbstickY) > 0.1) {
+              vrCanvasPosition[2] += thumbstickY * zoomSpeed;
+            }
+
             const aButton = rightController.gamepad.buttons[3]; // A button
             if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
               if (vrIntersectionPoint) {
@@ -929,22 +956,9 @@ async function activateVR() {
             const { mat4 } = glMatrix;
             const pointerMatrix = mat4.create();
             mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
-            mat4.scale(pointerMatrix, pointerMatrix, [0.05, 0.05, 0.05]);
+            mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
             mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
-            drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, pointerMatrix, true, [1, 0, 0, 1]);
-          }
-
-          if (vrShowAlert) {
-            if (vrAlertNeedsUpdate) {
-                updateAlertTexture(vrAlertMessage);
-                vrAlertNeedsUpdate = false;
-            }
-            const { mat4 } = glMatrix;
-            const alertMatrix = mat4.create();
-            mat4.translate(alertMatrix, alertMatrix, [0, 1.6, -1.0]);
-            mat4.scale(alertMatrix, alertMatrix, [0.5, 0.25, 0.5]);
-            mat4.multiply(alertMatrix, view.transform.inverse.matrix, alertMatrix);
-            drawScene(gl, programInfo, buffers, alertTexture, view.projectionMatrix, alertMatrix);
+            drawScene(gl, programInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
           }
         }
       }
@@ -1059,37 +1073,6 @@ function drawScene(gl, programInfo, buffers, texture, projectionMatrix, modelVie
   gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-function updateAlertTexture(message) {
-    const maxWidth = 512;
-    const lineHeight = 40;
-    alertCanvas.width = maxWidth;
-    alertCanvas.height = 256;
-    alertCtx.fillStyle = "white";
-    alertCtx.fillRect(0, 0, alertCanvas.width, alertCanvas.height);
-    alertCtx.fillStyle = "black";
-    alertCtx.font = "32px sans-serif";
-
-    const words = message.split(' ');
-    let line = '';
-    let y = lineHeight;
-
-    for(let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + ' ';
-      const metrics = alertCtx.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        alertCtx.fillText(line, 10, y);
-        line = words[n] + ' ';
-        y += lineHeight;
-      }
-      else {
-        line = testLine;
-      }
-    }
-    alertCtx.fillText(line, 10, y);
-    updateTexture(gl, alertTexture, alertCanvas);
 }
 
 function intersectPlane(transform, quadModelMatrix) {
