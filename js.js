@@ -132,8 +132,9 @@ async function activateVR() {
             }
             glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
-            const yButton = source.gamepad.buttons[4]; // Assuming Y is at index 4
+            const yButton = source.gamepad.buttons[3]; // Y button
             if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+              document.getElementById("btn-vr").disabled = false;
               session.end();
             }
             yButtonPressedLastFrame = yButton ? yButton.pressed : false;
@@ -148,10 +149,6 @@ async function activateVR() {
                 // Convert intersection point to canvas coordinates
                 mx = ((intersection.local[0] + 1) / 2) * ww;
                 my = ((1 - intersection.local[1]) / 2) * hh;
-
-                if (vrSelectIsDown) {
-                  movr({ preventDefault: () => {} });
-                }
               }
             }
           }
