@@ -1082,9 +1082,11 @@ async function runXRRendering(session, mode) {
                             // 2. Rotate to lie flat
                             glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
-                            // 3. Scale to 90% of the tile width
+                            // 3. Scale to 90% of the tile's smaller dimension
                             const tileWidth = 2.0 / xx;
-                            const diameter = tileWidth * 0.90;
+                            const tileHeight = 2.0 / yy;
+                            const minTileDim = Math.min(tileWidth, tileHeight);
+                            const diameter = minTileDim * 0.90;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, diameter]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
