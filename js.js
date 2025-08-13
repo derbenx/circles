@@ -911,7 +911,7 @@ async function runXRRendering(session, mode) {
         },
     };
 
-    const cylinder = createCylinder(1, .2, 16);
+    const cylinder = createCylinder(0.5, .2, 16);
     const cylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATIC_DRAW);
