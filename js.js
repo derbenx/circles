@@ -1046,8 +1046,9 @@ async function runXRRendering(session, mode) {
                             const y_pos = (y / yy - 0.5 + (0.5 / yy)) * -2.0;
 
                             glMatrix.mat4.translate(pieceModelMatrix, canvasModelMatrix, [x_pos, y_pos, 0.02]);
+                            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
-                            const scaleFactor = (sz/Math.min(ww,hh));
+                            const scaleFactor = (sz/Math.min(ww,hh)) * 2.0;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [scaleFactor, scaleFactor, scaleFactor]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
