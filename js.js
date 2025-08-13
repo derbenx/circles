@@ -1101,41 +1101,39 @@ async function runXRRendering(session, mode) {
                             const nubRotations = [0,-Math.PI / 2,Math.PI,Math.PI / 2]; //l,u,r,d
 
                             for (let i = 0; i < 4; i++) {
-                                const colorChar = nubColors.charAt(i);
-                                if (colorChar !== '0') {
+                                const physicalColorChar = nubColors.charAt(i);
+                                if (physicalColorChar !== '0') {
+                                    let logicalColorChar = physicalColorChar;
+                                    if (i === 1) logicalColorChar = nubColors.charAt(3); // up gets down color
+                                    if (i === 3) logicalColorChar = nubColors.charAt(1); // down gets up color
+
                                     // 1. Create a local transform for the nub
                                     const nubLocalMatrix = glMatrix.mat4.create();
 
-                                    // 2. Position and orient the nub in the piece's local space (before it's rotated flat)
-                                    // The piece's circle is on its XZ plane. Radius is 0.5.
-                                    // The half-cylinder model has its curved face towards +X.
-                                    const translations = [
-                                        [-0.5, 0, 0], // left
-                                        [0, 0, 0.5],  // up (+Z)
-                                        [0.5, 0, 0],  // right
-                                        [0, 0, -0.5]  // down (-Z)
-                                    ];
-                                    // Rotations around Y to point the nub outwards
-                                    const orientations = [
-                                        Math.PI,      // left
-                                        Math.PI / 2,  // up
-                                        0,            // right
-                                        -Math.PI / 2  // down
-                                    ];
+                                    // 2. Position and orient the nub in the piece's local space
+                                    const translations = [ [-0.5, 0, 0], [0, 0, 0.5], [0.5, 0, 0], [0, 0, -0.5] ];
+                                    const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
                                     glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
-                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i], [0, 1, 0]);
+                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]); // Add PI for 180 deg turn
 
                                     // 3. Combine with the main piece's transform
                                     const finalNubMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
 
                                     // 4. Scale the nub
-                                    const nubScale = diameter / 1.2;
+                                    // The nub base model has a diameter of 0.4. The main piece has a base diameter of 1.0.
+                                    // We want the final nub diameter to be 1/3 of the main piece's diameter.
+                                    // So, D_nub = D_main / 3
+                                    // D_nub_base * S_nub = (D_main_base * S_main) / 3
+                                    // 0.4 * S_nub = (1.0 * S_main) / 3
+                                    // S_nub = S_main / 1.2
+                                    // Since the pieceModelMatrix (S_main) is already applied, we just need to scale by a constant factor.
+                                    const nubScale = 1 / 1.2;
                                     glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
 
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
 
-                                    const color = colorMap[colorChar] || [1,1,1,1];
+                                    const color = colorMap[logicalColorChar] || [1,1,1,1];
                                     gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
                                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
                                     gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
