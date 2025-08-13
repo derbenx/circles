@@ -1059,14 +1059,15 @@ async function runXRRendering(session, mode) {
 
                 // Draw 3D cylinders for the green pieces
                 gl.useProgram(solidColorProgramInfo.program);
-                gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
-                gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
+                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+
                             const pieceModelMatrix = glMatrix.mat4.create();
                             glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
 
@@ -1120,9 +1121,6 @@ async function runXRRendering(session, mode) {
                                     gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
                                 }
                             }
-                             // Rebind main cylinder buffers for next iteration
-                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
-                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
                         }
                     }
                 }
