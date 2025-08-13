@@ -789,6 +789,7 @@ async function runXRRendering(session, mode) {
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
