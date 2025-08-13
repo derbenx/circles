@@ -930,13 +930,13 @@ async function runXRRendering(session, mode) {
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
-    const halfCylinderIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, halfCylinderIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(halfCylinder.indices), gl.STATIC_DRAW);
+    const halfCylinderNormalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderNormalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.normals), gl.STATIC_DRAW);
     const halfCylinderBuffers = {
         position: halfCylinderPositionBuffer,
-        indices: halfCylinderIndexBuffer,
-        vertexCount: halfCylinder.indices.length,
+        normal: halfCylinderNormalBuffer,
+        vertexCount: halfCylinder.vertices.length / 3,
     };
 
     const colorMap = {
@@ -1097,7 +1097,6 @@ async function runXRRendering(session, mode) {
                             // Draw nubs
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, halfCylinderBuffers.indices);
 
                             const pieceData = grid[x][y];
                             const nubColors = pieceData.substr(2, 4);
@@ -1121,7 +1120,7 @@ async function runXRRendering(session, mode) {
                                     const color = colorMap[colorChar] || [1,1,1,1];
                                     gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
                                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
-                                    gl.drawElements(gl.TRIANGLES, halfCylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+                                    gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
                                 }
                             }
                              // Rebind main cylinder buffers for next iteration
