@@ -909,7 +909,7 @@ async function runXRRendering(session, mode) {
         },
     };
 
-    const cylinder = createCylinder(0.05, 0.01, 32);
+    const cylinder = createCylinder(0.5, 0.02, 32); // Radius 0.5 = diameter 1.0
     const cylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATIC_DRAW);
@@ -1041,15 +1041,20 @@ async function runXRRendering(session, mode) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
                             const pieceModelMatrix = glMatrix.mat4.create();
-                            // Calculate position based on grid, scaling to the size of the 2D board quad
-                            const x_pos = (x / xx - 0.5 + (0.5 / xx)) * (ww/hh) * 2.0;
-                            const y_pos = (y / yy - 0.5 + (0.5 / yy)) * -2.0;
+                            glMatrix.mat4.copy(pieceModelMatrix, canvasModelMatrix);
 
-                            glMatrix.mat4.translate(pieceModelMatrix, canvasModelMatrix, [x_pos, y_pos, 0.02]);
+                            // 1. Translate to the center of the tile in the board's local space
+                            const x_local = (x + 0.5) / xx * 2.0 - 1.0;
+                            const y_local = (y + 0.5) / yy * 2.0 - 1.0;
+                            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
+
+                            // 2. Rotate to lie flat
                             glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
-                            const scaleFactor = (sz/Math.min(ww,hh)) * 2.0;
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [scaleFactor, scaleFactor, scaleFactor]);
+                            // 3. Scale to 98% of the tile width
+                            const tileWidth = 2.0 / xx;
+                            const diameter = tileWidth * 0.98;
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, 1]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
