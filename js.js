@@ -926,7 +926,7 @@ async function runXRRendering(session, mode) {
         vertexCount: cylinder.indices.length,
     };
 
-    const halfCylinder = createHalfCylinder(0.5, 0.022, 16); // Base radius 0.5
+    const halfCylinder = createHalfCylinder(0.5, 0.066, 16); // Base radius 0.5, 3x thicker
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
