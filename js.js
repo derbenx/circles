@@ -1107,8 +1107,8 @@ async function runXRRendering(session, mode) {
                                     const nubLocalMatrix = glMatrix.mat4.create();
 
                                     // 2. Position and orient the nub in the piece's local space
-                                    const translations = [ [-0.5, 0, 0], [0, 0, 0.5], [0.5, 0, 0], [0, 0, -0.5] ];
-                                    const orientations = [ Math.PI, -Math.PI / 2, 0, Math.PI / 2 ]; // Swapped up and down
+                                    const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ]; // Swapped up and down
+                                    const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
                                     glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
                                     glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]); // Add PI for 180 deg turn
 
