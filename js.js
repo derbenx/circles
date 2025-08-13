@@ -1069,12 +1069,12 @@ async function runXRRendering(session, mode) {
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
 
                             const pieceModelMatrix = glMatrix.mat4.create();
-                            glMatrix.mat4.copy(pieceModelMatrix, canvasModelMatrix);
+                            glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
 
-                            // Undo the aspect ratio scaling from the main canvas matrix to create a uniform space
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [1/aspectRatio, 1, 1]);
+                            // Scale the space to match the grid's aspect ratio
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
 
-                            // 1. Translate to the center of the tile (in uniform space)
+                            // 1. Translate to the center of the tile
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
                             const y_local = (y + 0.5) / yy * 2.0 - 1.0;
                             glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
@@ -1082,11 +1082,10 @@ async function runXRRendering(session, mode) {
                             // 2. Rotate to lie flat
                             glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
-                            // 3. Scale to 90% of the tile's smaller dimension
-                            const tileWidth = 2.0 / xx;
-                            const tileHeight = 2.0 / yy;
-                            const minTileDim = Math.min(tileWidth, tileHeight);
-                            const diameter = minTileDim * 0.90;
+                            // 3. Scale the piece to 90% of the tile size
+                            // In our new space, tile width and height are both 2.0 / yy
+                            const tileDim = 2.0 / yy;
+                            const diameter = tileDim * 0.90;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, diameter]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
