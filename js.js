@@ -1086,7 +1086,7 @@ async function runXRRendering(session, mode) {
                             // In our new space, tile width and height are both 2.0 / yy
                             const tileDim = 2.0 / yy;
                             const diameter = tileDim * 0.90;
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, diameter]);
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
