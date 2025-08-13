@@ -926,7 +926,7 @@ async function runXRRendering(session, mode) {
         vertexCount: cylinder.indices.length,
     };
 
-    const halfCylinder = createHalfCylinder(0.2, 0.022, 16);
+    const halfCylinder = createHalfCylinder(0.5, 0.022, 16); // Base radius 0.5
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
@@ -1101,7 +1101,7 @@ async function runXRRendering(session, mode) {
 
                             const pieceData = grid[x][y];
                             const nubColors = pieceData.substr(2, 4);
-                            const nubRotations = [Math.PI, Math.PI / 2, 0, -Math.PI / 2]; // Left, Up, Right, Down
+                            const nubRotations = [Math.PI / 2, 0, -Math.PI / 2, -Math.PI]; // Rotated 90 deg clockwise
 
                             for (let i = 0; i < 4; i++) {
                                 const colorChar = nubColors.charAt(i);
@@ -1109,8 +1109,12 @@ async function runXRRendering(session, mode) {
                                     const nubModelMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
 
-                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 1, 0]);
-                                    glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0.4, 0, 0]); // Move to edge
+                                    const nubRadius = (2.0 / xx) / 3;
+                                    const nubDiameter = nubRadius * 2;
+
+                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 0, 1]);
+                                    glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0, 0.5, 0]); // Move to edge
+                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, 1]);
 
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, nubModelMatrix);
 
@@ -1242,43 +1246,46 @@ function createCylinder(radius, height, segments) {
 
 function createHalfCylinder(radius, height, segments) {
     const vertices = [];
-    const indices = [];
     const normals = [];
     const halfHeight = height / 2;
 
-    // Generate vertices for top and bottom arcs
-    for (let i = 0; i <= segments; i++) {
-        const angle = (i / segments) * Math.PI; // 180 degrees
-        const x = radius * Math.cos(angle);
-        const z = radius * Math.sin(angle);
-        vertices.push(x, halfHeight, z);
-        normals.push(0, 1, 0);
-        vertices.push(x, -halfHeight, z);
-        normals.push(0, -1, 0);
-    }
-
-    // Generate indices for the curved side
+    // Curved face
     for (let i = 0; i < segments; i++) {
-        const currentTop = i * 2;
-        const nextTop = (i + 1) * 2;
-        const currentBottom = currentTop + 1;
-        const nextBottom = nextTop + 1;
-        indices.push(currentTop, nextTop, currentBottom);
-        indices.push(nextTop, nextBottom, currentBottom);
+        const ang1 = (i / segments) * Math.PI - Math.PI/2;
+        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+
+        vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(x1,0,z1, x2,0,z2, x1,0,z1);
+
+        vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(x2,0,z2, x2,0,z2, x1,0,z1);
     }
 
-    // Generate vertices and indices for the flat back face
-    const backFaceStartIndex = vertices.length / 3;
-    vertices.push(radius, halfHeight, 0);
-    vertices.push(-radius, halfHeight, 0);
-    vertices.push(radius, -halfHeight, 0);
-    vertices.push(-radius, -halfHeight, 0);
-    for(let i=0; i<4; i++) normals.push(0, 0, -1);
+    // Back face
+    vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeight, radius);
+    normals.push(0,0,-1, 0,0,-1, 0,0,-1);
+    vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeight, radius);
+    normals.push(0,0,-1, 0,0,-1, 0,0,-1);
 
-    indices.push(backFaceStartIndex, backFaceStartIndex+1, backFaceStartIndex+2);
-    indices.push(backFaceStartIndex+1, backFaceStartIndex+3, backFaceStartIndex+2);
+    // Caps
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * Math.PI - Math.PI/2;
+        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
 
-    return { vertices, indices, normals };
+        // Top cap
+        vertices.push(0, halfHeight, 0,  x1, halfHeight, z1,  x2, halfHeight, z2);
+        normals.push(0,1,0, 0,1,0, 0,1,0);
+
+        // Bottom cap
+        vertices.push(0, -halfHeight, 0,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
+    }
+
+    return { vertices, normals };
 }
 
 function loadShader(gl, type, source) {
