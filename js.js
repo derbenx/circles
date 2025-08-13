@@ -1101,18 +1101,14 @@ async function runXRRendering(session, mode) {
                             const nubRotations = [0,-Math.PI / 2,Math.PI,Math.PI / 2]; //l,u,r,d
 
                             for (let i = 0; i < 4; i++) {
-                                const physicalColorChar = nubColors.charAt(i);
-                                if (physicalColorChar !== '0') {
-                                    let logicalColorChar = physicalColorChar;
-                                    if (i === 1) logicalColorChar = nubColors.charAt(3); // up gets down color
-                                    if (i === 3) logicalColorChar = nubColors.charAt(1); // down gets up color
-
+                                const colorChar = nubColors.charAt(i);
+                                if (colorChar !== '0') {
                                     // 1. Create a local transform for the nub
                                     const nubLocalMatrix = glMatrix.mat4.create();
 
                                     // 2. Position and orient the nub in the piece's local space
                                     const translations = [ [-0.5, 0, 0], [0, 0, 0.5], [0.5, 0, 0], [0, 0, -0.5] ];
-                                    const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
+                                    const orientations = [ Math.PI, -Math.PI / 2, 0, Math.PI / 2 ]; // Swapped up and down
                                     glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
                                     glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]); // Add PI for 180 deg turn
 
@@ -1126,7 +1122,7 @@ async function runXRRendering(session, mode) {
 
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
 
-                                    const color = colorMap[logicalColorChar] || [1,1,1,1];
+                                    const color = colorMap[colorChar] || [1,1,1,1];
                                     gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
                                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
                                     gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
