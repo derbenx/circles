@@ -1121,13 +1121,6 @@ async function runXRRendering(session, mode) {
                                     glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
 
                                     // 4. Scale the nub
-                                    // The nub base model has a diameter of 0.4. The main piece has a base diameter of 1.0.
-                                    // We want the final nub diameter to be 1/3 of the main piece's diameter.
-                                    // So, D_nub = D_main / 3
-                                    // D_nub_base * S_nub = (D_main_base * S_main) / 3
-                                    // 0.4 * S_nub = (1.0 * S_main) / 3
-                                    // S_nub = S_main / 1.2
-                                    // Since the pieceModelMatrix (S_main) is already applied, we just need to scale by a constant factor.
                                     const nubScale = 1 / 1.2;
                                     glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
 
