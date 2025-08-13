@@ -1103,17 +1103,37 @@ async function runXRRendering(session, mode) {
                             for (let i = 0; i < 4; i++) {
                                 const colorChar = nubColors.charAt(i);
                                 if (colorChar !== '0') {
-                                    const nubModelMatrix = glMatrix.mat4.create();
-                                    glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
+                                    // 1. Create a local transform for the nub
+                                    const nubLocalMatrix = glMatrix.mat4.create();
 
-                                    const nubRadius = (2.0 / xx) / 3;
-                                    const nubDiameter = nubRadius * 2;
+                                    // 2. Position and orient the nub in the piece's local space (before it's rotated flat)
+                                    // The piece's circle is on its XZ plane. Radius is 0.5.
+                                    // The half-cylinder model has its curved face towards +X.
+                                    const translations = [
+                                        [-0.5, 0, 0], // left
+                                        [0, 0, 0.5],  // up (+Z)
+                                        [0.5, 0, 0],  // right
+                                        [0, 0, -0.5]  // down (-Z)
+                                    ];
+                                    // Rotations around Y to point the nub outwards
+                                    const orientations = [
+                                        Math.PI,      // left
+                                        Math.PI / 2,  // up
+                                        0,            // right
+                                        -Math.PI / 2  // down
+                                    ];
+                                    glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
+                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i], [0, 1, 0]);
 
-                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 1, 0]);
-                                    glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0, 0.5, 0]); // Move to edge
-                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, nubDiameter]);
+                                    // 3. Combine with the main piece's transform
+                                    const finalNubMatrix = glMatrix.mat4.create();
+                                    glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
 
-                                    const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, nubModelMatrix);
+                                    // 4. Scale the nub
+                                    const nubScale = diameter / 1.2;
+                                    glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
+
+                                    const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
 
                                     const color = colorMap[colorChar] || [1,1,1,1];
                                     gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
