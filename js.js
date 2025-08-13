@@ -789,6 +789,7 @@ async function runXRRendering(session, mode) {
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
@@ -1089,10 +1090,10 @@ async function runXRRendering(session, mode) {
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
-                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
-                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                            gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+                            // gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+                            // gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
+                            // gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+                            // gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 
                             // Draw nubs
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
@@ -1108,12 +1109,13 @@ async function runXRRendering(session, mode) {
                                     const nubModelMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
 
-                                    const nubRadius = (2.0 / xx) / 3;
+                                    const nubRadius = (tileWidth / 2) / 3;
                                     const nubDiameter = nubRadius * 2;
+                                    const nubThickness = nubRadius * 2;
 
                                     glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 0, 1]);
                                     glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0, 0.5, 0]); // Move to edge
-                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, 1]);
+                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, nubThickness]);
 
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, nubModelMatrix);
 
