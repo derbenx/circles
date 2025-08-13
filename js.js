@@ -892,8 +892,9 @@ async function runXRRendering(session, mode) {
     `;
     const solidColorFsSource = `
       precision mediump float;
+      uniform vec4 uColor;
       void main(void) {
-        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        gl_FragColor = uColor;
       }
     `;
     const solidColorShaderProgram = initShaderProgram(gl, solidColorVsSource, solidColorFsSource);
@@ -906,6 +907,7 @@ async function runXRRendering(session, mode) {
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uProjectionMatrix'),
             modelViewMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uModelViewMatrix'),
+            color: gl.getUniformLocation(solidColorShaderProgram, 'uColor'),
         },
     };
 
@@ -922,6 +924,31 @@ async function runXRRendering(session, mode) {
         position: cylinderPositionBuffer,
         indices: cylinderIndexBuffer,
         vertexCount: cylinder.indices.length,
+    };
+
+    const halfCylinder = createHalfCylinder(0.2, 0.022, 16);
+    const halfCylinderPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
+    const halfCylinderIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, halfCylinderIndexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(halfCylinder.indices), gl.STATIC_DRAW);
+    const halfCylinderBuffers = {
+        position: halfCylinderPositionBuffer,
+        indices: halfCylinderIndexBuffer,
+        vertexCount: halfCylinder.indices.length,
+    };
+
+    const colorMap = {
+        'g': [0.0, 1.0, 0.0, 1.0], // green
+        'r': [1.0, 0.0, 0.0, 1.0], // red
+        'y': [1.0, 1.0, 0.0, 1.0], // yellow
+        'b': [0.0, 0.0, 1.0, 1.0], // blue
+        'v': [0.5, 0.0, 0.5, 1.0], // violet
+        'c': [0.0, 1.0, 1.0, 1.0], // cyan
+        'p': [1.0, 0.5, 0.0, 1.0], // orange
+        'l': [0.5, 1.0, 0.5, 1.0], // limegreen
+        'e': [0.5, 0.5, 0.5, 1.0], // grey
     };
 
     const buffers = initBuffers(gl);
@@ -1043,24 +1070,59 @@ async function runXRRendering(session, mode) {
                             const pieceModelMatrix = glMatrix.mat4.create();
                             glMatrix.mat4.copy(pieceModelMatrix, canvasModelMatrix);
 
-                            // 1. Translate to the center of the tile in the board's local space
+                            // Undo the aspect ratio scaling from the main canvas matrix
+                            const aspectRatio = ww / hh;
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [1/aspectRatio, 1, 1]);
+
+                            // 1. Translate to the center of the tile
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
                             const y_local = (y + 0.5) / yy * 2.0 - 1.0;
-                            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
+                            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local * aspectRatio, -y_local, 0.02]);
 
                             // 2. Rotate to lie flat
                             glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
-                            // 3. Scale to 98% of the tile width
+                            // 3. Scale to 90% of the tile width
                             const tileWidth = 2.0 / xx;
-                            const diameter = tileWidth * 0.98;
+                            const diameter = tileWidth * 0.90;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, 1]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
                             gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+
+                            // Draw nubs
+                            gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, halfCylinderBuffers.indices);
+
+                            const pieceData = grid[x][y];
+                            const nubColors = pieceData.substr(2, 4);
+                            const nubRotations = [Math.PI, Math.PI / 2, 0, -Math.PI / 2]; // Left, Up, Right, Down
+
+                            for (let i = 0; i < 4; i++) {
+                                const colorChar = nubColors.charAt(i);
+                                if (colorChar !== '0') {
+                                    const nubModelMatrix = glMatrix.mat4.create();
+                                    glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
+
+                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 1, 0]);
+                                    glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0.4, 0, 0]); // Move to edge
+
+                                    const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, nubModelMatrix);
+
+                                    const color = colorMap[colorChar] || [1,1,1,1];
+                                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
+                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
+                                    gl.drawElements(gl.TRIANGLES, halfCylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+                                }
+                            }
+                             // Rebind main cylinder buffers for next iteration
+                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
                         }
                     }
                 }
@@ -1174,6 +1236,47 @@ function createCylinder(radius, height, segments) {
         // Triangle 2
         indices.push(topRight, bottomRight, bottomLeft);
     }
+
+    return { vertices, indices, normals };
+}
+
+function createHalfCylinder(radius, height, segments) {
+    const vertices = [];
+    const indices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+
+    // Generate vertices for top and bottom arcs
+    for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI; // 180 degrees
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        vertices.push(x, halfHeight, z);
+        normals.push(0, 1, 0);
+        vertices.push(x, -halfHeight, z);
+        normals.push(0, -1, 0);
+    }
+
+    // Generate indices for the curved side
+    for (let i = 0; i < segments; i++) {
+        const currentTop = i * 2;
+        const nextTop = (i + 1) * 2;
+        const currentBottom = currentTop + 1;
+        const nextBottom = nextTop + 1;
+        indices.push(currentTop, nextTop, currentBottom);
+        indices.push(nextTop, nextBottom, currentBottom);
+    }
+
+    // Generate vertices and indices for the flat back face
+    const backFaceStartIndex = vertices.length / 3;
+    vertices.push(radius, halfHeight, 0);
+    vertices.push(-radius, halfHeight, 0);
+    vertices.push(radius, -halfHeight, 0);
+    vertices.push(-radius, -halfHeight, 0);
+    for(let i=0; i<4; i++) normals.push(0, 0, -1);
+
+    indices.push(backFaceStartIndex, backFaceStartIndex+1, backFaceStartIndex+2);
+    indices.push(backFaceStartIndex+1, backFaceStartIndex+3, backFaceStartIndex+2);
 
     return { vertices, indices, normals };
 }
