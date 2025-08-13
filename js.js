@@ -865,7 +865,22 @@ async function runXRRendering(session, mode) {
           gl_FragColor = texture2D(uSampler, vTextureCoord);
         }
       }`;
-    const textureShaderProgram = initShaderProgram(gl, vsSource, fsSource);
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+    const textureProgramInfo = {
+      program: shaderProgram,
+      attribLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+        uUseSolidColor: gl.getUniformLocation(shaderProgram, "uUseSolidColor"),
+        uSolidColor: gl.getUniformLocation(shaderProgram, "uSolidColor"),
+      },
+    };
 
     const solidColorVsSource = `
       attribute vec4 aVertexPosition;
@@ -876,8 +891,9 @@ async function runXRRendering(session, mode) {
       }
     `;
     const solidColorFsSource = `
+      precision mediump float;
       void main(void) {
-        gl_FragColor = vec4(0.8, 0.8, 0.8, 1.0);
+        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
       }
     `;
     const solidColorShaderProgram = initShaderProgram(gl, solidColorVsSource, solidColorFsSource);
@@ -891,21 +907,6 @@ async function runXRRendering(session, mode) {
             projectionMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uProjectionMatrix'),
             modelViewMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uModelViewMatrix'),
         },
-    };
-
-    const textureProgramInfo = {
-      program: textureShaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(textureShaderProgram, "aVertexPosition"),
-        textureCoord: gl.getAttribLocation(textureShaderProgram, "aTextureCoord"),
-      },
-      uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(textureShaderProgram, "uProjectionMatrix"),
-        modelViewMatrix: gl.getUniformLocation(textureShaderProgram, "uModelViewMatrix"),
-        uSampler: gl.getUniformLocation(textureShaderProgram, "uSampler"),
-        uUseSolidColor: gl.getUniformLocation(textureShaderProgram, "uUseSolidColor"),
-        uSolidColor: gl.getUniformLocation(textureShaderProgram, "uSolidColor"),
-      },
     };
 
     const cylinder = createCylinder(0.05, 0.01, 32);
@@ -1029,7 +1030,7 @@ async function runXRRendering(session, mode) {
                 const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
                 drawScene(gl, textureProgramInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
 
-                // Draw 3D cylinders
+                // Draw 3D cylinders for the green pieces
                 gl.useProgram(solidColorProgramInfo.program);
                 gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
                 gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -1038,12 +1039,16 @@ async function runXRRendering(session, mode) {
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
-                        if (grid[x][y].charAt(0) > 0) {
+                        if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
                             const pieceModelMatrix = glMatrix.mat4.create();
-                            const x_pos = (x / xx - 0.5 + (0.5 / xx)) * 2.0;
-                            const y_pos = (y / yy - 0.5 + (0.5 / yy)) * 2.0;
-                            glMatrix.mat4.translate(pieceModelMatrix, canvasModelMatrix, [x_pos, -y_pos, 0.02]);
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [1/xx, 1/yy, 1]);
+                            // Calculate position based on grid, scaling to the size of the 2D board quad
+                            const x_pos = (x / xx - 0.5 + (0.5 / xx)) * (ww/hh) * 2.0;
+                            const y_pos = (y / yy - 0.5 + (0.5 / yy)) * -2.0;
+
+                            glMatrix.mat4.translate(pieceModelMatrix, canvasModelMatrix, [x_pos, y_pos, 0.02]);
+
+                            const scaleFactor = (sz/Math.min(ww,hh));
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [scaleFactor, scaleFactor, scaleFactor]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
@@ -1103,20 +1108,6 @@ function initShaderProgram(gl, vsSource, fsSource) {
   }
 
   return shaderProgram;
-}
-
-function loadShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-
-  return shader;
 }
 
 function createCylinder(radius, height, segments) {
@@ -1179,6 +1170,20 @@ function createCylinder(radius, height, segments) {
     }
 
     return { vertices, indices, normals };
+}
+
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+
+  return shader;
 }
 
 function initBuffers(gl) {
