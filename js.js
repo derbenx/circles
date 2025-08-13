@@ -1082,7 +1082,7 @@ async function runXRRendering(session, mode) {
                             // 3. Scale to 90% of the tile width
                             const tileWidth = 2.0 / xx;
                             const diameter = tileWidth * 0.90;
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter, diameter, 1]);
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / aspectRatio, diameter, diameter]);
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
