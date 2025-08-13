@@ -1068,11 +1068,7 @@ async function runXRRendering(session, mode) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
                             const pieceModelMatrix = glMatrix.mat4.create();
-                            glMatrix.mat4.copy(pieceModelMatrix, canvasModelMatrix);
-
-                            // Undo the aspect ratio scaling from the main canvas matrix
-                            const aspectRatio = ww / hh;
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [1/aspectRatio, 1, 1]);
+                            glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
 
                             // 1. Translate to the center of the tile
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
