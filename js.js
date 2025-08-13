@@ -885,17 +885,35 @@ async function runXRRendering(session, mode) {
 
     const solidColorVsSource = `
       attribute vec4 aVertexPosition;
+      attribute vec3 aVertexNormal;
+
       uniform mat4 uModelViewMatrix;
       uniform mat4 uProjectionMatrix;
+      uniform mat4 uNormalMatrix;
+
+      varying highp vec3 vLighting;
+
       void main(void) {
         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+
+        // Apply lighting effect
+        highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+        highp vec3 directionalLightColor = vec3(1, 1, 1);
+        highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+
+        highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+
+        highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+        vLighting = ambientLight + (directionalLightColor * directional);
       }
     `;
     const solidColorFsSource = `
       precision mediump float;
       uniform vec4 uColor;
+      varying highp vec3 vLighting;
+
       void main(void) {
-        gl_FragColor = uColor;
+        gl_FragColor = vec4(uColor.rgb * vLighting, uColor.a);
       }
     `;
     const solidColorShaderProgram = initShaderProgram(gl, solidColorVsSource, solidColorFsSource);
@@ -904,10 +922,12 @@ async function runXRRendering(session, mode) {
         program: solidColorShaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(solidColorShaderProgram, 'aVertexPosition'),
+            vertexNormal: gl.getAttribLocation(solidColorShaderProgram, 'aVertexNormal'),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uProjectionMatrix'),
             modelViewMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uModelViewMatrix'),
+            normalMatrix: gl.getUniformLocation(solidColorShaderProgram, 'uNormalMatrix'),
             color: gl.getUniformLocation(solidColorShaderProgram, 'uColor'),
         },
     };
@@ -917,12 +937,17 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, cylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATIC_DRAW);
 
+    const cylinderNormalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, cylinderNormalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.normals), gl.STATIC_DRAW);
+
     const cylinderIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderIndexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cylinder.indices), gl.STATIC_DRAW);
 
     const cylinderBuffers = {
         position: cylinderPositionBuffer,
+        normal: cylinderNormalBuffer,
         indices: cylinderIndexBuffer,
         vertexCount: cylinder.indices.length,
     };
@@ -1061,75 +1086,70 @@ async function runXRRendering(session, mode) {
                 // Draw 3D cylinders for the green pieces
                 gl.useProgram(solidColorProgramInfo.program);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
+                gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
-                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
-                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
-                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-
                             const pieceModelMatrix = glMatrix.mat4.create();
                             glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
-
-                            // Scale the space to match the grid's aspect ratio
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
-
-                            // 1. Translate to the center of the tile
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
                             const y_local = (y + 0.5) / yy * 2.0 - 1.0;
                             glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
-
-                            // 2. Rotate to lie flat
                             glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
-
-                            // 3. Scale the piece to 90% of the tile size
-                            // In our new space, tile width and height are both 2.0 / yy
                             const tileDim = 2.0 / yy;
                             const diameter = tileDim * 0.90;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
-
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
+                            const normalMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.invert(normalMatrix, pieceModelMatrix);
+                            glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+                            // Draw main cylinder
+                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
                             gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 
                             // Draw nubs
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
 
                             const pieceData = grid[x][y];
                             const nubColors = pieceData.substr(2, 4);
-                            //const nubRotations = [-Math.PI / 2, 0, -Math.PI / 2, -Math.PI]; // Rotated 90 deg clockwise
-                            const nubRotations = [0,-Math.PI / 2,Math.PI,Math.PI / 2]; //l,u,r,d
-
                             for (let i = 0; i < 4; i++) {
                                 const colorChar = nubColors.charAt(i);
                                 if (colorChar !== '0') {
-                                    // 1. Create a local transform for the nub
                                     const nubLocalMatrix = glMatrix.mat4.create();
-
-                                    // 2. Position and orient the nub in the piece's local space
-                                    const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ]; // Swapped up and down
+                                    const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ];
                                     const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
                                     glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
-                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]); // Add PI for 180 deg turn
-
-                                    // 3. Combine with the main piece's transform
+                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]);
                                     const finalNubMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
-
-                                    // 4. Scale the nub
                                     const nubScale = 1 / 1.2;
                                     glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
-
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
 
+                                    const nubNormalMatrix = glMatrix.mat4.create();
+                                    glMatrix.mat4.invert(nubNormalMatrix, finalNubMatrix);
+                                    glMatrix.mat4.transpose(nubNormalMatrix, nubNormalMatrix);
+
+                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
+                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, nubNormalMatrix);
                                     const color = colorMap[colorChar] || [1,1,1,1];
                                     gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
-                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
                                     gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
                                 }
                             }
@@ -1261,17 +1281,19 @@ function createHalfCylinder(radius, height, segments) {
         const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
         const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
         const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+        const nx1 = Math.cos(ang1), nz1 = Math.sin(ang1);
+        const nx2 = Math.cos(ang2), nz2 = Math.sin(ang2);
         vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
-        normals.push(x1,0,z1, x2,0,z2, x1,0,z1);
+        normals.push(nx1,0,nz1, nx2,0,nz2, nx1,0,nz1);
         vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
-        normals.push(x2,0,z2, x2,0,z2, x1,0,z1);
+        normals.push(nx2,0,nz2, nx2,0,nz2, nx1,0,nz1);
     }
 
     // Back face
     vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeight, radius);
-    normals.push(0,0,-1, 0,0,-1, 0,0,-1);
+    normals.push(-1,0,0, -1,0,0, -1,0,0);
     vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeight, radius);
-    normals.push(0,0,-1, 0,0,-1, 0,0,-1);
+    normals.push(-1,0,0, -1,0,0, -1,0,0);
 
     // Caps
     for (let i = 0; i < segments; i++) {
