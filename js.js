@@ -789,7 +789,6 @@ async function runXRRendering(session, mode) {
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
@@ -912,7 +911,7 @@ async function runXRRendering(session, mode) {
         },
     };
 
-    const cylinder = createCylinder(0.5, 0.02, 32); // Radius 0.5 = diameter 1.0
+    const cylinder = createCylinder(1, .2, 16);
     const cylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATIC_DRAW);
@@ -927,7 +926,7 @@ async function runXRRendering(session, mode) {
         vertexCount: cylinder.indices.length,
     };
 
-    const halfCylinder = createHalfCylinder(0.5, 0.066, 16); // Base radius 0.5, 3x thicker
+    const halfCylinder = createHalfCylinder(.2,.5, 8);
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
@@ -1090,10 +1089,10 @@ async function runXRRendering(session, mode) {
 
                             const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
 
-                            // gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-                            // gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
-                            // gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                            // gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+                            gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 
                             // Draw nubs
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
@@ -1101,7 +1100,8 @@ async function runXRRendering(session, mode) {
 
                             const pieceData = grid[x][y];
                             const nubColors = pieceData.substr(2, 4);
-                            const nubRotations = [Math.PI / 2, 0, -Math.PI / 2, -Math.PI]; // Rotated 90 deg clockwise
+                            //const nubRotations = [-Math.PI / 2, 0, -Math.PI / 2, -Math.PI]; // Rotated 90 deg clockwise
+                            const nubRotations = [0,-Math.PI / 2,Math.PI,Math.PI / 2]; //l,u,r,d
 
                             for (let i = 0; i < 4; i++) {
                                 const colorChar = nubColors.charAt(i);
@@ -1109,13 +1109,12 @@ async function runXRRendering(session, mode) {
                                     const nubModelMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
 
-                                    const nubRadius = (tileWidth / 2) / 3;
+                                    const nubRadius = (4.0 / xx) / 3;
                                     const nubDiameter = nubRadius * 2;
-                                    const nubThickness = nubRadius * 2;
 
-                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 0, 1]);
+                                    glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 1, 0]);
                                     glMatrix.mat4.translate(nubModelMatrix, nubModelMatrix, [0, 0.5, 0]); // Move to edge
-                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, nubThickness]);
+                                    glMatrix.mat4.scale(nubModelMatrix, nubModelMatrix, [nubDiameter, nubDiameter, nubDiameter]);
 
                                     const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, nubModelMatrix);
 
@@ -1248,7 +1247,7 @@ function createCylinder(radius, height, segments) {
 function createHalfCylinder(radius, height, segments) {
     const vertices = [];
     const normals = [];
-    const halfHeight = height / 2;
+    const halfHeight = height/2;
 
     // Curved face
     for (let i = 0; i < segments; i++) {
@@ -1256,10 +1255,8 @@ function createHalfCylinder(radius, height, segments) {
         const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
         const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
         const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-
         vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
         normals.push(x1,0,z1, x2,0,z2, x1,0,z1);
-
         vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
         normals.push(x2,0,z2, x2,0,z2, x1,0,z1);
     }
