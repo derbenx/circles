@@ -1109,7 +1109,7 @@ async function runXRRendering(session, mode) {
                                     const nubModelMatrix = glMatrix.mat4.create();
                                     glMatrix.mat4.copy(nubModelMatrix, pieceModelMatrix);
 
-                                    const nubRadius = (4.0 / xx) / 3;
+                                    const nubRadius = (2.0 / xx) / 3;
                                     const nubDiameter = nubRadius * 2;
 
                                     glMatrix.mat4.rotate(nubModelMatrix, nubModelMatrix, nubRotations[i], [0, 1, 0]);
