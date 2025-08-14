@@ -1270,32 +1270,46 @@ async function runXRRendering(session, mode) {
                     const { mat4, vec3, quat } = glMatrix;
 
                     // Draw 3D cone cursor
-                    gl.useProgram(solidColorProgramInfo.program);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
-                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
-                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                    if (controllerPosition) {
+                        gl.useProgram(solidColorProgramInfo.program);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+                        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+                        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
 
-                    const coneMatrix = glMatrix.mat4.create();
-                    const coneHoverPos = vec3.create();
-                    vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.1); // 10% of the way from board to controller
-                    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
+                        const coneMatrix = glMatrix.mat4.create();
+                        const coneHoverPos = vec3.create();
+                        vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.1);
 
-                    const lookAtMatrix = mat4.create();
-                    mat4.targetTo(lookAtMatrix, coneHoverPos, vrIntersectionPoint, [0, 1, 0]);
-                    mat4.multiply(coneMatrix, coneMatrix, lookAtMatrix);
+                        const coneDir = vec3.create();
+                        vec3.subtract(coneDir, vrIntersectionPoint, coneHoverPos);
+                        vec3.normalize(coneDir, coneDir);
 
-                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.02, 0.05]); // Scale: 2cm wide, 5cm long
+                        const rotQuat = quat.create();
+                        const defaultDir = vec3.fromValues(0, 1, 0);
 
-                    const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
-                    const coneNormalMatrix = glMatrix.mat4.create();
-                    glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
-                    glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
+                        const dot = vec3.dot(defaultDir, coneDir);
+                        if (Math.abs(dot) > 0.9999) {
+                            if (dot < 0) {
+                                quat.setAxisAngle(rotQuat, [1, 0, 0], Math.PI);
+                            }
+                        } else {
+                            quat.rotationTo(rotQuat, defaultDir, coneDir);
+                        }
 
-                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
-                    gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                        const coneScale = [0.02, 0.05, 0.02];
+                        glMatrix.mat4.fromRotationTranslationScale(coneMatrix, rotQuat, coneHoverPos, coneScale);
+
+                        const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
+                        const coneNormalMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
+                        glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
+
+                        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
+                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
+                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
+                        gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                    }
 
                     // Draw Controller Ray
                     if (controllerPosition) {
