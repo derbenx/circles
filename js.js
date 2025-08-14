@@ -1283,7 +1283,8 @@ async function runXRRendering(session, mode) {
                     mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
                     drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
 
-                    // Draw 3D cone cursor
+                    // Draw 3D cone cursor - Temporarily disabled for debugging
+                    /*
                     gl.useProgram(solidColorProgramInfo.program);
                     gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
                     gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -1306,33 +1307,45 @@ async function runXRRendering(session, mode) {
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
                     gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                    */
 
                     // Draw Controller Ray
-                    const rayMatrix = mat4.create();
-                    const x_axis = vec3.fromValues(1, 0, 0);
                     const rayDir = vec3.create();
                     vec3.subtract(rayDir, vrIntersectionPoint, controllerPosition);
                     const rayLength = vec3.length(rayDir);
-                    vec3.normalize(rayDir, rayDir);
 
-                    const rotQuat = quat.rotationTo(quat.create(), x_axis, rayDir);
+                    if (rayLength > 0.001) { // Epsilon check to avoid zero-length ray
+                        vec3.normalize(rayDir, rayDir);
+                        const x_axis = vec3.fromValues(1, 0, 0);
+                        const rotQuat = quat.create();
 
-                    const rayMidpoint = vec3.create();
-                    vec3.lerp(rayMidpoint, controllerPosition, vrIntersectionPoint, 0.25);
+                        // Check for collinear vectors, which make rotationTo unstable
+                        const dot = vec3.dot(x_axis, rayDir);
+                        if (Math.abs(dot) > 0.9999) {
+                            if (dot < 0) { // Anti-parallel
+                                quat.setAxisAngle(rotQuat, [0, 1, 0], Math.PI); // 180 deg rotation around Y
+                            }
+                            // if parallel, rotQuat is identity, which is correct
+                        } else {
+                            quat.rotationTo(rotQuat, x_axis, rayDir);
+                        }
 
-                    const rayScale = [rayLength * 0.5, 0.005, 0.005];
+                        const rayMatrix = mat4.create();
+                        const rayMidpoint = vec3.create();
+                        vec3.lerp(rayMidpoint, controllerPosition, vrIntersectionPoint, 0.25);
+                        const rayScale = [rayLength * 0.5, 0.005, 0.005];
+                        mat4.fromRotationTranslationScale(rayMatrix, rotQuat, rayMidpoint, rayScale);
 
-                    mat4.fromRotationTranslationScale(rayMatrix, rotQuat, rayMidpoint, rayScale);
+                        const finalRayModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, rayMatrix);
+                        const rayNormalMatrix = mat4.create();
+                        mat4.invert(rayNormalMatrix, rayMatrix);
+                        mat4.transpose(rayNormalMatrix, rayMatrix);
 
-                    const finalRayModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, rayMatrix);
-                    const rayNormalMatrix = mat4.create();
-                    mat4.invert(rayNormalMatrix, rayMatrix);
-                    mat4.transpose(rayNormalMatrix, rayMatrix);
-
-                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]); // Green
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
-                    gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
+                        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]); // Green
+                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
+                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
+                        gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
+                    }
                 }
             }
         }
