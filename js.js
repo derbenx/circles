@@ -1174,6 +1174,7 @@ async function runXRRendering(session, mode) {
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, glMatrix.mat4.create());
                     gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                 }
+                */
 
                 // Vertical lines
                 for (let i = 0; i <= xx; i++) {
