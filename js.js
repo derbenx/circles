@@ -1150,66 +1150,14 @@ async function runXRRendering(session, mode) {
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
-                // Draw 3D Grid Lines (New Implementation)
-                const gridAndPiecesContainer = glMatrix.mat4.create();
-                glMatrix.mat4.fromTranslation(gridAndPiecesContainer, vrCanvasPosition);
-                glMatrix.mat4.scale(gridAndPiecesContainer, gridAndPiecesContainer, [xx/yy, 1, 1]);
-
-                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 1.0, 1.0]); // Cyan
-                const gridLineThickness = 0.01;
-                const gridLineHeight = 0.1;
-
-                // Bind the stick buffers once for all grid lines
-                gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
-                gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
-                gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-
-                // Horizontal lines
-                const rotQuatHorizontal = glMatrix.quat.create(); // identity quaternion
-                for (let i = 0; i <= yy; i++) {
-                    const y_pos = (i / yy) * 2.0 - 1.0;
-                    const lineLocalMatrix = glMatrix.mat4.create();
-                    const scale = [2.0, gridLineThickness, gridLineHeight];
-                    const translation = [0, -y_pos, 0.01]; // Z-offset to prevent fighting with canvas
-                    glMatrix.mat4.fromRotationTranslationScale(lineLocalMatrix, rotQuatHorizontal, translation, scale);
-
-                    const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);
-
-                    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalLineMatrix);
-                    const normalMatrix = glMatrix.mat4.create();
-                    glMatrix.mat4.invert(normalMatrix, finalLineMatrix);
-                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
-                    gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
-                }
-
-                // Vertical lines
-                const rotQuatVertical = glMatrix.quat.fromEuler(glMatrix.quat.create(), 0, 0, 90);
-                for (let i = 0; i <= xx; i++) {
-                    const x_pos = (i / xx) * 2.0 - 1.0;
-                    const lineLocalMatrix = glMatrix.mat4.create();
-                    const scale = [2.0, gridLineThickness, gridLineHeight];
-                    const translation = [x_pos, 0, 0.01]; // Z-offset to prevent fighting with canvas
-                    glMatrix.mat4.fromRotationTranslationScale(lineLocalMatrix, rotQuatVertical, translation, scale);
-
-                    const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);
-
-                    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalLineMatrix);
-                    const normalMatrix = glMatrix.mat4.create();
-                    glMatrix.mat4.invert(normalMatrix, finalLineMatrix);
-                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
-                    gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
-                }
-
+                // 3D Grid is a work in progress, disabled for now.
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
-                            const pieceModelMatrix = glMatrix.mat4.clone(gridAndPiecesContainer); // Use the container!
+                            const pieceModelMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
+                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
                             const y_local = (y + 0.5) / yy * 2.0 - 1.0;
                             glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
