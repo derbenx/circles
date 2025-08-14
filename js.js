@@ -977,7 +977,7 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
 
-    const ring = createRing(0.5, 0.35, 1.0, 16); // Will be scaled
+    const ring = createRing(0.5, 0.465, 1.0, 16); // Will be scaled
     const ringBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
@@ -988,7 +988,7 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, ring.normals, gl.STATIC_DRAW);
 
-    const arcBottom = createArc(0.5, 0.35, 1.0, 8, 0, Math.PI);
+    const arcBottom = createArc(0.5, 0.465, 1.0, 8, 0, Math.PI);
     const arcBottomBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
@@ -999,7 +999,7 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, arcBottom.normals, gl.STATIC_DRAW);
 
-    const arcLeft = createArc(0.5, 0.35, 1.0, 8, Math.PI / 2, Math.PI * 1.5);
+    const arcLeft = createArc(0.5, 0.465, 1.0, 8, Math.PI / 2, Math.PI * 1.5);
     const arcLeftBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
@@ -1170,11 +1170,8 @@ async function runXRRendering(session, mode) {
                     glMatrix.mat4.scale(lineModelMatrix, lineModelMatrix, [2.0 * (xx/yy), gridLineThickness, gridLineHeight]);
 
                     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, lineModelMatrix);
-                    const normalMatrix = glMatrix.mat4.create();
-                    glMatrix.mat4.invert(normalMatrix, lineModelMatrix);
-                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, glMatrix.mat4.create());
                     gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                 }
 
@@ -1188,11 +1185,8 @@ async function runXRRendering(session, mode) {
                     glMatrix.mat4.scale(lineModelMatrix, lineModelMatrix, [2.0, gridLineThickness, gridLineHeight]);
 
                     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, lineModelMatrix);
-                    const normalMatrix = glMatrix.mat4.create();
-                    glMatrix.mat4.invert(normalMatrix, lineModelMatrix);
-                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, glMatrix.mat4.create());
                     gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                 }
 
