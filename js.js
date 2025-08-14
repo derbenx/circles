@@ -1155,7 +1155,7 @@ async function runXRRendering(session, mode) {
                 glMatrix.mat4.fromTranslation(gridAndPiecesContainer, vrCanvasPosition);
                 glMatrix.mat4.scale(gridAndPiecesContainer, gridAndPiecesContainer, [xx/yy, 1, 1]);
 
-                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.5, 0.0, 1.0]); // Dark green
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 1.0, 1.0]); // Cyan
                 const gridLineThickness = 0.01;
                 const gridLineHeight = 0.1;
 
