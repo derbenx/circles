@@ -1120,6 +1120,7 @@ async function runXRRendering(session, mode) {
                 if (rightController.gripSpace) {
                     const gripPose = frame.getPose(rightController.gripSpace, referenceSpace);
                     if (gripPose) {
+                        controllerPosition = gripPose.transform.position;
                         const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                         if (intersection) {
                             vrIntersectionPoint = intersection.world;
@@ -1157,12 +1158,9 @@ async function runXRRendering(session, mode) {
                 const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
                 drawScene(gl, textureProgramInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
 
-                // Draw 3D cylinders for the green pieces
                 gl.useProgram(solidColorProgramInfo.program);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
-
-                // 3D Grid is a work in progress, disabled for now.
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
@@ -1187,16 +1185,14 @@ async function runXRRendering(session, mode) {
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
                             gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
-                            // Draw main cylinder
                             gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                             gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
                             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
-                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]); // Main cylinder is green
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]);
                             gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 
-                            // Draw nubs
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
                             gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                             gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
@@ -1230,43 +1226,37 @@ async function runXRRendering(session, mode) {
                                 }
                             }
 
-                            // Draw Markers
-                            const markerColor = [0.0, 0.0, 0.0, 1.0]; // Black
+                            const markerColor = [0.0, 0.0, 0.0, 1.0];
                             gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, markerColor);
-
                             const moveMarker = pieceData.charAt(0);
                             const rotateMarker = pieceData.charAt(1);
                             const markerHeight = 0.15;
-
-                            // Draw movement markers (+, -, |)
-                            if (moveMarker === '2' || moveMarker === '4') { // Horizontal bar
+                            if (moveMarker === '2' || moveMarker === '4') {
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
-                            if (moveMarker === '2' || moveMarker === '3') { // Vertical bar
+                            if (moveMarker === '2' || moveMarker === '3') {
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
-
-                            // Draw rotation/flip markers (O, U, C)
-                            if (rotateMarker === '1') { // O
+                            if (rotateMarker === '1') {
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
                             }
-                            if (rotateMarker === '2') { // Bottom semi-circle
+                            if (rotateMarker === '2') {
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
                             }
-                            if (rotateMarker === '3') { // Left-opening semi-circle
+                            if (rotateMarker === '3') {
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
@@ -1278,11 +1268,6 @@ async function runXRRendering(session, mode) {
 
                 if (vrIntersectionPoint) {
                     const { mat4, vec3, quat } = glMatrix;
-                    const pointerMatrix = mat4.create();
-                    mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
-                    mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
-                    mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
-                    drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
 
                     // Draw 3D cone cursor
                     gl.useProgram(solidColorProgramInfo.program);
@@ -1292,11 +1277,15 @@ async function runXRRendering(session, mode) {
                     gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
 
                     const coneMatrix = glMatrix.mat4.create();
-                    // Hover 5cm above the board
-                    glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
-                    // Scale it to be small, and point it downwards
-                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
-                    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Rotate 180 deg on X to point down
+                    const coneHoverPos = vec3.create();
+                    vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.1); // 10% of the way from board to controller
+                    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
+
+                    const lookAtMatrix = mat4.create();
+                    mat4.targetTo(lookAtMatrix, coneHoverPos, vrIntersectionPoint, [0, 1, 0]);
+                    mat4.multiply(coneMatrix, coneMatrix, lookAtMatrix);
+
+                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.02, 0.05]); // Scale: 2cm wide, 5cm long
 
                     const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
                     const coneNormalMatrix = glMatrix.mat4.create();
@@ -1309,41 +1298,44 @@ async function runXRRendering(session, mode) {
                     gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
 
                     // Draw Controller Ray
-                    const rayDir = vec3.create();
-                    vec3.subtract(rayDir, vrIntersectionPoint, controllerPosition);
-                    const rayLength = vec3.length(rayDir);
+                    if (controllerPosition) {
+                        const rayDir = vec3.create();
+                        vec3.subtract(rayDir, vrIntersectionPoint, controllerPosition);
+                        const rayLength = vec3.length(rayDir);
 
-                    if (rayLength > 0.001) { // Epsilon check to avoid zero-length ray
-                        vec3.normalize(rayDir, rayDir);
-                        const x_axis = vec3.fromValues(1, 0, 0);
-                        const rotQuat = quat.create();
+                        if (rayLength > 0.001) {
+                            vec3.normalize(rayDir, rayDir);
+                            const x_axis = vec3.fromValues(1, 0, 0);
+                            const rotQuat = quat.create();
 
-                        // Check for collinear vectors, which make rotationTo unstable
-                        const dot = vec3.dot(x_axis, rayDir);
-                        if (Math.abs(dot) > 0.9999) {
-                            if (dot < 0) { // Anti-parallel
-                                quat.setAxisAngle(rotQuat, [0, 1, 0], Math.PI); // 180 deg rotation around Y
+                            const dot = vec3.dot(x_axis, rayDir);
+                            if (Math.abs(dot) > 0.9999) {
+                                if (dot < 0) { quat.setAxisAngle(rotQuat, [0, 1, 0], Math.PI); }
+                            } else {
+                                quat.rotationTo(rotQuat, x_axis, rayDir);
                             }
-                            // if parallel, rotQuat is identity, which is correct
-                        } else {
-                            quat.rotationTo(rotQuat, x_axis, rayDir);
+
+                            const rayMatrix = mat4.create();
+                            const rayMidpoint = vec3.create();
+                            vec3.lerp(rayMidpoint, controllerPosition, vrIntersectionPoint, 0.25);
+                            const rayScale = [rayLength * 0.5, 0.005, 0.005];
+                            mat4.fromRotationTranslationScale(rayMatrix, rotQuat, rayMidpoint, rayScale);
+
+                            const finalRayModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, rayMatrix);
+                            const rayNormalMatrix = mat4.create();
+                            mat4.invert(rayNormalMatrix, rayMatrix);
+                            mat4.transpose(rayNormalMatrix, rayMatrix);
+
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
+
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                            gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                         }
-
-                        const rayMatrix = mat4.create();
-                        const rayMidpoint = vec3.create();
-                        vec3.lerp(rayMidpoint, controllerPosition, vrIntersectionPoint, 0.25);
-                        const rayScale = [rayLength * 0.5, 0.005, 0.005];
-                        mat4.fromRotationTranslationScale(rayMatrix, rotQuat, rayMidpoint, rayScale);
-
-                        const finalRayModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, rayMatrix);
-                        const rayNormalMatrix = mat4.create();
-                        mat4.invert(rayNormalMatrix, rayMatrix);
-                        mat4.transpose(rayNormalMatrix, rayMatrix);
-
-                        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]); // Green
-                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
-                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
-                        gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                     }
                 }
             }
