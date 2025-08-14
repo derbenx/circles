@@ -1092,6 +1092,7 @@ async function runXRRendering(session, mode) {
             vrIntersectionPoint = null;
             let leftController = null;
             let rightController = null;
+            let controllerPosition = null;
 
             for (const source of frame.session.inputSources) {
                 if (source.handedness === 'left') {
@@ -1283,8 +1284,7 @@ async function runXRRendering(session, mode) {
                     mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
                     drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
 
-                    // Draw 3D cone cursor - Temporarily disabled for debugging
-                    /*
+                    // Draw 3D cone cursor
                     gl.useProgram(solidColorProgramInfo.program);
                     gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
                     gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -1307,7 +1307,6 @@ async function runXRRendering(session, mode) {
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
                     gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
-                    */
 
                     // Draw Controller Ray
                     const rayDir = vec3.create();
@@ -1625,7 +1624,7 @@ function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
     const ang2 = endAngle;
     const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
     const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
-    const cap2Normal = [-Math.sin(ang2), 0, Math.cos(ang2)];
+    const cap2Normal = [-Math.sin(endAngle), 0, Math.cos(endAngle)];
     vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2, o_x2, -halfHeight, o_z2);
     vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
     for(let j=0; j<6; j++) normals.push(...cap2Normal);
