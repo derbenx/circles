@@ -1228,14 +1228,14 @@ async function runXRRendering(session, mode) {
                             if (moveMarker === '2' || moveMarker === '4') { // Horizontal bar
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.8, 0.1, 0.1]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.05, 0.05]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
                             if (moveMarker === '2' || moveMarker === '3') { // Vertical bar
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.8, 0.1, 0.1]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.05, 0.05]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
 
@@ -1243,19 +1243,19 @@ async function runXRRendering(session, mode) {
                             if (rotateMarker === '1') { // O
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
                             }
                             if (rotateMarker === '2') { // Bottom semi-circle
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
                             }
                             if (rotateMarker === '3') { // Left-opening semi-circle
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
                             }
                         }
