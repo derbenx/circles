@@ -1177,8 +1177,11 @@ async function runXRRendering(session, mode) {
                     const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);
 
                     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalLineMatrix);
+                    const normalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(normalMatrix, finalLineMatrix);
+                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, glMatrix.mat4.create());
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
                     gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                 }
 
@@ -1194,8 +1197,11 @@ async function runXRRendering(session, mode) {
                     const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);
 
                     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalLineMatrix);
+                    const normalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(normalMatrix, finalLineMatrix);
+                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, glMatrix.mat4.create());
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
                     gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                 }
 
