@@ -1171,7 +1171,7 @@ async function runXRRendering(session, mode) {
                     const y_pos = (i / yy) * 2.0 - 1.0;
                     const lineLocalMatrix = glMatrix.mat4.create();
                     const scale = [2.0, gridLineThickness, gridLineHeight];
-                    const translation = [0, -y_pos, 0];
+                    const translation = [0, -y_pos, 0.01]; // Z-offset to prevent fighting with canvas
                     glMatrix.mat4.fromRotationTranslationScale(lineLocalMatrix, rotQuatHorizontal, translation, scale);
 
                     const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);
@@ -1188,7 +1188,7 @@ async function runXRRendering(session, mode) {
                     const x_pos = (i / xx) * 2.0 - 1.0;
                     const lineLocalMatrix = glMatrix.mat4.create();
                     const scale = [2.0, gridLineThickness, gridLineHeight];
-                    const translation = [x_pos, 0, 0];
+                    const translation = [x_pos, 0, 0.01]; // Z-offset to prevent fighting with canvas
                     glMatrix.mat4.fromRotationTranslationScale(lineLocalMatrix, rotQuatVertical, translation, scale);
 
                     const finalLineMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), gridAndPiecesContainer, lineLocalMatrix);

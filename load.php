@@ -1,4 +1,4 @@
-<div id="hdr"><center><b>Circles v3.1.9 &nbsp&nbsp&nbsp by DerBen</b>&nbsp&nbsp&nbsp
+<div id="hdr"><center><b>Circles v3.2.0 &nbsp&nbsp&nbsp by DerBen</b>&nbsp&nbsp&nbsp
 <button id='circstart'>-New Game-</button>
 <button id='circtogsetup'>-Settings Toggle-</button>
 <button id='circtoghelp'>-Help Toggle-</button>
