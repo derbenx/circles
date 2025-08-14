@@ -1021,6 +1021,20 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, cone.normals, gl.STATIC_DRAW);
 
+    const sphere = createSphere(1.0, 16, 16); // Unit sphere
+    const sphereBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: sphere.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, sphere.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
+
     function drawMarker(gl, programInfo, buffers, modelMatrix, view) {
         const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
         const normalMatrix = glMatrix.mat4.create();
@@ -1262,6 +1276,34 @@ async function runXRRendering(session, mode) {
                                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
                             }
+                        }
+                    }
+                }
+
+                // Draw controller spheres
+                for (const source of frame.session.inputSources) {
+                    if (source.gripSpace) {
+                        const gripPose = frame.getPose(source.gripSpace, referenceSpace);
+                        if (gripPose) {
+                            const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                            glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]); // 3cm radius sphere
+
+                            const finalControllerModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, controllerMatrix);
+                            const controllerNormalMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.invert(controllerNormalMatrix, controllerMatrix);
+                            glMatrix.mat4.transpose(controllerNormalMatrix, controllerNormalMatrix);
+
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalControllerModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, controllerNormalMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.8, 0.8, 0.8, 1.0]); // Light grey
+
+                            gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
+
+                            gl.drawElements(gl.TRIANGLES, sphereBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
                         }
                     }
                 }
@@ -1757,3 +1799,44 @@ document.getElementById("btn-xr").onclick = toggleAR;
         }
     }
 })();
+
+function createSphere(radius, latitudeBands, longitudeBands) {
+    const vertices = [];
+    const normals = [];
+    const indices = [];
+
+    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
+        const theta = latNumber * Math.PI / latitudeBands;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+            const phi = longNumber * 2 * Math.PI / longitudeBands;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+
+            const x = cosPhi * sinTheta;
+            const y = cosTheta;
+            const z = sinPhi * sinTheta;
+
+            normals.push(x, y, z);
+            vertices.push(radius * x, radius * y, radius * z);
+        }
+    }
+
+    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
+        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
+            const first = (latNumber * (longitudeBands + 1)) + longNumber;
+            const second = first + longitudeBands + 1;
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        indices: new Uint16Array(indices),
+        vertexCount: indices.length
+    };
+}
