@@ -1010,6 +1010,17 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, arcLeft.normals, gl.STATIC_DRAW);
 
+    const cone = createCone(1.0, 1.0, 12); // Unit cone
+    const coneBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: cone.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, cone.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, cone.normals, gl.STATIC_DRAW);
+
     function drawMarker(gl, programInfo, buffers, modelMatrix, view) {
         const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
         const normalMatrix = glMatrix.mat4.create();
@@ -1271,6 +1282,30 @@ async function runXRRendering(session, mode) {
                     mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
                     mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
                     drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
+
+                    // Draw 3D cone cursor
+                    gl.useProgram(solidColorProgramInfo.program);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                    const coneMatrix = glMatrix.mat4.create();
+                    // Hover 5cm above the board
+                    glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
+                    // Scale it to be small, and point it downwards
+                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
+                    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Rotate 180 deg on X to point down
+
+                    const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
+                    const coneNormalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
+                    glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
+
+                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
+                    gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
                 }
             }
         }
@@ -1554,6 +1589,52 @@ function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
     vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2, o_x2, -halfHeight, o_z2);
     vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
     for(let j=0; j<6; j++) normals.push(...cap2Normal);
+
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createCone(radius, height, segments) {
+    const vertices = [];
+    const normals = [];
+    const tip = [0, height / 2, 0];
+
+    // Sides
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+
+        const p1 = [x1, -height/2, z1];
+        const p2 = [x2, -height/2, z2];
+
+        vertices.push(...tip, ...p1, ...p2);
+
+        const n1 = [x1 * height, radius, z1 * height];
+        const n2 = [x2 * height, radius, z2 * height];
+        const len1 = Math.sqrt(n1[0]*n1[0] + n1[1]*n1[1] + n1[2]*n1[2]);
+        const len2 = Math.sqrt(n2[0]*n2[0] + n2[1]*n2[1] + n2[2]*n2[2]);
+        const normal1 = [n1[0]/len1, n1[1]/len1, n1[2]/len1];
+        const normal2 = [n2[0]/len2, n2[1]/len2, n2[2]/len2];
+
+        const tipNormal = [(normal1[0]+normal2[0])/2, (normal1[1]+normal2[1])/2, (normal1[2]+normal2[2])/2];
+        const tipNormalLen = Math.sqrt(tipNormal[0]*tipNormal[0] + tipNormal[1]*tipNormal[1] + tipNormal[2]*tipNormal[2]);
+
+        normals.push(tipNormal[0]/tipNormalLen, tipNormal[1]/tipNormalLen, tipNormal[2]/tipNormalLen);
+        normals.push(...normal1);
+        normals.push(...normal2);
+    }
+
+    // Base cap
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+
+        vertices.push(0, -height/2, 0, x2, -height/2, z2, x1, -height/2, z1);
+        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
+    }
 
     return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
 }
