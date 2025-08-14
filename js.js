@@ -1538,7 +1538,7 @@ function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
     // Start Cap
     const ang1 = startAngle;
     const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-    const i_x1 = innerRadius * Math.cos(ang1);
+    const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
     const cap1Normal = [Math.sin(ang1), 0, -Math.cos(ang1)];
     vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHeight, i_z1);
     vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1);
@@ -1547,7 +1547,7 @@ function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
     // End Cap
     const ang2 = endAngle;
     const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-    const i_x2 = innerRadius * Math.cos(ang2);
+    const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
     const cap2Normal = [-Math.sin(ang2), 0, Math.cos(ang2)];
     vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2, o_x2, -halfHeight, o_z2);
     vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
