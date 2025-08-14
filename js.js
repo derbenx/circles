@@ -1150,6 +1150,52 @@ async function runXRRendering(session, mode) {
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
+                // Draw 3D Grid Lines
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.5, 0.0, 1.0]); // Dark green
+                const gridLineThickness = 0.01;
+                const gridLineHeight = 0.1;
+
+                // Bind the stick buffers once for all grid lines
+                gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+                gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+                gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                // Horizontal lines
+                for (let i = 0; i <= yy; i++) {
+                    const y_pos = (i / yy) * 2.0 - 1.0;
+                    const lineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(lineModelMatrix, vrCanvasPosition);
+                    glMatrix.mat4.translate(lineModelMatrix, lineModelMatrix, [0, -y_pos, 0]);
+                    glMatrix.mat4.scale(lineModelMatrix, lineModelMatrix, [2.0 * (xx/yy), gridLineThickness, gridLineHeight]);
+
+                    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, lineModelMatrix);
+                    const normalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(normalMatrix, lineModelMatrix);
+                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+                    gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
+                }
+
+                // Vertical lines
+                for (let i = 0; i <= xx; i++) {
+                    const x_pos = (i / xx) * 2.0 - 1.0;
+                    const lineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(lineModelMatrix, vrCanvasPosition);
+                    glMatrix.mat4.translate(lineModelMatrix, lineModelMatrix, [x_pos * (xx/yy), 0, 0]);
+                    glMatrix.mat4.rotate(lineModelMatrix, lineModelMatrix, Math.PI / 2, [0, 0, 1]);
+                    glMatrix.mat4.scale(lineModelMatrix, lineModelMatrix, [2.0, gridLineThickness, gridLineHeight]);
+
+                    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, lineModelMatrix);
+                    const normalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(normalMatrix, lineModelMatrix);
+                    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+                    gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
+                }
+
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
@@ -1228,14 +1274,14 @@ async function runXRRendering(session, mode) {
                             if (moveMarker === '2' || moveMarker === '4') { // Horizontal bar
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.05, 0.05]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
                             if (moveMarker === '2' || moveMarker === '3') { // Vertical bar
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
                                 glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.05, 0.05]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
                                 drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
                             }
 
@@ -1243,19 +1289,19 @@ async function runXRRendering(session, mode) {
                             if (rotateMarker === '1') { // O
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
                             }
                             if (rotateMarker === '2') { // Bottom semi-circle
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
                             }
                             if (rotateMarker === '3') { // Left-opening semi-circle
                                 const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
                                 glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.05, 0.6]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
                                 drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
                             }
                         }
