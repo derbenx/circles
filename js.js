@@ -1307,6 +1307,8 @@ async function runXRRendering(session, mode) {
 
                             // Draw controller ray
                             const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                            // Apply the same downward rotation as the intersection test
+                            glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
                             // move the ray forward by half its length so it appears to originate from the controller's center
                             glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                             glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]); // 0.5mm wide, 1m long
