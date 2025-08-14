@@ -965,6 +965,68 @@ async function runXRRendering(session, mode) {
         vertexCount: halfCylinder.vertices.length / 3,
     };
 
+    // Marker models
+    const stick = createCuboid(1.0, 1.0, 1.0); // Will be scaled
+    const stickBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: stick.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+
+    const ring = createRing(0.5, 0.35, 1.0, 16); // Will be scaled
+    const ringBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: ring.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, ring.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, ring.normals, gl.STATIC_DRAW);
+
+    const arcBottom = createArc(0.5, 0.35, 1.0, 8, 0, Math.PI);
+    const arcBottomBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: arcBottom.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.normals, gl.STATIC_DRAW);
+
+    const arcLeft = createArc(0.5, 0.35, 1.0, 8, Math.PI / 2, Math.PI * 1.5);
+    const arcLeftBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: arcLeft.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.normals, gl.STATIC_DRAW);
+
+    function drawMarker(gl, programInfo, buffers, modelMatrix, view) {
+        const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+        const normalMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.invert(normalMatrix, modelMatrix);
+        glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+
+        gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+        gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
+    }
+
     const colorMap = {
         'g': [0.0, 1.0, 0.0, 1.0], // green
         'r': [1.0, 0.0, 0.0, 1.0], // red
@@ -1153,6 +1215,49 @@ async function runXRRendering(session, mode) {
                                     gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
                                 }
                             }
+
+                            // Draw Markers
+                            const markerColor = [0.0, 0.0, 0.0, 1.0]; // Black
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, markerColor);
+
+                            const moveMarker = pieceData.charAt(0);
+                            const rotateMarker = pieceData.charAt(1);
+                            const markerHeight = 0.15;
+
+                            // Draw movement markers (+, -, |)
+                            if (moveMarker === '2' || moveMarker === '4') { // Horizontal bar
+                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.8, 0.1, 0.1]);
+                                drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
+                            }
+                            if (moveMarker === '2' || moveMarker === '3') { // Vertical bar
+                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+                                glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.8, 0.1, 0.1]);
+                                drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
+                            }
+
+                            // Draw rotation/flip markers (O, U, C)
+                            if (rotateMarker === '1') { // O
+                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
+                            }
+                            if (rotateMarker === '2') { // Bottom semi-circle
+                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
+                            }
+                            if (rotateMarker === '3') { // Left-opening semi-circle
+                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.5, 0.1, 0.5]);
+                                drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
+                            }
                         }
                     }
                 }
@@ -1312,6 +1417,143 @@ function createHalfCylinder(radius, height, segments) {
     }
 
     return { vertices, normals };
+}
+
+function createCuboid(width, height, depth) {
+    const w = width / 2, h = height / 2, d = depth / 2;
+    const vertices = [
+        // Front
+        -w,-h,d,  w,-h,d,  w,h,d,  -w,-h,d,  w,h,d,  -w,h,d,
+        // Back
+        -w,-h,-d, -w,h,-d,  w,h,-d, -w,-h,-d,  w,h,-d,  w,-h,-d,
+        // Top
+        -w,h,d,  w,h,d,  w,h,-d, -w,h,d,  w,h,-d, -w,h,-d,
+        // Bottom
+        -w,-h,d, -w,-h,-d,  w,-h,-d, -w,-h,d,  w,-h,-d,  w,-h,d,
+        // Left
+        -w,-h,d, -w,h,-d, -w,-h,-d, -w,-h,d, -w,h,d, -w,h,-d,
+        // Right
+        w,-h,d,  w,-h,-d,  w,h,-d, w,-h,d,  w,h,-d,  w,h,d,
+    ];
+    const normals = [
+        // Front
+        0,0,1, 0,0,1, 0,0,1, 0,0,1, 0,0,1, 0,0,1,
+        // Back
+        0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
+        // Top
+        0,1,0, 0,1,0, 0,1,0, 0,1,0, 0,1,0, 0,1,0,
+        // Bottom
+        0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
+        // Left
+        -1,0,0, -1,0,0, -1,0,0, -1,0,0, -1,0,0, -1,0,0,
+        // Right
+        1,0,0, 1,0,0, 1,0,0, 1,0,0, 1,0,0, 1,0,0,
+    ];
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: 36 };
+}
+
+function createRing(outerRadius, innerRadius, height, segments) {
+    const vertices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+
+        // Top face
+        vertices.push(o_x1, halfHeight, o_z1,  o_x2, halfHeight, o_z2,  i_x1, halfHeight, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1,  o_x2, halfHeight, o_z2,  i_x2, halfHeight, i_z2);
+        for(let j=0; j<6; j++) normals.push(0,1,0);
+
+        // Bottom face
+        vertices.push(o_x1, -halfHeight, o_z1,  i_x1, -halfHeight, i_z1,  o_x2, -halfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, -halfHeight, i_z2,  o_x2, -halfHeight, o_z2);
+        for(let j=0; j<6; j++) normals.push(0,-1,0);
+
+        // Outer face
+        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
+        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
+        vertices.push(o_x1, halfHeight, o_z1,  o_x1, -halfHeight, o_z1,  o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1,  o_x2, -halfHeight, o_z2,  o_x2, halfHeight, o_z2);
+        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
+        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
+
+        // Inner face
+        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
+        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
+        vertices.push(i_x1, halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x1, -halfHeight, i_z1);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x2, -halfHeight, i_z2);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx1,0,i_nz1);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
+    }
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createArc(outerRadius, innerRadius, height, segments, startAngle, endAngle) {
+    const vertices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+    const angleRange = endAngle - startAngle;
+
+    for (let i = 0; i < segments; i++) {
+        const ang1 = startAngle + (i / segments) * angleRange;
+        const ang2 = startAngle + ((i + 1) / segments) * angleRange;
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+
+        // Top face
+        vertices.push(o_x1, halfHeight, o_z1, o_x2, halfHeight, o_z2, i_x1, halfHeight, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1, o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2);
+        for(let j=0; j<6; j++) normals.push(0,1,0);
+
+        // Bottom face
+        vertices.push(o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1, o_x2, -halfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+        for(let j=0; j<6; j++) normals.push(0,-1,0);
+
+        // Outer face
+        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
+        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
+        vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1, o_x2, -halfHeight, o_z2, o_x2, halfHeight, o_z2);
+        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
+        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
+
+        // Inner face
+        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
+        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
+        vertices.push(i_x1, halfHeight, i_z1, i_x1, -halfHeight, i_z1, i_x2, halfHeight, i_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, i_x2, halfHeight, i_z2);
+        normals.push(i_nx1,0,i_nz1, i_nx1,0,i_nz1, i_nx2,0,i_nz2);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
+    }
+
+    // Start Cap
+    const ang1 = startAngle;
+    const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+    const i_x1 = innerRadius * Math.cos(ang1);
+    const cap1Normal = [Math.sin(ang1), 0, -Math.cos(ang1)];
+    vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHeight, i_z1);
+    vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1);
+    for(let j=0; j<6; j++) normals.push(...cap1Normal);
+
+    // End Cap
+    const ang2 = endAngle;
+    const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+    const i_x2 = innerRadius * Math.cos(ang2);
+    const cap2Normal = [-Math.sin(ang2), 0, Math.cos(ang2)];
+    vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+    vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+    for(let j=0; j<6; j++) normals.push(...cap2Normal);
+
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
 }
 
 function loadShader(gl, type, source) {
