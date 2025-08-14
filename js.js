@@ -1304,6 +1304,28 @@ async function runXRRendering(session, mode) {
                             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
 
                             gl.drawElements(gl.TRIANGLES, sphereBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+
+                            // Draw controller ray
+                            const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                            // move the ray forward by half its length so it appears to originate from the controller's center
+                            glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
+                            glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]); // 0.5mm wide, 1m long
+
+                            const finalRayModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, rayMatrix);
+                            const rayNormalMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.invert(rayNormalMatrix, rayMatrix);
+                            glMatrix.mat4.transpose(rayNormalMatrix, rayNormalMatrix);
+
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]); // Green
+
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                            gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
                         }
                     }
                 }
