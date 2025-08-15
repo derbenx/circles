@@ -977,6 +977,16 @@ async function runXRRendering(session, mode) {
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
 
+    const gridLineBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: stick.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridLineBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridLineBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+
     const ring = createRing(0.5, 0.465, 1.0, 16); // Will be scaled
     const ringBuffers = {
         position: gl.createBuffer(),
@@ -1264,6 +1274,34 @@ async function runXRRendering(session, mode) {
                 gl.useProgram(solidColorProgramInfo.program);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
+
+                // Draw 3D grid
+                const pieceHeight = 0.36 / yy; // Based on cylinder height 0.2 and diameter calculation
+                const gridHeight = pieceHeight / 3;
+                const lineWidth = 0.005;
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.4, 0.4, 0.4, 1.0]);
+
+                // Draw horizontal lines
+                for (let y = 0; y <= yy; y++) {
+                    const y_pos = (y / yy) * 2.0 - 1.0;
+                    const gridLineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(gridLineModelMatrix, [0, -y_pos, gridHeight / 2 + 0.001]);
+                    glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [2.0, lineWidth, gridHeight]);
+                    const finalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.multiply(finalMatrix, canvasModelMatrix, gridLineModelMatrix);
+                    drawMarker(gl, solidColorProgramInfo, gridLineBuffers, finalMatrix, view);
+                }
+
+                // Draw vertical lines
+                for (let x = 0; x <= xx; x++) {
+                    const x_pos = (x / xx) * 2.0 - 1.0;
+                    const gridLineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(gridLineModelMatrix, [x_pos, 0, gridHeight / 2 + 0.001]);
+                    glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [lineWidth / (xx/yy), 2.0, gridHeight]);
+                    const finalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.multiply(finalMatrix, canvasModelMatrix, gridLineModelMatrix);
+                    drawMarker(gl, solidColorProgramInfo, gridLineBuffers, finalMatrix, view);
+                }
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
