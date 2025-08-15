@@ -1312,7 +1312,7 @@ async function runXRRendering(session, mode) {
                             final_x = orig_x_local;
                         }
 
-                        glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [final_x, -final_y, 0.02]);
+                        glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [final_x, -final_y, 0.1]);
                         glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
                         const tileDim = 2.0 / yy;
                         const diameter = tileDim * 0.90;
