@@ -802,7 +802,7 @@ async function runXRRendering(session, mode) {
         referenceSpace = await session.requestReferenceSpace("local");
     }
 
-    let vrIntersectionPoint = null;
+    let vrIntersection = null;
     let yButtonPressedLastFrame = false;
     let aButtonPressedLastFrame = false;
 
@@ -813,7 +813,7 @@ async function runXRRendering(session, mode) {
         wipe();
         return;
       }
-      if (vrIntersectionPoint) {
+      if (vrIntersection) {
         clkd({ preventDefault: () => {} });
       }
     });
@@ -823,7 +823,7 @@ async function runXRRendering(session, mode) {
         ignoreNextSelectEnd = false;
         return;
       }
-      if (vrIntersectionPoint) {
+      if (vrIntersection) {
         clku({ preventDefault: () => {} });
       }
     });
@@ -1052,6 +1052,95 @@ async function runXRRendering(session, mode) {
         gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
     }
 
+    function draw3dPiece(pieceData, pieceModelMatrix, view) {
+        const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
+
+        const normalMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.invert(normalMatrix, pieceModelMatrix);
+        glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+
+        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
+        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
+        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
+        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
+        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]);
+        gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
+        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
+        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+        const nubColors = pieceData.substr(2, 4);
+        for (let i = 0; i < 4; i++) {
+            const colorChar = nubColors.charAt(i);
+            if (colorChar !== '0') {
+                const nubLocalMatrix = glMatrix.mat4.create();
+                const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ];
+                const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
+                glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
+                glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]);
+                const finalNubMatrix = glMatrix.mat4.create();
+                glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
+                const nubScale = 1 / 1.2;
+                glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
+                const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
+
+                const nubNormalMatrix = glMatrix.mat4.create();
+                glMatrix.mat4.invert(nubNormalMatrix, finalNubMatrix);
+                glMatrix.mat4.transpose(nubNormalMatrix, nubNormalMatrix);
+
+                gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
+                gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, nubNormalMatrix);
+                const color = colorMap[colorChar] || [1,1,1,1];
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
+                gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
+            }
+        }
+
+        const markerColor = [0.0, 0.0, 0.0, 1.0];
+        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, markerColor);
+        const moveMarker = pieceData.charAt(0);
+        const rotateMarker = pieceData.charAt(1);
+        const markerHeight = 0.15;
+        if (moveMarker === '2' || moveMarker === '4') {
+            const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+            glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
+            drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
+        }
+        if (moveMarker === '2' || moveMarker === '3') {
+            const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+            glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+            glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
+            drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
+        }
+        if (rotateMarker === '1') {
+            const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+            glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+            drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
+        }
+        if (rotateMarker === '2') {
+            const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+            glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+            drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
+        }
+        if (rotateMarker === '3') {
+            const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+            glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+            drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
+        }
+    }
+
     const colorMap = {
         'g': [0.0, 1.0, 0.0, 1.0], // green
         'r': [1.0, 0.0, 0.0, 1.0], // red
@@ -1103,7 +1192,7 @@ async function runXRRendering(session, mode) {
             }
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            vrIntersectionPoint = null;
+            vrIntersection = null;
             let leftController = null;
             let rightController = null;
             let controllerPosition = null;
@@ -1137,7 +1226,7 @@ async function runXRRendering(session, mode) {
                         controllerPosition = gripPose.transform.position;
                         const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                         if (intersection) {
-                            vrIntersectionPoint = intersection.world;
+                            vrIntersection = intersection;
                             mx = ((intersection.local[0] + 1) / 2) * ww;
                             my = ((1 - intersection.local[1]) / 2) * hh;
                         }
@@ -1149,7 +1238,7 @@ async function runXRRendering(session, mode) {
                     if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
                     const aButton = rightController.gamepad.buttons[4];
                     if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
-                        if (vrIntersectionPoint) {
+                        if (vrIntersection) {
                             let gx_for_rotate = Math.floor((mx/ww)*xx);
                             let gy_for_rotate = Math.floor((my/hh)*yy);
                             if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
@@ -1178,6 +1267,9 @@ async function runXRRendering(session, mode) {
 
                 for (let y = 0; y < yy; y++) {
                     for (let x = 0; x < xx; x++) {
+                         if (drag === 'y' && x === gx && y === gy) {
+                            continue; // Skip drawing the dragged piece at its original spot
+                        }
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
                             const pieceModelMatrix = glMatrix.mat4.create();
                             glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
@@ -1189,94 +1281,44 @@ async function runXRRendering(session, mode) {
                             const tileDim = 2.0 / yy;
                             const diameter = tileDim * 0.90;
                             glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
-                            const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, pieceModelMatrix);
-
-                            const normalMatrix = glMatrix.mat4.create();
-                            glMatrix.mat4.invert(normalMatrix, pieceModelMatrix);
-                            glMatrix.mat4.transpose(normalMatrix, normalMatrix);
-
-                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, normalMatrix);
-
-                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
-                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                            gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
-                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
-                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 0.8, 0.0, 1.0]);
-                            gl.drawElements(gl.TRIANGLES, cylinderBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
-
-                            gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
-                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                            gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
-                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-
-                            const pieceData = grid[x][y];
-                            const nubColors = pieceData.substr(2, 4);
-                            for (let i = 0; i < 4; i++) {
-                                const colorChar = nubColors.charAt(i);
-                                if (colorChar !== '0') {
-                                    const nubLocalMatrix = glMatrix.mat4.create();
-                                    const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ];
-                                    const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
-                                    glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
-                                    glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]);
-                                    const finalNubMatrix = glMatrix.mat4.create();
-                                    glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
-                                    const nubScale = 1 / 1.2;
-                                    glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
-                                    const finalNubModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, finalNubMatrix);
-
-                                    const nubNormalMatrix = glMatrix.mat4.create();
-                                    glMatrix.mat4.invert(nubNormalMatrix, finalNubMatrix);
-                                    glMatrix.mat4.transpose(nubNormalMatrix, nubNormalMatrix);
-
-                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalNubModelViewMatrix);
-                                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, nubNormalMatrix);
-                                    const color = colorMap[colorChar] || [1,1,1,1];
-                                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, color);
-                                    gl.drawArrays(gl.TRIANGLES, 0, halfCylinderBuffers.vertexCount);
-                                }
-                            }
-
-                            const markerColor = [0.0, 0.0, 0.0, 1.0];
-                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, markerColor);
-                            const moveMarker = pieceData.charAt(0);
-                            const rotateMarker = pieceData.charAt(1);
-                            const markerHeight = 0.15;
-                            if (moveMarker === '2' || moveMarker === '4') {
-                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
-                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
-                                drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
-                            }
-                            if (moveMarker === '2' || moveMarker === '3') {
-                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
-                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
-                                drawMarker(gl, solidColorProgramInfo, stickBuffers, markerMatrix, view);
-                            }
-                            if (rotateMarker === '1') {
-                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
-                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
-                                drawMarker(gl, solidColorProgramInfo, ringBuffers, markerMatrix, view);
-                            }
-                            if (rotateMarker === '2') {
-                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
-                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
-                                drawMarker(gl, solidColorProgramInfo, arcBottomBuffers, markerMatrix, view);
-                            }
-                            if (rotateMarker === '3') {
-                                const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
-                                glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
-                                glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
-                                drawMarker(gl, solidColorProgramInfo, arcLeftBuffers, markerMatrix, view);
-                            }
+                            draw3dPiece(grid[x][y], pieceModelMatrix, view);
                         }
+                    }
+                }
+
+                // Draw the dragged piece at the cursor's position
+                if (drag === 'y' && vrIntersection) {
+                    const pieceData = grid[gx][gy];
+                    // Make sure it's a movable piece
+                    if (pieceData && pieceData.charAt(0) > 1) {
+                        const pieceModelMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
+                        glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
+
+                        // Use cursor's local coordinates for position
+                        const x_local = vrIntersection.local[0];
+                        const y_local = vrIntersection.local[1];
+
+                        // Apply constraints based on piece move type
+                        let final_x = x_local;
+                        let final_y = y_local;
+                        const moveType = pieceData.charAt(0);
+
+                        if (moveType === '3') { // Horizontal only
+                            const orig_y_local = (gy + 0.5) / yy * 2.0 - 1.0;
+                            final_y = orig_y_local;
+                        } else if (moveType === '4') { // Vertical only
+                            const orig_x_local = (gx + 0.5) / xx * 2.0 - 1.0;
+                            final_x = orig_x_local;
+                        }
+
+                        glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [final_x, -final_y, 0.02]);
+                        glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
+                        const tileDim = 2.0 / yy;
+                        const diameter = tileDim * 0.90;
+                        glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
+
+                        draw3dPiece(pieceData, pieceModelMatrix, view);
                     }
                 }
 
@@ -1332,11 +1374,11 @@ async function runXRRendering(session, mode) {
                     }
                 }
 
-                if (vrIntersectionPoint) {
+                if (vrIntersection) {
                     const { mat4, vec3, quat } = glMatrix;
 
                     const pointerMatrix = mat4.create();
-                    mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
+                    mat4.translate(pointerMatrix, pointerMatrix, vrIntersection.world);
                     mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
                     mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
                     drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
@@ -1350,7 +1392,7 @@ async function runXRRendering(session, mode) {
 
                     const coneMatrix = glMatrix.mat4.create();
 
-                    const coneHoverPos = vec3.clone(vrIntersectionPoint);
+                    const coneHoverPos = vec3.clone(vrIntersection.world);
                     // Raise the cursor by a fixed amount on the Z axis (out from the board).
                     coneHoverPos[2] += 0.2;
                     glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
