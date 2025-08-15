@@ -1350,8 +1350,9 @@ async function runXRRendering(session, mode) {
 
                     const coneMatrix = glMatrix.mat4.create();
 
-                    // Hover 5cm above the board
-                    glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
+                    const coneHoverPos = vec3.create();
+                    vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.2);
+                    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
                     // Scale it to be small, and point it downwards
                     glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
                     glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Rotate 180 deg on X to point down
