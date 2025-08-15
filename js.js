@@ -1297,7 +1297,7 @@ async function runXRRendering(session, mode) {
 
                         // Use cursor's local coordinates for position
                         const x_local = vrIntersection.local[0];
-                        const y_local = vrIntersection.local[1];
+                        const y_local = -vrIntersection.local[1];
 
                         // Apply constraints based on piece move type
                         let final_x = x_local;
