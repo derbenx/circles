@@ -1192,8 +1192,7 @@ async function runXRRendering(session, mode) {
         const pose = frame.getViewerPose(referenceSpace);
         if (pose) {
             if (vrShowAlert) {
-                alertCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
-                alertCtx.fillRect(0, 0, alertCanvas.width, alertCanvas.height);
+                alertCtx.clearRect(0, 0, alertCanvas.width, alertCanvas.height);
                 alertCtx.fillStyle = "white";
                 alertCtx.font = "40px sans-serif";
                 alertCtx.textAlign = "center";
@@ -1464,8 +1463,8 @@ async function runXRRendering(session, mode) {
                 if (vrShowAlert) {
                     const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
                     glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
-                    glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
-                    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
+                    // No rotation, but scale X by -1 to un-mirror the text
+                    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [-1.0, 0.5, 1.0]);
                     const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, alertModelMatrix);
                     drawScene(gl, textureProgramInfo, alertBuffers, alertTexture, view.projectionMatrix, modelViewMatrix);
                 }
