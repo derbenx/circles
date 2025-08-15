@@ -963,7 +963,7 @@ async function runXRRendering(session, mode) {
         vertexCount: cylinder.indices.length,
     };
 
-    const halfCylinder = createHalfCylinder(.2,.5, 8);
+    const halfCylinder = createHalfCylinder(.2,.2, 8);
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
@@ -1102,7 +1102,7 @@ async function runXRRendering(session, mode) {
             const colorChar = nubColors.charAt(i);
             if (colorChar !== '0') {
                 const nubLocalMatrix = glMatrix.mat4.create();
-                const translations = [ [-0.5, 0, 0], [0, 0, -0.5], [0.5, 0, 0], [0, 0, 0.5] ];
+                const translations = [ [-0.48, 0, 0], [0, 0, -0.48], [0.48, 0, 0], [0, 0, 0.48] ];
                 const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
                 glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
                 glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]);
@@ -1262,7 +1262,7 @@ async function runXRRendering(session, mode) {
 
                 const thumbstickX = rightController.gamepad.axes[2];
                 const rotateSpeed = 0.02;
-                if (Math.abs(thumbstickX) > 0.1) {
+                if (Math.abs(thumbstickX) > 0.4) {
                     vrCanvasRotationY += thumbstickX * rotateSpeed;
                 }
 
@@ -1473,11 +1473,17 @@ async function runXRRendering(session, mode) {
                 if (vrIntersection) {
                     const { mat4, vec3, quat } = glMatrix;
 
-                    const pointerMatrix = mat4.create();
-                    mat4.translate(pointerMatrix, pointerMatrix, vrIntersection.world);
-                    mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
-                    mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
-                    drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
+                    const pointerModelMatrix = mat4.create();
+                    const boardRotation = quat.create();
+                    mat4.getRotation(boardRotation, canvasModelMatrix);
+                    mat4.fromRotationTranslationScale(
+                        pointerModelMatrix,
+                        boardRotation,
+                        vrIntersection.world,
+                        [0.025, 0.025, 0.025]
+                    );
+                    const pointerModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, pointerModelMatrix);
+                    drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerModelViewMatrix);
 
                     // Draw 3D cone cursor
                     gl.useProgram(solidColorProgramInfo.program);
