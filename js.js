@@ -1102,7 +1102,7 @@ async function runXRRendering(session, mode) {
             const colorChar = nubColors.charAt(i);
             if (colorChar !== '0') {
                 const nubLocalMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, [0, -0.1, 0]); // Shift forward
+                glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, [0, 0.05, 0]); // Shift forward
                 const translations = [ [-0.51, 0, 0], [0, 0, -0.51], [0.51, 0, 0], [0, 0, 0.51] ];
                 const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
                 glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
