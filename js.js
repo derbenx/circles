@@ -1350,8 +1350,9 @@ async function runXRRendering(session, mode) {
 
                     const coneMatrix = glMatrix.mat4.create();
 
-                    const coneHoverPos = vec3.create();
-                    vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.2);
+                    const coneHoverPos = vec3.clone(vrIntersectionPoint);
+                    // Raise the cursor by a fixed amount on the Z axis (out from the board).
+                    coneHoverPos[2] += 0.2;
                     glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
                     // Scale it to be small, and point it downwards
                     glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
