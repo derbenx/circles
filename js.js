@@ -804,6 +804,8 @@ async function runXRRendering(session, mode) {
 
     let vrIntersection = null;
     let primaryButtonPressedLastFrame = false;
+    let yButtonPressedLastFrame = false;
+    let bButtonPressedLastFrame = false;
     let activeController = null;
     let lastActiveController = null;
 
@@ -1248,7 +1250,15 @@ async function runXRRendering(session, mode) {
                     session.end();
                 }
                 yButtonPressedLastFrame = yButton ? yButton.pressed : false;
+            }
 
+            if (rightController && rightController.gamepad) {
+                const bButton = rightController.gamepad.buttons[5];
+                if (bButton && bButton.pressed && !bButtonPressedLastFrame) {
+                    document.getElementById("btn-vr").disabled = false;
+                    session.end();
+                }
+                bButtonPressedLastFrame = bButton ? bButton.pressed : false;
             }
 
             if (activeController) {
@@ -1288,12 +1298,6 @@ async function runXRRendering(session, mode) {
                     }
                     primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
 
-                    // Right-hand specific controls
-                    if (activeController.handedness === 'right') {
-                        const thumbstickY = activeController.gamepad.axes[3];
-                        const zoomSpeed = 0.05;
-                        if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
-                    }
                 }
             }
 
