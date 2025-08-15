@@ -1304,10 +1304,10 @@ async function runXRRendering(session, mode) {
                         let final_y = y_local;
                         const moveType = pieceData.charAt(0);
 
-                        if (moveType === '3') { // Horizontal only
+                        if (moveType === '4') { // Horizontal only
                             const orig_y_local = (gy + 0.5) / yy * 2.0 - 1.0;
                             final_y = orig_y_local;
-                        } else if (moveType === '4') { // Vertical only
+                        } else if (moveType === '3') { // Vertical only
                             const orig_x_local = (gx + 0.5) / xx * 2.0 - 1.0;
                             final_x = orig_x_local;
                         }
