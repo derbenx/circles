@@ -803,10 +803,9 @@ async function runXRRendering(session, mode) {
     }
 
     let vrIntersection = null;
-    let yButtonPressedLastFrame = false;
-    let aButtonPressedLastFrame = false;
-    let xButtonPressedLastFrame = false;
+    let primaryButtonPressedLastFrame = false;
     let activeController = null;
+    let lastActiveController = null;
 
     session.addEventListener('selectstart', (event) => {
       activeController = event.inputSource;
@@ -1232,6 +1231,11 @@ async function runXRRendering(session, mode) {
                 activeController = rightController || leftController;
             }
 
+            if (lastActiveController && activeController !== lastActiveController) {
+                drag = 'n';
+            }
+            lastActiveController = activeController;
+
             if (leftController && leftController.gamepad) {
                 const thumbstickX = leftController.gamepad.axes[2];
                 const thumbstickY = leftController.gamepad.axes[3];
@@ -1245,18 +1249,6 @@ async function runXRRendering(session, mode) {
                 }
                 yButtonPressedLastFrame = yButton ? yButton.pressed : false;
 
-                const xButton = leftController.gamepad.buttons[4];
-                if (xButton && xButton.pressed && !xButtonPressedLastFrame) {
-                    if (vrIntersection) {
-                        let gx_for_rotate = Math.floor((mx/ww)*xx);
-                        let gy_for_rotate = Math.floor((my/hh)*yy);
-                        if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
-                            rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
-                            sCook("prog", prog());
-                        }
-                    }
-                }
-                xButtonPressedLastFrame = xButton ? xButton.pressed : false;
             }
 
             if (activeController) {
@@ -1272,12 +1264,19 @@ async function runXRRendering(session, mode) {
                         }
                     }
                 }
-                if (activeController.gamepad && activeController.handedness === 'right') {
-                    const thumbstickY = activeController.gamepad.axes[3];
-                    const zoomSpeed = 0.05;
-                    if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
-                    const aButton = activeController.gamepad.buttons[4];
-                    if (aButton && aButton.pressed && !aButtonPressedLastFrame) {
+                if (activeController.gamepad) {
+                    // Symmetrical "end session" button on both controllers
+                    const secondaryButton = activeController.gamepad.buttons[5];
+                    if (secondaryButton && secondaryButton.pressed) {
+                        // This check is simple and doesn't need a "last frame" state
+                        // because ending the session is a one-off event.
+                        document.getElementById("btn-vr").disabled = false;
+                        session.end();
+                    }
+
+                    // Symmetrical rotation on primary button
+                    const primaryButton = activeController.gamepad.buttons[4];
+                    if (primaryButton && primaryButton.pressed && !primaryButtonPressedLastFrame) {
                         if (vrIntersection) {
                             let gx_for_rotate = Math.floor((mx/ww)*xx);
                             let gy_for_rotate = Math.floor((my/hh)*yy);
@@ -1287,7 +1286,14 @@ async function runXRRendering(session, mode) {
                             }
                         }
                     }
-                    aButtonPressedLastFrame = aButton ? aButton.pressed : false;
+                    primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
+
+                    // Right-hand specific controls
+                    if (activeController.handedness === 'right') {
+                        const thumbstickY = activeController.gamepad.axes[3];
+                        const zoomSpeed = 0.05;
+                        if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[2] += thumbstickY * zoomSpeed; }
+                    }
                 }
             }
 
