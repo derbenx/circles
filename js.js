@@ -1309,16 +1309,18 @@ async function runXRRendering(session, mode) {
                             continue; // Skip drawing the dragged piece at its original spot
                         }
                         if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
-                            const pieceModelMatrix = glMatrix.mat4.create();
-                            glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
+                            const localPieceMatrix = glMatrix.mat4.create();
                             const x_local = (x + 0.5) / xx * 2.0 - 1.0;
                             const y_local = (y + 0.5) / yy * 2.0 - 1.0;
-                            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x_local, -y_local, 0.02]);
-                            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
+                            glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [x_local, -y_local, 0.02]);
+                            glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
                             const tileDim = 2.0 / yy;
                             const diameter = tileDim * 0.90;
-                            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
+                            glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+
+                            const pieceModelMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.multiply(pieceModelMatrix, canvasModelMatrix, localPieceMatrix);
+
                             draw3dPiece(grid[x][y], pieceModelMatrix, view);
                         }
                     }
@@ -1329,9 +1331,7 @@ async function runXRRendering(session, mode) {
                     const pieceData = grid[gx][gy];
                     // Make sure it's a movable piece
                     if (pieceData && pieceData.charAt(0) > 1) {
-                        const pieceModelMatrix = glMatrix.mat4.create();
-                        glMatrix.mat4.fromTranslation(pieceModelMatrix, vrCanvasPosition);
-                        glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [xx/yy, 1, 1]);
+                        const localPieceMatrix = glMatrix.mat4.create();
 
                         // Use cursor's local coordinates for position
                         const x_local = vrIntersection.local[0];
@@ -1350,11 +1350,14 @@ async function runXRRendering(session, mode) {
                             final_x = orig_x_local;
                         }
 
-                        glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [final_x, -final_y, 0.1]);
-                        glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
+                        glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [final_x, -final_y, 0.1]);
+                        glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
                         const tileDim = 2.0 / yy;
                         const diameter = tileDim * 0.90;
-                        glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / (xx/yy), diameter, diameter]);
+                        glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+
+                        const pieceModelMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.multiply(pieceModelMatrix, canvasModelMatrix, localPieceMatrix);
 
                         draw3dPiece(pieceData, pieceModelMatrix, view);
                     }
