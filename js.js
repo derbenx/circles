@@ -833,6 +833,13 @@ async function runXRRendering(session, mode) {
     const compositeCanvas = document.createElement("canvas");
     const compositeCtx = compositeCanvas.getContext("2d");
 
+    const alertCanvas = document.createElement("canvas");
+    const alertCtx = alertCanvas.getContext("2d");
+    alertCanvas.width = 512;
+    alertCanvas.height = 256;
+    const alertTexture = initTexture(gl, alertCanvas);
+    const alertBuffers = initBuffers(gl);
+
     const pointerCanvas = document.createElement("canvas");
     pointerCanvas.width = 64;
     pointerCanvas.height = 64;
@@ -1180,19 +1187,20 @@ async function runXRRendering(session, mode) {
         compositeCtx.drawImage(sourceCanvas, 0, 0);
         compositeCtx.drawImage(spriteCanvas, 0, 0);
 
-        if (vrShowAlert) {
-            compositeCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
-            compositeCtx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
-            compositeCtx.fillStyle = "white";
-            compositeCtx.font = "40px sans-serif";
-            compositeCtx.textAlign = "center";
-            compositeCtx.fillText("You Won!", compositeCanvas.width / 2, compositeCanvas.height / 2);
-        }
-
         updateTexture(gl, texture, compositeCanvas);
 
         const pose = frame.getViewerPose(referenceSpace);
         if (pose) {
+            if (vrShowAlert) {
+                alertCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                alertCtx.fillRect(0, 0, alertCanvas.width, alertCanvas.height);
+                alertCtx.fillStyle = "white";
+                alertCtx.font = "40px sans-serif";
+                alertCtx.textAlign = "center";
+                alertCtx.fillText("You Won!", alertCanvas.width / 2, alertCanvas.height / 2);
+                updateTexture(gl, alertTexture, alertCanvas);
+            }
+
             const glLayer = session.renderState.baseLayer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
             if (mode === 'immersive-ar') {
@@ -1451,6 +1459,15 @@ async function runXRRendering(session, mode) {
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
                     gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
                     gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                }
+
+                if (vrShowAlert) {
+                    const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
+                    glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
+                    glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
+                    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
+                    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, alertModelMatrix);
+                    drawScene(gl, textureProgramInfo, alertBuffers, alertTexture, view.projectionMatrix, modelViewMatrix);
                 }
             }
         }
