@@ -1173,7 +1173,7 @@ async function runXRRendering(session, mode) {
     const buffers = initBuffers(gl);
     let texture = initTexture(gl, sourceCanvas);
 
-    const vrCanvasPosition = [0, 1.0, -2.0];
+    const vrCanvasPosition = [0, 0.0, -2.0];
     const canvasModelMatrix = glMatrix.mat4.create();
     glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
