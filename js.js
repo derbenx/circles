@@ -1253,6 +1253,12 @@ async function runXRRendering(session, mode) {
             }
 
             if (rightController && rightController.gamepad) {
+                const thumbstickY = rightController.gamepad.axes[3];
+                const zoomSpeed = 0.02;
+                if (Math.abs(thumbstickY) > 0.1) {
+                    vrCanvasPosition[2] += thumbstickY * zoomSpeed;
+                }
+
                 const bButton = rightController.gamepad.buttons[5];
                 if (bButton && bButton.pressed && !bButtonPressedLastFrame) {
                     document.getElementById("btn-vr").disabled = false;
