@@ -1269,7 +1269,7 @@ async function runXRRendering(session, mode) {
                 const viewport = glLayer.getViewport(view);
                 gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
                 const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
-                drawScene(gl, textureProgramInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+                // drawScene(gl, textureProgramInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
 
                 gl.useProgram(solidColorProgramInfo.program);
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
@@ -1279,8 +1279,8 @@ async function runXRRendering(session, mode) {
                 gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
                 const pieceHeight = 0.36 / yy; // Based on cylinder height 0.2 and diameter calculation
                 const gridHeight = pieceHeight / 3;
-                const lineWidth = 0.005;
-                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.4, 0.4, 0.4, 1.0]);
+                const lineWidth = 0.0075;
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 1.0]);
 
                 // Draw horizontal lines
                 for (let y = 0; y <= yy; y++) {
@@ -1316,7 +1316,7 @@ async function runXRRendering(session, mode) {
                             glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [x_local, -y_local, 0.02]);
                             glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
                             const tileDim = 2.0 / yy;
-                            const diameter = tileDim * 0.90;
+                            const diameter = tileDim * 0.95;
                             glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
 
                             const pieceModelMatrix = glMatrix.mat4.create();
@@ -1354,7 +1354,7 @@ async function runXRRendering(session, mode) {
                         glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [final_x, -final_y, 0.1]);
                         glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
                         const tileDim = 2.0 / yy;
-                        const diameter = tileDim * 0.90;
+                        const diameter = tileDim * 0.95;
                         glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
 
                         const pieceModelMatrix = glMatrix.mat4.create();
