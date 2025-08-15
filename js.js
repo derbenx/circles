@@ -1342,14 +1342,15 @@ async function runXRRendering(session, mode) {
                     drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
 
                     // Draw 3D cone cursor
-                    if (controllerPosition) {
-                        gl.useProgram(solidColorProgramInfo.program);
-                        gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
-                        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-                        gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
-                        gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                    gl.useProgram(solidColorProgramInfo.program);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
 
-                        const coneMatrix = glMatrix.mat4.create();
+                    const coneMatrix = glMatrix.mat4.create();
+
+                    if (controllerPosition) {
                         const coneHoverPos = vec3.create();
                         vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.1);
 
@@ -1371,17 +1372,22 @@ async function runXRRendering(session, mode) {
 
                         const coneScale = [0.02, 0.05, 0.02];
                         glMatrix.mat4.fromRotationTranslationScale(coneMatrix, rotQuat, coneHoverPos, coneScale);
-
-                        const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
-                        const coneNormalMatrix = glMatrix.mat4.create();
-                        glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
-                        glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
-
-                        gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
-                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
-                        gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
-                        gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                    } else {
+                        // Fallback for gaze-based input or if controller position is not available
+                        glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
+                        glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Point down
+                        glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
                     }
+
+                    const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
+                    const coneNormalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
+                    glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
+
+                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
+                    gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
                 }
             }
         }
