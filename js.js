@@ -1335,6 +1335,12 @@ async function runXRRendering(session, mode) {
                 if (vrIntersectionPoint) {
                     const { mat4, vec3, quat } = glMatrix;
 
+                    const pointerMatrix = mat4.create();
+                    mat4.translate(pointerMatrix, pointerMatrix, vrIntersectionPoint);
+                    mat4.scale(pointerMatrix, pointerMatrix, [0.025, 0.025, 0.025]);
+                    mat4.multiply(pointerMatrix, view.transform.inverse.matrix, pointerMatrix);
+                    drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerMatrix);
+
                     // Draw 3D cone cursor
                     if (controllerPosition) {
                         gl.useProgram(solidColorProgramInfo.program);
