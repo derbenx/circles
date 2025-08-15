@@ -1178,6 +1178,7 @@ async function runXRRendering(session, mode) {
     let texture = initTexture(gl, sourceCanvas);
 
     const vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
+    let vrCanvasRotationY = 0;
     const canvasModelMatrix = glMatrix.mat4.create();
     glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
@@ -1259,6 +1260,12 @@ async function runXRRendering(session, mode) {
                     vrCanvasPosition[2] += thumbstickY * zoomSpeed;
                 }
 
+                const thumbstickX = rightController.gamepad.axes[2];
+                const rotateSpeed = 0.02;
+                if (Math.abs(thumbstickX) > 0.1) {
+                    vrCanvasRotationY += thumbstickX * rotateSpeed;
+                }
+
                 const bButton = rightController.gamepad.buttons[5];
                 if (bButton && bButton.pressed && !bButtonPressedLastFrame) {
                     document.getElementById("btn-vr").disabled = false;
@@ -1309,6 +1316,7 @@ async function runXRRendering(session, mode) {
 
             const aspectRatio = ww / hh;
             glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+            glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
             glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
             for (const view of pose.views) {
