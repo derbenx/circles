@@ -1276,6 +1276,7 @@ async function runXRRendering(session, mode) {
                 gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
                 // Draw 3D grid
+                gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
                 const pieceHeight = 0.36 / yy; // Based on cylinder height 0.2 and diameter calculation
                 const gridHeight = pieceHeight / 3;
                 const lineWidth = 0.005;
