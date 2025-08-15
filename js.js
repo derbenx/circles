@@ -963,7 +963,7 @@ async function runXRRendering(session, mode) {
         vertexCount: cylinder.indices.length,
     };
 
-    const halfCylinder = createHalfCylinder(.2,.5, 8);
+    const halfCylinder = createHalfCylinder(.16,.5, 8);
     const halfCylinderPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
