@@ -1350,11 +1350,34 @@ async function runXRRendering(session, mode) {
 
                     const coneMatrix = glMatrix.mat4.create();
 
-                    // Hover 5cm above the board
-                    glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
-                    // Scale it to be small, and point it downwards
-                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
-                    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Rotate 180 deg on X to point down
+                    if (controllerPosition) {
+                        const coneHoverPos = vec3.create();
+                        vec3.lerp(coneHoverPos, vrIntersectionPoint, controllerPosition, 0.1);
+
+                        const coneDir = vec3.create();
+                        vec3.subtract(coneDir, vrIntersectionPoint, coneHoverPos);
+                        vec3.normalize(coneDir, coneDir);
+
+                        const rotQuat = quat.create();
+                        const defaultDir = vec3.fromValues(0, 1, 0);
+
+                        const dot = vec3.dot(defaultDir, coneDir);
+                        if (Math.abs(dot) > 0.9999) {
+                            if (dot < 0) {
+                                quat.setAxisAngle(rotQuat, [1, 0, 0], Math.PI);
+                            }
+                        } else {
+                            quat.rotationTo(rotQuat, defaultDir, coneDir);
+                        }
+
+                        const coneScale = [0.02, 0.05, 0.02];
+                        glMatrix.mat4.fromRotationTranslationScale(coneMatrix, rotQuat, coneHoverPos, coneScale);
+                    } else {
+                        // Fallback for gaze-based input or if controller position is not available
+                        glMatrix.mat4.fromTranslation(coneMatrix, [vrIntersectionPoint[0], vrIntersectionPoint[1] + 0.05, vrIntersectionPoint[2]]);
+                        glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Point down
+                        glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
+                    }
 
                     const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
                     const coneNormalMatrix = glMatrix.mat4.create();
