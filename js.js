@@ -182,9 +182,9 @@ function dbstart(data){
  grid = new Array(xx).fill(null).map(()=>new Array(yy).fill(null));
  for (var y=0;y<yy;y++){
   for (var x=0;x<xx;x++){
-   //console.log(x,y,data["grid["+x+"]["+y+"]"]);
-   grid[x][y]=data["grid["+x+"]["+y+"]"];
-   if (grid[x][y]!='000000' && grid[x][y].substr(2, 4)=='0000'){
+   //console.log(x,y,data.grid["grid["+x+"]["+y+"]"]);
+   grid[x][y]=data.grid["grid["+x+"]["+y+"]"];
+   if (grid[x][y] && grid[x][y]!='000000' && grid[x][y].substr(2, 4)=='0000'){
     //check for & remove islands
     grid[x][y]='000000';
    }
