@@ -256,14 +256,14 @@ function generatePuzzle(options) {
  */
 function gentag(px, py, xx, yy, grid, col) {
     let fp = '';
-    // Left
-    fp += (px > 0) ? (grid[px - 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px - 1][py].substring(4, 5)) : '0';
-    // Up
-    fp += (py > 0) ? (grid[px][py - 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py - 1].substring(5, 6)) : '0';
-    // Right
-    fp += (px < xx - 1) ? (grid[px + 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px + 1][py].substring(2, 3)) : '0';
-    // Down
-    fp += (py < yy - 1) ? (grid[px][py + 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py + 1].substring(3, 4)) : '0';
+    // Left: Check left neighbor, copy its RIGHT tag (index 4)
+    fp += (px > 0) ? (grid[px - 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px - 1][py].charAt(4)) : '0';
+    // Up: Check upper neighbor, copy its DOWN tag (index 5)
+    fp += (py > 0) ? (grid[px][py - 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py - 1].charAt(5)) : '0';
+    // Right: Check right neighbor, copy its LEFT tag (index 2)
+    fp += (px < xx - 1) ? (grid[px + 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px + 1][py].charAt(2)) : '0';
+    // Down: Check lower neighbor, copy its UP tag (index 3)
+    fp += (py < yy - 1) ? (grid[px][py + 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py + 1].charAt(3)) : '0';
     return fp;
 }
 
