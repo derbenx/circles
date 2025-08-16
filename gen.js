@@ -264,6 +264,7 @@ function gentag(px, py, xx, yy, grid, col) {
     fp += (px < xx - 1) ? (grid[px + 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px + 1][py].charAt(2)) : '0';
     // Down: Check lower neighbor, copy its UP tag (index 3)
     fp += (py < yy - 1) ? (grid[px][py + 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py + 1].charAt(3)) : '0';
+    console.log("gentag output for ("+px+","+py+"): " + fp);
     return fp;
 }
 
