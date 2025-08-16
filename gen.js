@@ -160,7 +160,7 @@ function generatePuzzle(options) {
 
         // ROTATE
         if (tt.substring(1, 2) === '1') {
-            for (let i = 1; i < Math.floor(Math.random() * 3) + 1; i++) {
+            for (let i = 1; i < Math.floor(Math.random() * 4) + 1; i++) {
                 tt = grid[x][y];
                 grid[x][y] = tt.substring(0, 2) + tt.charAt(3) + tt.charAt(4) + tt.charAt(5) + tt.charAt(2);
             }
