@@ -263,56 +263,14 @@ function generatePuzzle(options) {
  */
 function gentag(px, py, xx, yy, grid, col) {
     let fp = '';
-
-    // Left Tag
-    if (px > 0) {
-        const neighbor = grid[px - 1][py];
-        if (neighbor.startsWith('0')) {
-            fp += col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1);
-        } else {
-            fp += neighbor.charAt(4); // Neighbor's RIGHT tag
-        }
-    } else {
-        fp += '0';
-    }
-
-    // Up Tag
-    if (py > 0) {
-        const neighbor = grid[px][py - 1];
-        if (neighbor.startsWith('0')) {
-            fp += col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1);
-        } else {
-            fp += neighbor.charAt(5); // Neighbor's DOWN tag
-        }
-    } else {
-        fp += '0';
-    }
-
-    // Right Tag
-    if (px < xx - 1) {
-        const neighbor = grid[px + 1][py];
-        if (neighbor.startsWith('0')) {
-            fp += col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1);
-        } else {
-            fp += neighbor.charAt(2); // Neighbor's LEFT tag
-        }
-    } else {
-        fp += '0';
-    }
-
-    // Down Tag
-    if (py < yy - 1) {
-        const neighbor = grid[px][py + 1];
-        if (neighbor.startsWith('0')) {
-            fp += col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1);
-        } else {
-            fp += neighbor.charAt(3); // Neighbor's UP tag
-        }
-    } else {
-        fp += '0';
-    }
-
-    console.log("gentag output for ("+px+","+py+"): " + fp);
+    // Left: Check left neighbor, copy its RIGHT tag (index 4)
+    fp += (px > 0) ? (grid[px - 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px - 1][py].charAt(4)) : '0';
+    // Up: Check upper neighbor, copy its DOWN tag (index 5)
+    fp += (py > 0) ? (grid[px][py - 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py - 1].charAt(5)) : '0';
+    // Right: Check right neighbor, copy its LEFT tag (index 2)
+    fp += (px < xx - 1) ? (grid[px + 1][py].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px + 1][py].charAt(2)) : '0';
+    // Down: Check lower neighbor, copy its UP tag (index 3)
+    fp += (py < yy - 1) ? (grid[px][py + 1].startsWith('0') ? col.charAt(Math.floor(Math.random() * (col.length - 1)) + 1) : grid[px][py + 1].charAt(3)) : '0';
     return fp;
 }
 
