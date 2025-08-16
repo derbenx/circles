@@ -120,45 +120,38 @@ function generatePuzzle(options) {
     }
 
     // --- 2. Clear Unmatched Edges ---
-    // This is the critical step to ensure solvability. It finds all edges
-    // that border empty space and removes their color, guaranteeing every
-    // remaining colored edge has a matching pair.
+    // This is the critical step to ensure solvability. It iterates over all EMPTY
+    // cells and clears the color tags of any adjacent pieces that point towards
+    // the empty cell. This guarantees that every colored edge has a matching pair.
+    // This version is a direct, literal translation of the original PHP.
     let empty = [];
     for (let y = 0; y < yy; y++) {
         for (let x = 0; x < xx; x++) {
-            if (grid[x][y].startsWith('0')) {
+            if (grid[x][y].substring(0, 1) === '0') {
                 empty.push(x + 'x' + y);
-            }
-        }
-    }
+                let neighbors = fdwall(x, y, xx, yy);
 
-    // Iterate over every piece on the grid.
-    for (let y = 0; y < yy; y++) {
-        for (let x = 0; x < xx; x++) {
-            if (grid[x][y].startsWith('0')) {
-                continue; // Skip empty cells.
+                // Neighbor Below (D) exists, so clear its UP tag.
+                if (neighbors.includes('D')) {
+                    const s = grid[x][y + 1];
+                    grid[x][y + 1] = s.substring(0, 3) + '0' + s.substring(4);
+                }
+                // Neighbor Above (U) exists, so clear its DOWN tag.
+                if (neighbors.includes('U')) {
+                    const s = grid[x][y - 1];
+                    grid[x][y - 1] = s.substring(0, 5) + '0';
+                }
+                // Neighbor Left (L) exists, so clear its RIGHT tag.
+                if (neighbors.includes('L')) {
+                    const s = grid[x - 1][y];
+                    grid[x - 1][y] = s.substring(0, 4) + '0' + s.substring(5);
+                }
+                // Neighbor Right (R) exists, so clear its LEFT tag.
+                if (neighbors.includes('R')) {
+                    const s = grid[x + 1][y];
+                    grid[x + 1][y] = s.substring(0, 2) + '0' + s.substring(3);
+                }
             }
-
-            let piece = grid[x][y].split(''); // Use an array for easier manipulation.
-
-            // If neighbor below is empty, nullify this piece's DOWN tag.
-            if (y + 1 >= yy || grid[x][y + 1].startsWith('0')) {
-                piece[5] = '0';
-            }
-            // If neighbor above is empty, nullify this piece's UP tag.
-            if (y - 1 < 0 || grid[x][y - 1].startsWith('0')) {
-                piece[3] = '0';
-            }
-            // If neighbor to the right is empty, nullify this piece's RIGHT tag.
-            if (x + 1 >= xx || grid[x + 1][y].startsWith('0')) {
-                piece[4] = '0';
-            }
-            // If neighbor to the left is empty, nullify this piece's LEFT tag.
-            if (x - 1 < 0 || grid[x - 1][y].startsWith('0')) {
-                piece[2] = '0';
-            }
-
-            grid[x][y] = piece.join('');
         }
     }
 
