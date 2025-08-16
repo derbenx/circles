@@ -180,9 +180,9 @@ function generatePuzzle(options) {
         }
     }
 
-    // --- 4. Scramble the Puzzle (SKIPPED) ---
-    // As requested, the scrambling and rotation step is skipped for debugging.
-    /*
+    // --- 4. Scramble the Puzzle ---
+    // The puzzle is now internally consistent and solvable. This section shuffles
+    // the pieces and their rotations/flips to create the final challenge.
     unsort.sort();
 
     for (const item of unsort) {
@@ -241,7 +241,6 @@ function generatePuzzle(options) {
             }
         }
     }
-    */
 
     // --- 5. Final Output ---
     const out = { col: col, xx: xx, yy: yy, grid: {} };
