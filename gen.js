@@ -18,6 +18,13 @@ function generatePuzzle(options) {
 
     let { wdh, hgt, mov, rot, clr, pct, pnt } = settings;
 
+    // --- Ensure numeric types, as values from HTML inputs are strings ---
+    mov = parseInt(mov, 10);
+    rot = parseInt(rot, 10);
+    clr = parseInt(clr, 10);
+    pct = parseInt(pct, 10);
+    pnt = parseInt(pnt, 10);
+
     // --- Parameter Validation ---
     // Ensures the settings are within the allowed ranges.
     if (wdh < 3 || wdh > 40) { wdh = 4; }
