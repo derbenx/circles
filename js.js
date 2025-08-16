@@ -192,7 +192,7 @@ function dbstart(data){
   }
  }
 
- //console.log(grid);
+ console.log("Generated Puzzle Grid:", grid);
  //console.log('ot: '+outt);
  sCook('orig',outt);
  scale();main();
