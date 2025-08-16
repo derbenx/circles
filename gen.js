@@ -74,18 +74,25 @@ function generatePuzzle(options) {
     for (let i = 1; i < path_length; i++) {
         let possible_moves = posmov(sx, sy, xx, yy, grid);
 
-        // If the path gets stuck, rewind to a previous random point to continue.
+        // If the path generation gets stuck (0 moves), we need to rewind and find a new place to branch from.
+        // The original PHP logic was a bit unusual: it would keep rewinding as long as the new spot had 0 OR 4 possible moves.
         if (possible_moves.length === 0) {
             let attempts = 0;
-            while (possible_moves.length === 0 && attempts < 10) {
-                if (rew[0].length < 2) break;
-                const rewind_index = Math.floor(Math.random() * (rew[0].length - 1)) + 1;
+            // Keep trying to find a better spot on the path to branch from.
+            while ((possible_moves.length === 0 || possible_moves.length === 4) && attempts < 50) {
+                if (rew[0].length < 3) { break; } // Not enough path to rewind.
+                // Pick a random, previous point on the path (but not the start or the absolute end).
+                const rewind_index = Math.floor(Math.random() * (rew[0].length - 2)) + 1;
                 sx = rew[0][rewind_index];
                 sy = rew[1][rewind_index];
                 possible_moves = posmov(sx, sy, xx, yy, grid);
                 attempts++;
             }
-            if (possible_moves.length === 0) continue; // Skip if still stuck.
+        }
+
+        // If, after trying to rewind, we're still stuck or have no valid moves, skip this iteration.
+        if (possible_moves.length === 0) {
+            continue;
         }
 
         const move = possible_moves.charAt(Math.floor(Math.random() * possible_moves.length));
@@ -173,9 +180,9 @@ function generatePuzzle(options) {
         }
     }
 
-    // --- 4. Scramble the Puzzle (SKIPPED) ---
-    // As requested, the scrambling and rotation step is skipped for debugging.
-    /*
+    // --- 4. Scramble the Puzzle ---
+    // The puzzle is now internally consistent and solvable. This section shuffles
+    // the pieces and their rotations/flips to create the final challenge.
     unsort.sort();
 
     for (const item of unsort) {
@@ -234,7 +241,6 @@ function generatePuzzle(options) {
             }
         }
     }
-    */
 
     // --- 5. Final Output ---
     const out = { col: col, xx: xx, yy: yy, grid: {} };
