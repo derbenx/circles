@@ -107,21 +107,21 @@ function generatePuzzle(options) {
             if (grid[x][y].substring(0, 1) === '0') {
                 empty.push(x + 'x' + y);
                 let tmp = fdwall(x, y, xx, yy, grid);
-                if (y < yy -1 && tmp.includes('D')) {
+                if (tmp.includes('D')) {
                     let t1 = grid[x][y + 1].substring(0, 3);
                     let t2 = grid[x][y + 1].substring(4);
                     grid[x][y + 1] = t1 + '0' + t2;
                 }
-                if (y > 0 && tmp.includes('U')) {
+                if (tmp.includes('U')) {
                     let t1 = grid[x][y - 1].substring(0, 5);
                     grid[x][y - 1] = t1 + '0';
                 }
-                if (x > 0 && tmp.includes('L')) {
+                if (tmp.includes('L')) {
                     let t1 = grid[x - 1][y].substring(0, 4);
                     let t2 = grid[x - 1][y].substring(5);
                     grid[x - 1][y] = t1 + '0' + t2;
                 }
-                if (x < xx - 1 && tmp.includes('R')) {
+                if (tmp.includes('R')) {
                     let t1 = grid[x + 1][y].substring(0, 2);
                     let t2 = grid[x + 1][y].substring(3);
                     grid[x + 1][y] = t1 + '0' + t2;
