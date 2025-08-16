@@ -124,60 +124,50 @@ function newg(){
   }
   scale();main();
  } else {
- //console.log('new');
- //get puzzle
- var xhttp = new XMLHttpRequest();
- xhttp.onreadystatechange = function() {
-  if (this.readyState == 4 && this.status == 200) { dbstart(this.responseText); }
- };
- var data=''; var tmp,th,tw;
- var rat=document.getElementById("rat").value*1;
- var ts=document.getElementById("wxh").value*1;
- var tx=window.innerWidth;
- var ty=window.innerHeight;
- if (rat){
-  if (tx>ty){
-   //console.log('w');
-   th=ts;
-   tw=tx/(ty/ts);
-  }else {
-   //console.log('h');
-   tw=ts;
-   th=ty/(tx/ts);
+  //console.log('new');
+  //get puzzle
+  var rat = document.getElementById("rat").value * 1;
+  var ts = document.getElementById("wxh").value * 1;
+  var tx = window.innerWidth;
+  var ty = window.innerHeight;
+  var tw, th;
+  if (rat) {
+      if (tx > ty) {
+          th = ts;
+          tw = tx / (ty / ts);
+      } else {
+          tw = ts;
+          th = ty / (tx / ts);
+      }
+  } else {
+      tw = ts;
+      th = ts;
   }
- }else{
-  tw=ts; th=ts;
- }
- data+='wdh='+Math.floor(tw)+'&hgt='+Math.floor(th)+'&';
- tmp='mov'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- tmp='rot'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- tmp='clr'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- tmp='pnt'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- tmp='pct'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- tmp='rat'; data+=tmp+'='+document.getElementById(tmp).value+'&';
- //data+='ww='+window.innerWidth+'&';
- //data+='hh='+window.innerHeight;
 
- //console.log(window.location.href+'gen');
+  var options = {
+      wdh: Math.floor(tw),
+      hgt: Math.floor(th),
+      mov: document.getElementById('mov').value,
+      rot: document.getElementById('rot').value,
+      clr: document.getElementById('clr').value,
+      pnt: document.getElementById('pnt').value,
+      pct: document.getElementById('pct').value,
+      rat: document.getElementById('rat').value
+  };
 
- if (nxc==1){
-  xhttp.open("POST", window.location.href+"gen", true);  //nextcloud
- }else{
-  xhttp.open("POST", "gen.php", true); //regular
- }
- xhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
- xhttp.send(data);
+  var puzzleData = generatePuzzle(options);
+  dbstart(puzzleData);
  }
 }
 //console.log(window.location.pathname);
 //console.log(window.location);
 
-function dbstart(json){
+function dbstart(data){
  //parse data into variables
  //console.log('#'+json+'#');
- var data = JSON.parse(json);
+ //var data = JSON.parse(json);
  if (nxc==1){
-  data = JSON.parse(data); //parse twice, yeah..
+  //data = JSON.parse(data); //parse twice, yeah..
  }
  //console.log(data);
  xx=data.xx*1;
