@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TwaCircles"
+        tools:targetApi="31">
+
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.TwaLauncherActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                      android:host="derben.ca"
+                      android:pathPrefix="/vr/circles3d/"/>
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="com.google.android.apps.chrome.extra.CERTIFICATE_FINGERPRINT"
+            android:value="B6:BF:48:39:F4:19:EF:75:0F:03:53:2D:A2:A5:78:73:59:D4:27:A0:26:E8:4D:B5:FE:D9:8E:B0:49:81:32:34" />
+        <meta-data
+            android:name="com.google.android.apps.chrome.extra.LAUNCH_URL"
+            android:value="https://derben.ca/vr/circles3d/" />
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
+    </application>
+
+</manifest>
