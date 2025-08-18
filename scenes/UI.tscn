@@ -1,0 +1,141 @@
+[gd_scene load_steps=2 format=3 uid="uid://b4a5b6c7d8e9"]
+
+[ext_resource type="Script" path="res://scripts/UI.gd" id="1_ui_script"]
+
+[node name="UI" type="CanvasLayer"]
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ui_script")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+
+[node name="WinLabel" type="Label" parent="Control"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -75.0
+offset_top = -11.5
+offset_right = 75.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 48
+text = "You Won!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Header" type="HBoxContainer" parent="Control/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="NewGameButton" type="Button" parent="Control/VBoxContainer/Header"]
+layout_mode = 2
+text = "New Game"
+
+[node name="SettingsButton" type="Button" parent="Control/VBoxContainer/Header"]
+layout_mode = 2
+text = "Settings"
+
+[node name="HelpButton" type="Button" parent="Control/VBoxContainer/Header"]
+layout_mode = 2
+text = "Help"
+
+[node name="HelpPanel" type="PanelContainer" parent="Control/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/HelpPanel"]
+layout_mode = 2
+text = "Circles is a game where you attempt to match all the coloured half circles.
+Drag pieces with a plus or line.
+Click pieces with a circle or curve."
+horizontal_alignment = 1
+
+[node name="SettingsPanel" type="PanelContainer" parent="Control/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="VBox" type="VBoxContainer" parent="Control/VBoxContainer/SettingsPanel"]
+layout_mode = 2
+alignment = 1
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox"]
+layout_mode = 2
+text = "Options"
+horizontal_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="Control/VBoxContainer/SettingsPanel/VBox"]
+layout_mode = 2
+columns = 2
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Size:"
+[node name="SizeInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "4"
+
+[node name="Label2" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Movement:"
+[node name="MovInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "2"
+
+[node name="Label3" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Rotation:"
+[node name="RotInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "1"
+
+[node name="Label4" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Colours:"
+[node name="ClrInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "5"
+
+[node name="Label5" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Percent:"
+[node name="PctInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "55"
+
+[node name="Label6" type="Label" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "Fixed:"
+[node name="PntInput" type="LineEdit" parent="Control/VBoxContainer/SettingsPanel/VBox/Grid"]
+layout_mode = 2
+text = "1"
+
+[node name="NewGameSettingsButton" type="Button" parent="Control/VBoxContainer/SettingsPanel/VBox"]
+layout_mode = 2
+text = "Start New Game With These Settings"
+
+[node name="SaveLoadBox" type="HBoxContainer" parent="Control/VBoxContainer/SettingsPanel/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="SaveProgressButton" type="Button" parent="Control/VBoxContainer/SettingsPanel/VBox/SaveLoadBox"]
+layout_mode = 2
+text = "Save Progress"
+
+[node name="LoadButton" type="Button" parent="Control/VBoxContainer/SettingsPanel/VBox/SaveLoadBox"]
+layout_mode = 2
+text = "Load Game"
