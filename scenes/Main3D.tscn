@@ -63,6 +63,8 @@ shadow_enabled = true
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
 mesh = SubResource("PlaneMesh_1")
 
+[node name="TileContainer" type="Node3D" parent="."]
+
 [node name="UIPanel" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -2)
 
