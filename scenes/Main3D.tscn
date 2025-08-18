@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://d1e2f3g4h5i6"]
+[gd_scene load_steps=11 format=3 uid="uid://d1e2f3g4h5i6"]
 
 [ext_resource type="Script" path="res://scripts/Main3D.gd" id="1_main3d_script"]
 [ext_resource type="PackedScene" uid="uid://b4a5b6c7d8e9" path="res://scenes/UI.tscn" id="2_ui_scene"]
@@ -18,11 +18,18 @@ sky = SubResource("Sky_1")
 tonemap_mode = 2
 
 [sub_resource type="ViewportTexture" id="ViewportTexture_1"]
-viewport_path = NodePath("SubViewportContainer/SubViewport")
+viewport_path = NodePath("UIPanel/SubViewportContainer/SubViewport")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1"]
 albedo_texture = SubResource("ViewportTexture_1")
 shading_mode = 0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_1"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_2"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1"]
+size = Vector3(1, 1, 0.01)
 
 [node name="Main3D" type="Node3D"]
 script = ExtResource("1_main3d_script")
@@ -43,7 +50,7 @@ tracker = &"right_hand"
 
 [node name="RayCast3D" type="RayCast3D" parent="XROrigin3D/RightHand"]
 target_position = Vector3(0, 0, -2)
-collision_mask = 12 # Tiles (4) + UI (8)
+collision_mask = 12
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_1")
@@ -54,7 +61,7 @@ shadow_enabled = true
 
 [node name="Floor" type="MeshInstance3D" parent="."]
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
-mesh = PlaneMesh.new()
+mesh = SubResource("PlaneMesh_1")
 
 [node name="UIPanel" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -2)
@@ -71,7 +78,8 @@ size = Vector2i(1024, 600)
 [node name="UI" parent="UIPanel/SubViewportContainer/SubViewport" instance=ExtResource("2_ui_scene")]
 
 [node name="UIMesh" type="MeshInstance3D" parent="UIPanel"]
-mesh = PlaneMesh.new()
+transform = Transform3D(1, 0, 0, 0, -0.58, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("PlaneMesh_2")
 material_override = SubResource("StandardMaterial3D_1")
 
 [node name="Area3D" type="Area3D" parent="UIPanel/UIMesh"]
@@ -79,4 +87,4 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="UIPanel/UIMesh/Area3D"]
-shape = BoxShape3D.new()
+shape = SubResource("BoxShape3D_1")
