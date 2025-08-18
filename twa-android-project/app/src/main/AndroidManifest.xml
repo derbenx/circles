@@ -8,12 +8,12 @@
         android:fullBackupContent="@xml/backup_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TwaCircles"
         tools:targetApi="31">
 
         <activity
             android:name="com.google.androidbrowserhelper.trusted.TwaLauncherActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.BrowserHelper.TrustedWebActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
