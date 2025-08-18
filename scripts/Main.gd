@@ -3,12 +3,11 @@
 
 extends Node2D
 
-const PuzzleGenerator = preload("res://scripts/PuzzleGenerator.gd")
 const TileScene = preload("res://scenes/Tile.tscn")
 const SAVE_PATH = "user://circles_save.json"
 
 @onready var tile_container = $TileContainer
-@onready var ui = $UI
+@onready var ui = $UI/Control
 
 # Game state variables
 var grid: Array = []
