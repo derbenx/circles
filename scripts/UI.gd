@@ -6,6 +6,7 @@ extends Control
 signal new_game_pressed(settings: Dictionary)
 signal save_progress_pressed
 signal load_game_pressed
+signal toggle_vr_pressed
 
 # Using @onready to ensure the nodes are available when we access them.
 @onready var settings_panel = $VBoxContainer/SettingsPanel
@@ -14,6 +15,7 @@ signal load_game_pressed
 @onready var new_game_button = $VBoxContainer/Header/NewGameButton
 @onready var settings_button = $VBoxContainer/Header/SettingsButton
 @onready var help_button = $VBoxContainer/Header/HelpButton
+@onready var toggle_vr_button = $VBoxContainer/Header/ToggleVRButton
 @onready var new_game_settings_button = $VBoxContainer/SettingsPanel/VBox/NewGameSettingsButton
 @onready var save_progress_button = $VBoxContainer/SettingsPanel/VBox/SaveLoadBox/SaveProgressButton
 @onready var load_button = $VBoxContainer/SettingsPanel/VBox/SaveLoadBox/LoadButton
@@ -32,6 +34,7 @@ func _ready():
 	settings_button.pressed.connect(_on_settings_button_pressed)
 	help_button.pressed.connect(_on_help_button_pressed)
 	new_game_button.pressed.connect(_on_new_game_button_pressed)
+	toggle_vr_button.pressed.connect(_on_toggle_vr_button_pressed)
 	new_game_settings_button.pressed.connect(_on_new_game_button_pressed)
 	save_progress_button.pressed.connect(_on_save_progress_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
@@ -72,6 +75,9 @@ func _on_save_progress_button_pressed():
 
 func _on_load_button_pressed():
 	emit_signal("load_game_pressed")
+
+func _on_toggle_vr_button_pressed():
+	emit_signal("toggle_vr_pressed")
 
 func show_win_message():
 	win_label.visible = true

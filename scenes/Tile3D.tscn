@@ -1,0 +1,105 @@
+[gd_scene load_steps=13 format=3 uid="uid://c1d2e3f4g5h6"]
+
+[ext_resource type="Script" path="res://scripts/Tile3D.gd" id="1_tile3d_script"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Body"]
+albedo_color = Color(0.8, 0.8, 0.8, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_Body"]
+material = SubResource("StandardMaterial3D_Body")
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Nub"]
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_Nub"]
+material = SubResource("StandardMaterial3D_Nub")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 0.12
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Marker"]
+albedo_color = Color(0, 0, 0, 1)
+shading_mode = 0
+
+[sub_resource type="BoxMesh" id="BoxMesh_Marker_Line"]
+material = SubResource("StandardMaterial3D_Marker")
+size = Vector3(0.5, 0.05, 0.05)
+
+[sub_resource type="TorusMesh" id="TorusMesh_Marker_Ring"]
+material = SubResource("StandardMaterial3D_Marker")
+inner_radius = 0.2
+outer_radius = 0.25
+
+[sub_resource type="TorusMesh" id="TorusMesh_Marker_ArcU"]
+material = SubResource("StandardMaterial3D_Marker")
+inner_radius = 0.2
+outer_radius = 0.25
+ring_sides = 16
+pipe_sides = 8
+rings = 32
+
+[sub_resource type="TorusMesh" id="TorusMesh_Marker_ArcC"]
+material = SubResource("StandardMaterial3D_Marker")
+inner_radius = 0.2
+outer_radius = 0.25
+ring_sides = 16
+pipe_sides = 8
+rings = 32
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1"]
+size = Vector3(1, 0.2, 1)
+
+[node name="Tile3D" type="Node3D"]
+script = ExtResource("1_tile3d_script")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("CylinderMesh_Body")
+
+[node name="Nubs" type="Node3D" parent="."]
+
+[node name="Left" type="MeshInstance3D" parent="Nubs"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, -0.4, 0, 0)
+mesh = SubResource("CylinderMesh_Nub")
+
+[node name="Up" type="MeshInstance3D" parent="Nubs"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -0.4)
+mesh = SubResource("CylinderMesh_Nub")
+
+[node name="Right" type="MeshInstance3D" parent="Nubs"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.4, 0, 0)
+mesh = SubResource("CylinderMesh_Nub")
+
+[node name="Down" type="MeshInstance3D" parent="Nubs"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.4)
+mesh = SubResource("CylinderMesh_Nub")
+
+[node name="Markers" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
+
+[node name="MoveH" type="MeshInstance3D" parent="Markers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.2)
+mesh = SubResource("BoxMesh_Marker_Line")
+
+[node name="MoveV" type="MeshInstance3D" parent="Markers"]
+transform = Transform3D(1, 0, 0, 0, -1.62921e-07, -1, 0, 1, -1.62921e-07, 0, 0, 0)
+mesh = SubResource("BoxMesh_Marker_Line")
+
+[node name="RotRing" type="MeshInstance3D" parent="Markers"]
+mesh = SubResource("TorusMesh_Marker_Ring")
+
+[node name="RotArcU" type="MeshInstance3D" parent="Markers"]
+mesh = SubResource("TorusMesh_Marker_ArcU")
+
+[node name="RotArcC" type="MeshInstance3D" parent="Markers"]
+mesh = SubResource("TorusMesh_Marker_ArcC")
+
+[node name="Area3D" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+shape = SubResource("BoxShape3D_1")

@@ -1,0 +1,82 @@
+[gd_scene load_steps=8 format=3 uid="uid://d1e2f3g4h5i6"]
+
+[ext_resource type="Script" path="res://scripts/Main3D.gd" id="1_main3d_script"]
+[ext_resource type="PackedScene" uid="uid://b4a5b6c7d8e9" path="res://scenes/UI.tscn" id="2_ui_scene"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
+sky_top_color = Color(0.5, 0.7, 1, 1)
+sky_horizon_color = Color(0.8, 0.8, 1, 1)
+ground_bottom_color = Color(0.3, 0.3, 0.3, 1)
+ground_horizon_color = Color(0.8, 0.8, 1, 1)
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("ProceduralSkyMaterial_1")
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+tonemap_mode = 2
+
+[sub_resource type="ViewportTexture" id="ViewportTexture_1"]
+viewport_path = NodePath("SubViewportContainer/SubViewport")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1"]
+albedo_texture = SubResource("ViewportTexture_1")
+shading_mode = 0
+
+[node name="Main3D" type="Node3D"]
+script = ExtResource("1_main3d_script")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+current = true
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="LeftHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1, -0.5)
+tracker = &"left_hand"
+
+[node name="RightHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1, -0.5)
+tracker = &"right_hand"
+
+[node name="RayCast3D" type="RayCast3D" parent="XROrigin3D/RightHand"]
+target_position = Vector3(0, 0, -2)
+collision_mask = 12 # Tiles (4) + UI (8)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 5, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
+mesh = PlaneMesh.new()
+
+[node name="UIPanel" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -2)
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="UIPanel"]
+visible = false
+offset_right = 1024.0
+offset_bottom = 600.0
+
+[node name="SubViewport" type="SubViewport" parent="UIPanel/SubViewportContainer"]
+handle_input_locally = false
+size = Vector2i(1024, 600)
+
+[node name="UI" parent="UIPanel/SubViewportContainer/SubViewport" instance=ExtResource("2_ui_scene")]
+
+[node name="UIMesh" type="MeshInstance3D" parent="UIPanel"]
+mesh = PlaneMesh.new()
+material_override = SubResource("StandardMaterial3D_1")
+
+[node name="Area3D" type="Area3D" parent="UIPanel/UIMesh"]
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="UIPanel/UIMesh/Area3D"]
+shape = BoxShape3D.new()

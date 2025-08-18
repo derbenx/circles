@@ -11,6 +11,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_ui_script")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Control"]
@@ -53,6 +54,10 @@ text = "Settings"
 [node name="HelpButton" type="Button" parent="Control/VBoxContainer/Header"]
 layout_mode = 2
 text = "Help"
+
+[node name="ToggleVRButton" type="Button" parent="Control/VBoxContainer/Header"]
+layout_mode = 2
+text = "Toggle VR"
 
 [node name="HelpPanel" type="PanelContainer" parent="Control/VBoxContainer"]
 layout_mode = 2

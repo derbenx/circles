@@ -8,14 +8,26 @@
 
 config_version=5
 
+[autoload]
+
+GameManager="*res://scripts/GameManager.gd"
+
 [application]
 
 config/name="Circles Godot"
 config/features=PackedStringArray("4.2", "Forward Plus")
 config/icon="res://icon.svg"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Boot.tscn"
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="forward_plus"
+
+[xr]
+
+shaders/enabled=true
+
+[open_xr]
+
+enabled=true
