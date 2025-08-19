@@ -51,20 +51,20 @@ func generate(data: String):
     body_mesh_instance.material_override = body_material
     add_child(body_mesh_instance)
 
-    # Add an Area3D for collision detection with the controller's laser
-    var area = Area3D.new()
+    # Add a StaticBody3D for raycast collision
+    var static_body = StaticBody3D.new()
     var collision_shape = CollisionShape3D.new()
     var cylinder_shape = CylinderShape3D.new()
     cylinder_shape.radius = 0.5
     cylinder_shape.height = 0.2
     collision_shape.shape = cylinder_shape
-    area.add_child(collision_shape)
+    static_body.add_child(collision_shape)
 
-    # Set the collision layer for the piece
-    area.collision_layer = 2
-    area.collision_mask = 0 # It doesn't need to detect anything
+    # Set the collision layer for the piece, so the player's raycast can find it.
+    static_body.collision_layer = 2
+    static_body.collision_mask = 0 # It doesn't need to detect anything
 
-    add_child(area)
+    add_child(static_body)
 
     # 2. Create the colored nubs
     var nubs_data = piece_data.substr(2, 4)

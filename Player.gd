@@ -13,11 +13,14 @@ extends Node3D
 @onready var settings_panel: MeshInstance3D = get_node("/root/Main/SettingsPanel")
 @onready var sub_viewport: SubViewport = get_node("/root/Main/SettingsPanel/SubViewport")
 
-enum State { IDLE, GRABBING, ON_UI }
+enum State { IDLE, GRABBING }
 var current_state = State.IDLE
 var active_controller: Controller
 var grabbed_piece = null
 var grabbed_piece_original_pos: Vector2i
+
+# Keep track of what the controller is pointing at
+var pointed_object = null
 
 # An invisible plane for raycasting, to know where to place the piece on the board
 var grab_plane: StaticBody3D
@@ -60,30 +63,45 @@ func _physics_process(delta):
     if move_vector.length() > 0.1:
         game_board.rotate_y(move_vector.x * -0.02)
 
-    # The main interaction state machine
-    var pointed_piece = active_controller.get_pointed_piece()
-    var pointed_ui = _get_ui_collision()
+    # Centralized Raycast Logic
+    var new_pointed_object = null
+    var space_state = get_world_3d().direct_space_state
+    var ray_origin = active_controller.global_transform.origin
+    var ray_end = ray_origin + active_controller.global_transform.basis.z * -10
+    # Cast against both pieces (layer 2) and UI (layer 8)
+    var query = PhysicsRayQueryParameters3D.create(ray_origin, ray_end, 2 | 8)
+    var result = space_state.intersect_ray(query)
 
-    if current_state == State.IDLE:
-        if pointed_piece:
-            active_controller.laser.visible = true
-        elif pointed_ui:
-            current_state = State.ON_UI
-            _forward_mouse_event(pointed_ui.position, 0) # Motion event
-        else:
-            active_controller.laser.visible = false
+    if result:
+        new_pointed_object = result.collider
 
-    elif current_state == State.ON_UI:
-        if pointed_ui:
-            _forward_mouse_event(pointed_ui.position, 0) # Motion event
-        else:
-            _forward_mouse_event(Vector2(-1,-1), 0) # Send mouse-out event
-            current_state = State.IDLE
+    # Handle highlighting and state changes
+    if new_pointed_object != pointed_object:
+        # Un-highlight the old object if it exists
+        if is_instance_valid(pointed_object):
+            if pointed_object.get_parent() is GamePiece:
+                pointed_object.get_parent().set_highlight(false)
 
-    elif current_state == State.GRABBING and grabbed_piece:
-        # The piece is parented to the controller, so it moves automatically.
-        # No extra code is needed here for movement.
-        pass
+        # Highlight the new object
+        if is_instance_valid(new_pointed_object):
+            if new_pointed_object.get_parent() is GamePiece:
+                new_pointed_object.get_parent().set_highlight(true)
+
+        pointed_object = new_pointed_object
+
+    # Show/hide laser
+    active_controller.laser.visible = (pointed_object != null)
+
+    # Handle UI interaction
+    if pointed_object == settings_panel:
+        # Convert 3D collision point to 2D UV coordinate for UI input
+        var uv = result.get("uv", Vector2(-1, -1))
+        if uv != Vector2(-1, -1):
+            var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
+            _forward_mouse_event(ui_pos, 0) # Motion event
+    else:
+        # Send a "mouse out" event to the UI when not pointing at it
+        _forward_mouse_event(Vector2(-1, -1), 0)
 
 func _get_ui_collision():
     # Performs a raycast to check if the controller is pointing at the UI panel.
@@ -105,54 +123,52 @@ func _forward_mouse_event(pos, button_mask):
     sub_viewport.push_input(event)
 
 func _on_button_pressed(button_name):
+    if not is_instance_valid(pointed_object):
+        return
+
+    var target_piece = pointed_object.get_parent()
+
     if button_name == "trigger_click":
-        if current_state == State.IDLE:
-            var pointed_piece = active_controller.get_pointed_piece()
-            if pointed_piece and pointed_piece.has_meta("grid_pos"):
-                var piece_data = GameManager.get_piece(pointed_piece.get_meta("grid_pos").x, pointed_piece.get_meta("grid_pos").y)
-                # Only allow grabbing of movable pieces (type > 1)
-                if int(piece_data.substr(0, 1)) > 1:
-                    current_state = State.GRABBING
-                    grabbed_piece = pointed_piece
-                    grabbed_piece_original_pos = pointed_piece.get_meta("grid_pos")
-                    print("Grabbed piece at ", grabbed_piece_original_pos)
+        if target_piece is GamePiece:
+            var piece_data = GameManager.get_piece(target_piece.get_meta("grid_pos").x, target_piece.get_meta("grid_pos").y)
+            if int(piece_data.substr(0, 1)) > 1: # Check if movable
+                current_state = State.GRABBING
+                grabbed_piece = target_piece
+                grabbed_piece_original_pos = target_piece.get_meta("grid_pos")
 
-                    # Reparent the piece to the controller's grab point
-                    var grab_point = active_controller.get_node("GrabPoint")
-                    grabbed_piece.get_parent().remove_child(grabbed_piece)
-                    grab_point.add_child(grabbed_piece)
-                    grabbed_piece.transform = Transform3D.IDENTITY
+                var grab_point = active_controller.get_node("GrabPoint")
+                grabbed_piece.get_parent().remove_child(grabbed_piece)
+                grab_point.add_child(grabbed_piece)
+                grabbed_piece.transform = Transform3D.IDENTITY
 
-        elif current_state == State.ON_UI:
-            var pointed_ui = _get_ui_collision()
-            if pointed_ui:
-                _forward_mouse_event(pointed_ui.position, 1) # Left mouse button down
+        elif pointed_object == settings_panel:
+            var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
+            if uv != Vector2(-1,-1):
+                var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
+                _forward_mouse_event(ui_pos, 1) # Left mouse button down
 
     elif button_name == "primary_click": # 'A' button on Quest
-        var pointed_piece = active_controller.get_pointed_piece()
-        if pointed_piece:
-            var pos = pointed_piece.get_meta("grid_pos")
+        if target_piece is GamePiece:
+            var pos = target_piece.get_meta("grid_pos")
             GameManager.rotate_piece(pos.x, pos.y)
             game_board.update_piece(pos.x, pos.y)
 
 func _on_button_released(button_name):
     if button_name == "trigger_click":
         if current_state == State.GRABBING:
-            # Detach the piece from the controller
             var grab_point = active_controller.get_node("GrabPoint")
             grab_point.remove_child(grabbed_piece)
 
-            # Simplified drop logic: for now, just tell the board to redraw.
-            # A full implementation would calculate the new grid position based on raycast.
-            # Here, we just put it back for demonstration, which means no move occurs.
+            # Simplified drop logic, just redraw the board
             GameManager.move_piece(grabbed_piece_original_pos.x, grabbed_piece_original_pos.y, grabbed_piece_original_pos.x, grabbed_piece_original_pos.y)
-            game_board.draw_board() # Redraw the whole board to place the piece back
+            game_board.draw_board()
 
             print("Released piece")
             current_state = State.IDLE
             grabbed_piece = null
 
-        elif current_state == State.ON_UI:
-            var pointed_ui = _get_ui_collision()
-            if pointed_ui:
-                _forward_mouse_event(pointed_ui.position, 0) # Left mouse button up
+        elif pointed_object == settings_panel:
+            var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
+            if uv != Vector2(-1,-1):
+                var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
+                _forward_mouse_event(ui_pos, 0) # Left mouse button up
