@@ -28,6 +28,7 @@ renderer/rendering_method="forward_plus"
 [xr]
 
 openxr/enabled=true
+shaders/enabled=true
 
 [autoload]
 
