@@ -7,9 +7,6 @@ extends Node3D
 # and instantiates a GamePiece scene for each tile, telling each piece
 # what to look like.
 
-# Preload the scene for the individual game pieces
-const GamePiece = preload("res://GamePiece.tscn")
-
 # The physical distance between the centers of adjacent pieces
 var piece_spacing = 1.2
 

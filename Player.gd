@@ -57,7 +57,7 @@ func _ready():
     left_controller.button_released.connect(_on_button_released)
     right_controller.button_released.connect(_on_button_released)
 
-func _physics_process(delta):
+func _physics_process(_delta):
     # Board manipulation with the left thumbstick
     var move_vector = left_controller.get_vector2("thumbstick")
     if move_vector.length() > 0.1:
@@ -120,14 +120,6 @@ func _forward_mouse_motion(pos: Vector2):
     motion_event.position = pos
     sub_viewport.push_input(motion_event)
 
-func _forward_mouse_click(pos: Vector2, pressed: bool):
-    # Forwards a mouse click to the SubViewport.
-    var click_event = InputEventMouseButton.new()
-    click_event.position = pos
-    click_event.button_index = MOUSE_BUTTON_LEFT
-    click_event.pressed = pressed
-    sub_viewport.push_input(click_event)
-
 func _on_button_pressed(button_name):
     if not is_instance_valid(pointed_object):
         return
@@ -151,7 +143,8 @@ func _on_button_pressed(button_name):
             var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
             if uv != Vector2(-1,-1):
                 var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
-                _forward_mouse_click(ui_pos, true) # Left mouse button down
+                # Call our new manual click function
+                sub_viewport.get_node("SettingsMenu").do_click(ui_pos)
 
     elif button_name == "primary_click": # 'A' button on Quest
         if target_piece is GamePiece:
@@ -172,9 +165,3 @@ func _on_button_released(button_name):
             print("Released piece")
             current_state = State.IDLE
             grabbed_piece = null
-
-        elif pointed_object == settings_panel:
-            var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
-            if uv != Vector2(-1,-1):
-                var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
-                _forward_mouse_click(ui_pos, false) # Left mouse button up

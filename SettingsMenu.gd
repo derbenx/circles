@@ -76,3 +76,17 @@ func _on_new_game_button_pressed():
 func _gui_input(event: InputEvent):
     if event is InputEventMouseMotion:
         %Cursor.position = event.position - (%Cursor.size / 2) # Center the cursor
+
+func do_click(click_position: Vector2):
+    # Manually check if the click position is inside any of our buttons.
+    # This is necessary because the default UI picking is disabled in VR.
+    if simple_button.get_rect().has_point(click_position):
+        simple_button.emit_signal("pressed")
+    elif easy_button.get_rect().has_point(click_position):
+        easy_button.emit_signal("pressed")
+    elif medium_button.get_rect().has_point(click_position):
+        medium_button.emit_signal("pressed")
+    elif hard_button.get_rect().has_point(click_position):
+        hard_button.emit_signal("pressed")
+    elif new_game_button.get_rect().has_point(click_position):
+        new_game_button.emit_signal("pressed")

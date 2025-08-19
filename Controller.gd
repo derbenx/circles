@@ -39,7 +39,7 @@ func _ready():
     add_child(laser)
 
 # We also need to listen for button presses
-func _process(delta):
+func _process(_delta):
     # The actual input handling is done in Player.gd, which reads button
     # presses directly from the controller nodes. This process loop is
     # currently empty but could be used for controller-specific animations.
