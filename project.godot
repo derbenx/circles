@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Circles Godot VR"
 config/features=PackedStringArray("4.2", "Forward Plus")
+run/main_scene="res://Main.tscn"
 
 [display]
 
