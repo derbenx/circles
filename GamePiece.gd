@@ -1,3 +1,4 @@
+class_name GamePiece
 extends Node3D
 
 # GamePiece Scene Script
