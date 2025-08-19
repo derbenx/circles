@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3 uid="uid://c3v3j3v3j3v3j"]
+
+[ext_resource type="PackedScene" uid="uid://bqw7f4k5c3v2a" path="res://GameBoard.tscn" id="1_board"]
+[ext_resource type="Script" path="res://Player.gd" id="2_player"]
+[ext_resource type="Script" path="res://Controller.gd" id="3_controller"]
+[ext_resource type="PackedScene" uid="uid://d1h2j3k4l5m6n" path="res://SettingsMenu.tscn" id="4_menu"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_abcde"]
+size = Vector2(0.8, 1.1)
+
+[node name="Main" type="Node3D"]
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+script = ExtResource("2_player")
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1, -0.5)
+tracker = &"/user/hand/left"
+script = ExtResource("3_controller")
+
+[node name="RightController" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1, -0.5)
+tracker = &"/user/hand/right"
+script = ExtResource("3_controller")
+
+[node name="GameBoard" parent="." instance=ExtResource("1_board")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -2)
+
+[node name="SettingsPanel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.5, -1.5)
+mesh = SubResource("QuadMesh_abcde")
+
+[node name="SubViewport" type="SubViewport" parent="SettingsPanel"]
+handle_input_locally = false
+size = Vector2i(400, 550)
+
+[node name="SettingsMenu" parent="SettingsPanel/SubViewport" instance=ExtResource("4_menu")]

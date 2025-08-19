@@ -1,0 +1,97 @@
+[gd_scene load_steps=2 format=3 uid="uid://d1h2j3k4l5m6n"]
+
+[ext_resource type="Script" path="res://SettingsMenu.gd" id="1_ui_script"]
+
+[node name="SettingsMenu" type="PanelContainer"]
+offset_right = 400.0
+offset_bottom = 550.0
+script = ExtResource("1_ui_script")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Cursor" type="ColorRect" parent="MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(10, 10)
+mouse_filter = 2
+color = Color(1, 0, 0, 1)
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Choose a level preset:"
+horizontal_alignment = 1
+
+[node name="HBoxPresets" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="SimpleButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxPresets"]
+layout_mode = 2
+text = "Simple"
+
+[node name="EasyButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxPresets"]
+layout_mode = 2
+text = "Easy"
+
+[node name="MediumButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxPresets"]
+layout_mode = 2
+text = "Medium"
+
+[node name="HardButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxPresets"]
+layout_mode = 2
+text = "Hard"
+
+[node name="OptionsLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Or choose your options:"
+horizontal_alignment = 1
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+columns = 2
+
+[node name="SizeLabel" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Size (3-15):"
+
+[node name="SizeInput" type="LineEdit" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "4"
+placeholder_text = "4"
+
+[node name="MovementLabel" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Movement (2-4):"
+
+[node name="MovementInput" type="LineEdit" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "2"
+
+[node name="RotationLabel" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Rotation (0-3):"
+
+[node name="RotationInput" type="LineEdit" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "1"
+
+[node name="ColorsLabel" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Colors (2-9):"
+
+[node name="ColorsInput" type="LineEdit" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "5"
+
+[node name="NewGameButton" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "New Game"
