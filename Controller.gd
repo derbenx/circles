@@ -1,3 +1,4 @@
+class_name Controller
 extends XRController3D
 
 # VR Controller Script

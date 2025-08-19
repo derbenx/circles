@@ -1,9 +1,0 @@
-[A{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "io.github.derbenx.circles",
-    "sha256_cert_fingerprints":
-    ["B6:BF:48:39:F4:19:EF:75:0F:03:53:2D:A2:A5:78:73:59:D4:27:A0:26:E8:4D:B5:FE:D9:8E:B0:49:81:32:34"]
-  }
-}]
