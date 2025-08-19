@@ -98,10 +98,10 @@ func _physics_process(delta):
         var uv = result.get("uv", Vector2(-1, -1))
         if uv != Vector2(-1, -1):
             var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
-            _forward_mouse_event(ui_pos, 0) # Motion event
+            _forward_mouse_motion(ui_pos) # Motion event
     else:
         # Send a "mouse out" event to the UI when not pointing at it
-        _forward_mouse_event(Vector2(-1, -1), 0)
+        _forward_mouse_motion(Vector2(-1, -1))
 
 func _get_ui_collision():
     # Performs a raycast to check if the controller is pointing at the UI panel.
@@ -114,13 +114,19 @@ func _get_ui_collision():
     var result = space_state.intersect_ray(query)
     return result
 
-func _forward_mouse_event(pos, button_mask):
-    # Creates a fake mouse input event and sends it to the SubViewport,
-    # which makes the 2D UI controls clickable in VR.
-    var event = InputEventMouseButton.new()
-    event.position = pos
-    event.button_mask = button_mask
-    sub_viewport.push_input(event)
+func _forward_mouse_motion(pos: Vector2):
+    # Forwards mouse motion to the SubViewport.
+    var motion_event = InputEventMouseMotion.new()
+    motion_event.position = pos
+    sub_viewport.push_input(motion_event)
+
+func _forward_mouse_click(pos: Vector2, pressed: bool):
+    # Forwards a mouse click to the SubViewport.
+    var click_event = InputEventMouseButton.new()
+    click_event.position = pos
+    click_event.button_index = MOUSE_BUTTON_LEFT
+    click_event.pressed = pressed
+    sub_viewport.push_input(click_event)
 
 func _on_button_pressed(button_name):
     if not is_instance_valid(pointed_object):
@@ -145,7 +151,7 @@ func _on_button_pressed(button_name):
             var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
             if uv != Vector2(-1,-1):
                 var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
-                _forward_mouse_event(ui_pos, 1) # Left mouse button down
+                _forward_mouse_click(ui_pos, true) # Left mouse button down
 
     elif button_name == "primary_click": # 'A' button on Quest
         if target_piece is GamePiece:
@@ -171,4 +177,4 @@ func _on_button_released(button_name):
             var uv = _get_ui_collision().get("uv", Vector2(-1,-1))
             if uv != Vector2(-1,-1):
                 var ui_pos = Vector2(uv.x * sub_viewport.size.x, uv.y * sub_viewport.size.y)
-                _forward_mouse_event(ui_pos, 0) # Left mouse button up
+                _forward_mouse_click(ui_pos, false) # Left mouse button up
