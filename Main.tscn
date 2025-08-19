@@ -34,6 +34,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -2)
 [node name="SettingsPanel" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.5, -1.5)
 mesh = SubResource("QuadMesh_abcde")
+collision_layer = 8
 
 [node name="SubViewport" type="SubViewport" parent="SettingsPanel"]
 handle_input_locally = false

@@ -8,9 +8,18 @@ extends XRController3D
 # pointed at, handling the highlighting effect.
 
 var laser: MeshInstance3D
+var sphere: MeshInstance3D
 
 func _ready():
-    # 1. Create the laser pointer visual
+    # 1. Create a sphere to represent the controller's position
+    sphere = MeshInstance3D.new()
+    var sphere_mesh = SphereMesh.new()
+    sphere_mesh.radius = 0.03
+    sphere_mesh.height = 0.06
+    sphere.mesh = sphere_mesh
+    add_child(sphere)
+
+    # 2. Create the laser pointer visual
     laser = MeshInstance3D.new()
     var laser_mesh = CylinderMesh.new()
     laser_mesh.height = 10.0
