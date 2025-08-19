@@ -1,14 +1,16 @@
-[gd_scene load_steps=6 format=3 uid="uid://c3v3j3v3j3v3j"]
+[gd_scene load_steps=7 format=3 uid="uid://c3v3j3v3j3v3j"]
 
 [ext_resource type="PackedScene" uid="uid://bqw7f4k5c3v2a" path="res://GameBoard.tscn" id="1_board"]
 [ext_resource type="Script" path="res://Player.gd" id="2_player"]
 [ext_resource type="Script" path="res://Controller.gd" id="3_controller"]
 [ext_resource type="PackedScene" uid="uid://d1h2j3k4l5m6n" path="res://SettingsMenu.tscn" id="4_menu"]
+[ext_resource type="Script" path="res://Main.gd" id="5_main"]
 
 [sub_resource type="QuadMesh" id="QuadMesh_abcde"]
 size = Vector2(0.8, 1.1)
 
 [node name="Main" type="Node3D"]
+script = ExtResource("5_main")
 
 [node name="XROrigin3D" type="XROrigin3D" parent="."]
 script = ExtResource("2_player")
