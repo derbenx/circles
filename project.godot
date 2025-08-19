@@ -21,6 +21,7 @@ window/size/viewport_height=720
 
 [rendering]
 
+environment/defaults/default_environment="res://default_env.tres"
 renderer/rendering_method="forward_plus"
 
 [xr]
