@@ -7,6 +7,8 @@ extends Node3D
 # and instantiates a GamePiece scene for each tile, telling each piece
 # what to look like.
 
+const GamePieceScene = preload("res://GamePiece.tscn")
+
 # The physical distance between the centers of adjacent pieces
 var piece_spacing = 1.2
 
@@ -42,7 +44,7 @@ func draw_board():
 
             # Only create a visual for non-empty pieces
             if not piece_data.begins_with("0"):
-                var piece_instance = GamePiece.instantiate()
+                var piece_instance = GamePieceScene.instantiate()
 
                 # Position the piece in the grid
                 piece_instance.position = Vector3(x * piece_spacing, 0, y * piece_spacing)
