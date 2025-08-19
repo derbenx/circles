@@ -11,7 +11,7 @@ extends Node3D
 @onready var right_controller: Controller = $RightController
 @onready var game_board: Node3D = get_node("/root/Main/GameBoard")
 @onready var settings_panel: MeshInstance3D = get_node("/root/Main/SettingsPanel")
-@onready var sub_viewport: SubViewport = $SettingsPanel/SubViewport"
+@onready var sub_viewport: SubViewport = $SettingsPanel/SubViewport
 
 enum State { IDLE, GRABBING, ON_UI }
 var current_state = State.IDLE
