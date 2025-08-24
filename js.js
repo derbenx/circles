@@ -800,6 +800,23 @@ async function runXRRendering(session, mode) {
     let lastActiveController = null;
     let selectJustStarted = false;
     let selectJustEnded = false;
+    let leftController = null;
+    let rightController = null;
+
+    function updateControllers() {
+        leftController = null;
+        rightController = null;
+        for (const source of session.inputSources) {
+            if (source.handedness === 'left') {
+                leftController = source;
+            } else if (source.handedness === 'right') {
+                rightController = source;
+            }
+        }
+    }
+
+    session.addEventListener('inputsourceschange', updateControllers);
+    updateControllers();
 
     session.addEventListener('selectstart', (event) => {
       activeController = event.inputSource;
@@ -1197,17 +1214,6 @@ async function runXRRendering(session, mode) {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             vrIntersection = null;
-            let leftController = null;
-            let rightController = null;
-            let controllerPosition = null;
-
-            for (const source of session.inputSources) {
-                if (source.handedness === 'left') {
-                    leftController = source;
-                } else if (source.handedness === 'right') {
-                    rightController = source;
-                }
-            }
 
             if (!activeController) {
                 activeController = rightController || leftController;
