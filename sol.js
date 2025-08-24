@@ -266,7 +266,6 @@ async function clku(evn){
     }
    }
   }
-  clrcan(can);
  }
  drag=0;fx=-1;fy=-1;
  redraw(flp);
@@ -283,7 +282,6 @@ async function clku(evn){
 function clkd(evn){
  if (flow.length) { return; }
  flox=[];floy=[];
- clrcan(can);
  redraw(1);
  bgsk=0;
  if (done) { return; }
@@ -385,13 +383,25 @@ function movr(evn){
   flod=i;
   }
   if (!bgsk) {
-   clrcan(can);
    redraw(1);
    bgsk=1;
   }
 }
 
 function redraw(flip=0) {
+    if (inVR || inAR) {
+        // In XR mode, we don't draw to the 2D canvas, just flip cards
+        for (let i = 0; i < sprd.length; i++) {
+            if (sprd[i].length > 0) {
+                const card = sprd[i][sprd[i].length - 1];
+                if (flip == 0 && card.startsWith('x')) {
+                    sprd[i][sprd[i].length - 1] = card.substr(1, 2);
+                }
+            }
+        }
+        return;
+    }
+
  //flip 1 = don't flip
  //console.log('flip:'+flip);
  
@@ -542,6 +552,36 @@ async function activateAR() {
 }
 
 // VR
+function initCardTextures(gl) {
+    const cardTextures = {};
+    const cardWidth = 100;
+    const cardHeight = 150;
+
+    // Generate textures for all cards
+    const suits = ['c', 't', 's', 'd'];
+    const values = ['a', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'j', 'q', 'k'];
+
+    for (const suit of suits) {
+        for (const value of values) {
+            const cardName = suit + value;
+            const canvas = document.createElement('canvas');
+            canvas.width = cardWidth;
+            canvas.height = cardHeight;
+            dcd(canvas, 0, 0, cardName, cardWidth, 'lime', 'green');
+            cardTextures[cardName] = initTexture(gl, canvas);
+        }
+    }
+
+    // Generate texture for card back
+    const backCanvas = document.createElement('canvas');
+    backCanvas.width = cardWidth;
+    backCanvas.height = cardHeight;
+    dcd(backCanvas, 0, 0, 'b1', cardWidth, 'lime', 'green');
+    cardTextures['b1'] = initTexture(gl, backCanvas);
+
+    return cardTextures;
+}
+
 function onSessionEnded(event) {
     const session = event.session;
     if (session === vrSession) {
@@ -565,6 +605,8 @@ async function runXRRendering(session, mode) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+    const cardTextures = initCardTextures(gl);
+
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
@@ -586,6 +628,28 @@ async function runXRRendering(session, mode) {
         return;
       }
       if (vrIntersection) {
+        const loc = vrIntersection.location;
+        if (loc.type === 'sprd') {
+            gx = loc.x;
+            gy = loc.y + 6;
+        } else if (loc.type === 'deck') {
+            gx = 0;
+            gy = 1;
+        } else if (loc.type === 'pile') {
+            gx = 1;
+            gy = 1;
+        } else if (loc.type === 'aces') {
+            gx = loc.x + 3;
+            gy = 1;
+        }
+
+        // Simulate a click at the center of the card for the 2D logic
+        const rect = can.getBoundingClientRect();
+        mx = (gx / xx) * bw + (bw / xx / 2);
+        my = (gy / yy) * bh + (bh / yy / 2);
+        fx = mx;
+        fy = my;
+
         clkd({ stopPropagation: () => {}, preventDefault: () => {} });
       }
     });
@@ -596,6 +660,21 @@ async function runXRRendering(session, mode) {
         return;
       }
       if (vrIntersection) {
+        const loc = vrIntersection.location;
+        if (loc.type === 'sprd') {
+            tx = loc.x;
+            ty = loc.y + 6;
+        } else if (loc.type === 'deck') {
+            tx = 0;
+            ty = 1;
+        } else if (loc.type === 'pile') {
+            tx = 1;
+            ty = 1;
+        } else if (loc.type === 'aces') {
+            tx = loc.x + 3;
+            ty = 1;
+        }
+
         clku({ stopPropagation: () => {}, preventDefault: () => {} });
       }
     });
@@ -647,78 +726,97 @@ async function runXRRendering(session, mode) {
       },
     };
 
-    const buffers = initBuffers(gl);
-    let texture = initTexture(gl, sourceCanvas);
+    const cardWidth3D = 0.2;
+    const cardHeight3D = cardWidth3D * 1.5;
+    const cardDepth3D = 0.01;
+    const cardModel = createCuboid(cardWidth3D, cardHeight3D, cardDepth3D);
+    const cardBuffers = initBuffers(gl);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, cardModel.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.textureCoord);
+    gl.bufferData(gl.ARRAY_BUFFER, cardModel.textureCoordinates, gl.STATIC_DRAW);
 
-    const vrCanvasPosition = (mode === 'immersive-ar') ? [0, 1.0, -1.5] : [0, 1.0, -1.5];
-    const canvasModelMatrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
 
     function onXRFrame(time, frame) {
         session.requestAnimationFrame(onXRFrame);
-
-        redraw(1);
-
-        compositeCanvas.width = sourceCanvas.width;
-        compositeCanvas.height = sourceCanvas.height;
-        compositeCtx.drawImage(sourceCanvas, 0, 0);
-        compositeCtx.drawImage(spriteCanvas, 0, 0);
-
-        updateTexture(gl, texture, compositeCanvas);
 
         const pose = frame.getViewerPose(referenceSpace);
         if (pose) {
             const glLayer = session.renderState.baseLayer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-            if (mode === 'immersive-ar') {
-                gl.clearColor(0, 0, 0, 0);
-            } else {
-                gl.clearColor(0.1, 0.2, 0.3, 1.0);
-            }
+            gl.clearColor(0.1, 0.2, 0.3, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            vrIntersection = null;
-
-            for (const source of frame.session.inputSources) {
-                if (source.gripSpace) {
-                    const gripPose = frame.getPose(source.gripSpace, referenceSpace);
-                    if (gripPose) {
-                        const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
-                        if (intersection) {
-                            vrIntersection = intersection;
-                            mx = ((intersection.local[0] + 1) / 2) * bw;
-                            my = ((1 - intersection.local[1]) / 2) * bh;
-                            movr({ offsetX: mx, offsetY: my });
-                        }
-                    }
-                }
-            }
-
-            const aspectRatio = bw / bh;
-            glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
-            glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
+            const cardObjects = [];
 
             for (const view of pose.views) {
                 const viewport = glLayer.getViewport(view);
                 gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
 
-                const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
+                // Draw tableau
+                for (let i = 0; i < sprd.length; i++) {
+                    for (let j = 0; j < sprd[i].length; j++) {
+                        const card = sprd[i][j];
+                        const cardTexture = card.startsWith('x') ? cardTextures['b1'] : cardTextures[card];
 
-                drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+                        const modelMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.translate(modelMatrix, modelMatrix, [-0.7 + i * 0.22, 0.5 - j * 0.05, -1.5]);
+                        cardObjects.push({ card, matrix: modelMatrix, location: { type: 'sprd', x: i, y: j } });
 
-                if (vrIntersection) {
-                    const { mat4, vec3, quat } = glMatrix;
-                    const pointerModelMatrix = mat4.create();
-                    const boardRotation = quat.create();
-                    mat4.getRotation(boardRotation, canvasModelMatrix);
-                    mat4.fromRotationTranslationScale(
-                        pointerModelMatrix,
-                        boardRotation,
-                        vrIntersection.world,
-                        [0.025, 0.025, 0.025]
-                    );
-                    const pointerModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, pointerModelMatrix);
-                    drawScene(gl, programInfo, buffers, pointerTexture, view.projectionMatrix, pointerModelViewMatrix);
+                        const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+                        drawScene(gl, programInfo, cardBuffers, cardTexture, view.projectionMatrix, modelViewMatrix);
+                    }
+                }
+
+                // Draw deck
+                if (deck.length > 0) {
+                    const modelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.translate(modelMatrix, modelMatrix, [-0.7, 0.5, -1.5]);
+                    cardObjects.push({ card: 'b1', matrix: modelMatrix, location: { type: 'deck' } });
+                    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+                    drawScene(gl, programInfo, cardBuffers, cardTextures['b1'], view.projectionMatrix, modelViewMatrix);
+                }
+
+                // Draw pile
+                if (pile.length > 0) {
+                    const card = pile[pile.length - 1];
+                    const modelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.translate(modelMatrix, modelMatrix, [-0.48, 0.5, -1.5]);
+                    cardObjects.push({ card, matrix: modelMatrix, location: { type: 'pile' } });
+                    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+                    drawScene(gl, programInfo, cardBuffers, cardTextures[card], view.projectionMatrix, modelViewMatrix);
+                }
+
+                // Draw aces
+                for (let i = 0; i < aces.length; i++) {
+                    if (aces[i].length > 0) {
+                        const card = aces[i][aces[i].length - 1];
+                        const modelMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.translate(modelMatrix, modelMatrix, [0.2 + i * 0.22, 0.5, -1.5]);
+                        cardObjects.push({ card, matrix: modelMatrix, location: { type: 'aces', x: i } });
+                        const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+                        drawScene(gl, programInfo, cardBuffers, cardTextures[card], view.projectionMatrix, modelViewMatrix);
+                    }
+                }
+            }
+
+            vrIntersection = null;
+            let closestIntersection = null;
+
+            for (const source of frame.session.inputSources) {
+                if (source.gripSpace) {
+                    const gripPose = frame.getPose(source.gripSpace, referenceSpace);
+                    if (gripPose) {
+                        for (const cardObject of cardObjects) {
+                            const intersection = intersectPlane(gripPose.transform, cardObject.matrix);
+                            if (intersection) {
+                                if (!closestIntersection || intersection.world[2] > closestIntersection.world[2]) {
+                                    closestIntersection = intersection;
+                                    vrIntersection = cardObject;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -875,6 +973,39 @@ function intersectPlane(transform, quadModelMatrix) {
     }
   }
   return null;
+}
+
+function createCuboid(width, height, depth) {
+    const w = width / 2, h = height / 2, d = depth / 2;
+    const vertices = [
+        // Front
+        -w,-h,d,  w,-h,d,  w,h,d,  -w,-h,d,  w,h,d,  -w,h,d,
+        // Back
+        -w,-h,-d, -w,h,-d,  w,h,-d, -w,-h,-d,  w,h,-d,  w,-h,-d,
+        // Top
+        -w,h,d,  w,h,d,  w,h,-d, -w,h,d,  w,h,-d, -w,h,-d,
+        // Bottom
+        -w,-h,d, -w,-h,-d,  w,-h,-d, -w,-h,d,  w,-h,-d,  w,-h,d,
+        // Left
+        -w,-h,d, -w,h,-d, -w,-h,-d, -w,-h,d, -w,h,d, -w,h,-d,
+        // Right
+        w,-h,d,  w,-h,-d,  w,h,-d, w,-h,d,  w,h,-d,  w,h,d,
+    ];
+    const textureCoordinates = [
+        // Front
+        0,1, 1,1, 1,0, 0,1, 1,0, 0,0,
+        // Back
+        1,1, 1,0, 0,0, 1,1, 0,0, 0,1,
+        // Top
+        0,0, 1,0, 1,1, 0,0, 1,1, 0,1,
+        // Bottom
+        0,1, 0,0, 1,0, 0,1, 1,0, 1,1,
+        // Left
+        1,1, 0,0, 1,0, 1,1, 0,1, 0,0,
+        // Right
+        0,1, 1,0, 0,0, 0,1, 1,1, 1,0,
+    ];
+    return { vertices: new Float32Array(vertices), textureCoordinates: new Float32Array(textureCoordinates), vertexCount: 36 };
 }
 
 document.getElementById("btn-vr").onclick = toggleVR;
