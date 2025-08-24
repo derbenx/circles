@@ -1,0 +1,7 @@
+body { background:black; color:grey; overflow-y: hidden }
+#game{ border:none; margin:auto; width:100%;  overflow:hidden; overscroll-behavior: none; }
+#can{ border:solid 1px red; margin-left: auto;margin-right:auto; display: block; }
+#spr {  border: 1px dashed green;  transform: translate(0, -100%); }
+#can, #spr { display: block; margin: auto; }
+#dbug{top:0;position:fixed;left:0;background:#ccc;border:1px solid red;padding:5px;}
+#btg { position:fixed; top:0px; }

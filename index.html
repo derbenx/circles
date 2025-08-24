@@ -1,0 +1,20 @@
+<html><head>
+<link rel="stylesheet" href="css.css">
+<link rel="manifest" href="manifest.json" />
+</head>
+<center>
+<table><tr>
+<td onclick="play(1)"><img src="favicon/cir.jpg"><br><button>Circles</button></td>
+<td onclick="play(2)"><img src="favicon/sol.jpg"><br><button>Solitare</button></td>
+<tr></table>
+</center>
+<script>
+ if (typeof navigator.serviceWorker !== 'undefined') {
+  navigator.serviceWorker.register('sw.js')
+ }
+ function play(n){
+  if (n==1){ window.location="cir.html"; }
+  if (n==2){ window.location="sol.html"; }
+ }
+</script>
+</html>
