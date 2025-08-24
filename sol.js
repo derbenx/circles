@@ -504,6 +504,14 @@ function start(){
 }
 let arSession = null;
 
+function toggleVR() {
+  if (vrSession) {
+    vrSession.end();
+  } else {
+    activateVR();
+  }
+}
+
 function toggleAR() {
     if (arSession) {
         arSession.end();
