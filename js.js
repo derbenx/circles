@@ -1228,6 +1228,7 @@ async function runXRRendering(session, mode) {
                 if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
                     document.getElementById("btn-vr").disabled = false;
                     session.end();
+                    return;
                 }
                 yButtonPressedLastFrame = yButton ? yButton.pressed : false;
             }
@@ -1249,6 +1250,7 @@ async function runXRRendering(session, mode) {
                 if (bButton && bButton.pressed && !bButtonPressedLastFrame) {
                     document.getElementById("btn-vr").disabled = false;
                     session.end();
+                    return;
                 }
                 bButtonPressedLastFrame = bButton ? bButton.pressed : false;
             }
@@ -1274,6 +1276,7 @@ async function runXRRendering(session, mode) {
                         // because ending the session is a one-off event.
                         document.getElementById("btn-vr").disabled = false;
                         session.end();
+                        return;
                     }
 
                     // Symmetrical rotation on primary button
