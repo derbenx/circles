@@ -798,28 +798,16 @@ async function runXRRendering(session, mode) {
     let bButtonPressedLastFrame = false;
     let activeController = null;
     let lastActiveController = null;
+    let selectJustStarted = false;
+    let selectJustEnded = false;
 
     session.addEventListener('selectstart', (event) => {
       activeController = event.inputSource;
-      if (vrShowAlert) {
-        vrShowAlert = false;
-        ignoreNextSelectEnd = true;
-        wipe();
-        return;
-      }
-      if (vrIntersection) {
-        clkd({ preventDefault: () => {} });
-      }
+      selectJustStarted = true;
     });
 
     session.addEventListener('selectend', () => {
-      if (ignoreNextSelectEnd) {
-        ignoreNextSelectEnd = false;
-        return;
-      }
-      if (vrIntersection) {
-        clku({ preventDefault: () => {} });
-      }
+      selectJustEnded = true;
     });
 
     const sourceCanvas = document.getElementById("can");
@@ -1302,6 +1290,26 @@ async function runXRRendering(session, mode) {
                     }
                     primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
 
+                }
+            }
+
+            if (selectJustStarted) {
+                selectJustStarted = false;
+                if (vrShowAlert) {
+                    vrShowAlert = false;
+                    ignoreNextSelectEnd = true;
+                    wipe();
+                } else if (vrIntersection) {
+                    clkd({ preventDefault: () => {} });
+                }
+            }
+
+            if (selectJustEnded) {
+                selectJustEnded = false;
+                if (ignoreNextSelectEnd) {
+                    ignoreNextSelectEnd = false;
+                } else if (vrIntersection) {
+                    clku({ preventDefault: () => {} });
                 }
             }
 
