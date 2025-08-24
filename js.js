@@ -776,7 +776,7 @@ function onSessionEnded(event) {
 
 async function runXRRendering(session, mode) {
     const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true, antialias: false });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
