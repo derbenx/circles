@@ -777,11 +777,11 @@ function onSessionEnded(event) {
 async function runXRRendering(session, mode) {
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    await gl.makeXRCompatible();
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
-
-    await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
     let referenceSpace;
@@ -842,7 +842,7 @@ async function runXRRendering(session, mode) {
     pointerCtx.beginPath();
     pointerCtx.arc(32, 32, 30, 0, 2 * Math.PI);
     pointerCtx.fill();
-    // const pointerTexture = initTexture(gl, pointerCanvas);
+    const pointerTexture = initTexture(gl, pointerCanvas);
 
     const vsSource = `
       attribute vec4 aVertexPosition;
@@ -1166,7 +1166,7 @@ async function runXRRendering(session, mode) {
     };
 
     const buffers = initBuffers(gl);
-    // let texture = initTexture(gl, sourceCanvas);
+    let texture = initTexture(gl, sourceCanvas);
 
     const vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
     let vrCanvasRotationY = 0;
@@ -1176,30 +1176,342 @@ async function runXRRendering(session, mode) {
     function onXRFrame(time, frame) {
         session.requestAnimationFrame(onXRFrame);
 
-        // draw(1);
+        draw(1);
 
-        // compositeCanvas.width = sourceCanvas.width;
-        // compositeCanvas.height = sourceCanvas.height;
-        // compositeCtx.drawImage(sourceCanvas, 0, 0);
-        // compositeCtx.drawImage(spriteCanvas, 0, 0);
+        compositeCanvas.width = sourceCanvas.width;
+        compositeCanvas.height = sourceCanvas.height;
+        compositeCtx.drawImage(sourceCanvas, 0, 0);
+        compositeCtx.drawImage(spriteCanvas, 0, 0);
 
-        // updateTexture(gl, texture, compositeCanvas);
+        updateTexture(gl, texture, compositeCanvas);
 
         const pose = frame.getViewerPose(referenceSpace);
         if (pose) {
+            if (vrShowAlert) {
+                alertCtx.clearRect(0, 0, alertCanvas.width, alertCanvas.height);
+                alertCtx.save();
+                alertCtx.scale(-1, 1);
+                alertCtx.fillStyle = "white";
+                alertCtx.font = "40px sans-serif";
+                alertCtx.textAlign = "center";
+                alertCtx.fillText("You Won!", -alertCanvas.width / 2, alertCanvas.height / 2);
+                alertCtx.restore();
+                updateTexture(gl, alertTexture, alertCanvas);
+            }
+
             const glLayer = session.renderState.baseLayer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-
             if (mode === 'immersive-ar') {
                 gl.clearColor(0, 0, 0, 0);
             } else {
-                gl.clearColor(0.1, 0.2, 0.3, 1.0);
+                gl.clearColor(0, 0, 0, 1);
             }
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            vrIntersection = null;
+            let leftController = null;
+            let rightController = null;
+            let controllerPosition = null;
+
+            for (const source of session.inputSources) {
+                if (source.handedness === 'left') {
+                    leftController = source;
+                } else if (source.handedness === 'right') {
+                    rightController = source;
+                }
+            }
+
+            if (!activeController) {
+                activeController = rightController || leftController;
+            }
+
+            if (lastActiveController && activeController !== lastActiveController) {
+                drag = 'n';
+            }
+            lastActiveController = activeController;
+
+            if (leftController && leftController.gamepad) {
+                const thumbstickX = leftController.gamepad.axes[2];
+                const thumbstickY = leftController.gamepad.axes[3];
+                const moveSpeed = 0.02;
+                if (Math.abs(thumbstickX) > 0.1) { vrCanvasPosition[0] += thumbstickX * moveSpeed; }
+                if (Math.abs(thumbstickY) > 0.1) { vrCanvasPosition[1] -= thumbstickY * moveSpeed; }
+                const yButton = leftController.gamepad.buttons[5];
+                if (yButton && yButton.pressed && !yButtonPressedLastFrame) {
+                    document.getElementById("btn-vr").disabled = false;
+                    session.end();
+                }
+                yButtonPressedLastFrame = yButton ? yButton.pressed : false;
+            }
+
+            if (rightController && rightController.gamepad) {
+                const thumbstickY = rightController.gamepad.axes[3];
+                const zoomSpeed = 0.02;
+                if (Math.abs(thumbstickY) > 0.1) {
+                    vrCanvasPosition[2] += thumbstickY * zoomSpeed;
+                }
+
+                const thumbstickX = rightController.gamepad.axes[2];
+                const rotateSpeed = 0.02;
+                if (Math.abs(thumbstickX) > 0.4) {
+                    vrCanvasRotationY += thumbstickX * rotateSpeed;
+                }
+
+                const bButton = rightController.gamepad.buttons[5];
+                if (bButton && bButton.pressed && !bButtonPressedLastFrame) {
+                    document.getElementById("btn-vr").disabled = false;
+                    session.end();
+                }
+                bButtonPressedLastFrame = bButton ? bButton.pressed : false;
+            }
+
+            if (activeController) {
+                if (activeController.gripSpace) {
+                    const gripPose = frame.getPose(activeController.gripSpace, referenceSpace);
+                    if (gripPose) {
+                        controllerPosition = gripPose.transform.position;
+                        const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
+                        if (intersection) {
+                            vrIntersection = intersection;
+                            mx = ((intersection.local[0] + 1) / 2) * ww;
+                            my = ((1 - intersection.local[1]) / 2) * hh;
+                        }
+                    }
+                }
+                if (activeController.gamepad) {
+                    // Symmetrical "end session" button on both controllers
+                    const secondaryButton = activeController.gamepad.buttons[5];
+                    if (secondaryButton && secondaryButton.pressed) {
+                        // This check is simple and doesn't need a "last frame" state
+                        // because ending the session is a one-off event.
+                        document.getElementById("btn-vr").disabled = false;
+                        session.end();
+                    }
+
+                    // Symmetrical rotation on primary button
+                    const primaryButton = activeController.gamepad.buttons[4];
+                    if (primaryButton && primaryButton.pressed && !primaryButtonPressedLastFrame) {
+                        if (vrIntersection) {
+                            let gx_for_rotate = Math.floor((mx/ww)*xx);
+                            let gy_for_rotate = Math.floor((my/hh)*yy);
+                            if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
+                                rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
+                                sCook("prog", prog());
+                            }
+                        }
+                    }
+                    primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
+
+                }
+            }
+
+            const aspectRatio = ww / hh;
+            glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+            glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
+            glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
             for (const view of pose.views) {
                 const viewport = glLayer.getViewport(view);
                 gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+                const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
+                // drawScene(gl, textureProgramInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
+
+                gl.useProgram(solidColorProgramInfo.program);
+                gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
+                gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
+
+                // Draw 3D grid
+                gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+                const pieceHeight = 0.36 / yy; // Based on cylinder height 0.2 and diameter calculation
+                const gridHeight = pieceHeight / 3;
+                const lineWidth = 0.0075;
+                gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 1.0]);
+
+                // Draw horizontal lines
+                for (let y = 0; y <= yy; y++) {
+                    const y_pos = (y / yy) * 2.0 - 1.0;
+                    const gridLineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(gridLineModelMatrix, [0, -y_pos, gridHeight / 2 + 0.001]);
+                    glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [2.0, lineWidth, gridHeight]);
+                    const finalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.multiply(finalMatrix, canvasModelMatrix, gridLineModelMatrix);
+                    drawMarker(gl, solidColorProgramInfo, gridLineBuffers, finalMatrix, view);
+                }
+
+                // Draw vertical lines
+                for (let x = 0; x <= xx; x++) {
+                    const x_pos = (x / xx) * 2.0 - 1.0;
+                    const gridLineModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.fromTranslation(gridLineModelMatrix, [x_pos, 0, gridHeight / 2 + 0.001]);
+                    glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [lineWidth / (xx/yy), 2.0, gridHeight]);
+                    const finalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.multiply(finalMatrix, canvasModelMatrix, gridLineModelMatrix);
+                    drawMarker(gl, solidColorProgramInfo, gridLineBuffers, finalMatrix, view);
+                }
+
+                for (let y = 0; y < yy; y++) {
+                    for (let x = 0; x < xx; x++) {
+                         if (drag === 'y' && x === gx && y === gy) {
+                            continue; // Skip drawing the dragged piece at its original spot
+                        }
+                        if (grid[x][y].charAt(0) > 0) { // This condition checks if it's a piece
+                            const localPieceMatrix = glMatrix.mat4.create();
+                            const x_local = (x + 0.5) / xx * 2.0 - 1.0;
+                            const y_local = (y + 0.5) / yy * 2.0 - 1.0;
+                            glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [x_local, -y_local, 0.02]);
+                            glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
+                            const tileDim = 2.0 / yy;
+                            const diameter = tileDim * 0.95;
+                            glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+
+                            const pieceModelMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.multiply(pieceModelMatrix, canvasModelMatrix, localPieceMatrix);
+
+                            draw3dPiece(grid[x][y], pieceModelMatrix, view);
+                        }
+                    }
+                }
+
+                // Draw the dragged piece at the cursor's position
+                if (drag === 'y' && vrIntersection) {
+                    const pieceData = grid[gx][gy];
+                    // Make sure it's a movable piece
+                    if (pieceData && pieceData.charAt(0) > 1) {
+                        const localPieceMatrix = glMatrix.mat4.create();
+
+                        // Use cursor's local coordinates for position
+                        const x_local = vrIntersection.local[0];
+                        const y_local = -vrIntersection.local[1];
+
+                        // Apply constraints based on piece move type
+                        let final_x = x_local;
+                        let final_y = y_local;
+                        const moveType = pieceData.charAt(0);
+
+                        if (moveType === '4') { // Horizontal only
+                            const orig_y_local = (gy + 0.5) / yy * 2.0 - 1.0;
+                            final_y = orig_y_local;
+                        } else if (moveType === '3') { // Vertical only
+                            const orig_x_local = (gx + 0.5) / xx * 2.0 - 1.0;
+                            final_x = orig_x_local;
+                        }
+
+                        glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [final_x, -final_y, 0.1]);
+                        glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
+                        const tileDim = 2.0 / yy;
+                        const diameter = tileDim * 0.95;
+                        glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+
+                        const pieceModelMatrix = glMatrix.mat4.create();
+                        glMatrix.mat4.multiply(pieceModelMatrix, canvasModelMatrix, localPieceMatrix);
+
+                        draw3dPiece(pieceData, pieceModelMatrix, view);
+                    }
+                }
+
+                // Draw controller spheres
+                for (const source of session.inputSources) {
+                    if (source.gripSpace) {
+                        const gripPose = frame.getPose(source.gripSpace, referenceSpace);
+                        if (gripPose) {
+                            const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                            glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]); // 3cm radius sphere
+
+                            const finalControllerModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, controllerMatrix);
+                            const controllerNormalMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.invert(controllerNormalMatrix, controllerMatrix);
+                            glMatrix.mat4.transpose(controllerNormalMatrix, controllerNormalMatrix);
+
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalControllerModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, controllerNormalMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.8, 0.8, 0.8, 1.0]); // Light grey
+
+                            gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
+
+                            gl.drawElements(gl.TRIANGLES, sphereBuffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+
+                            // Draw controller ray
+                            const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                            // Apply the same downward rotation as the intersection test
+                            glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
+                            // move the ray forward by half its length so it appears to originate from the controller's center
+                            glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
+                            glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]); // 0.5mm wide, 1m long
+
+                            const finalRayModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, rayMatrix);
+                            const rayNormalMatrix = glMatrix.mat4.create();
+                            glMatrix.mat4.invert(rayNormalMatrix, rayMatrix);
+                            glMatrix.mat4.transpose(rayNormalMatrix, rayNormalMatrix);
+
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalRayModelViewMatrix);
+                            gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, rayNormalMatrix);
+                            gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [0.0, 1.0, 0.0, 0.8]); // Green
+
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                            gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+                            gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                            gl.drawArrays(gl.TRIANGLES, 0, stickBuffers.vertexCount);
+                        }
+                    }
+                }
+
+                if (vrIntersection) {
+                    const { mat4, vec3, quat } = glMatrix;
+
+                    const pointerModelMatrix = mat4.create();
+                    const boardRotation = quat.create();
+                    mat4.getRotation(boardRotation, canvasModelMatrix);
+                    mat4.fromRotationTranslationScale(
+                        pointerModelMatrix,
+                        boardRotation,
+                        vrIntersection.world,
+                        [0.025, 0.025, 0.025]
+                    );
+                    const pointerModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, pointerModelMatrix);
+                    drawScene(gl, textureProgramInfo, buffers, pointerTexture, view.projectionMatrix, pointerModelViewMatrix);
+
+                    // Draw 3D cone cursor
+                    gl.useProgram(solidColorProgramInfo.program);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+                    gl.vertexAttribPointer(solidColorProgramInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                    const coneMatrix = glMatrix.mat4.create();
+
+                    const coneHoverPos = vec3.clone(vrIntersection.world);
+                    // Raise the cursor by a fixed amount on the Z axis (out from the board).
+                    coneHoverPos[2] += 0.2;
+                    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
+                    // Scale it to be small, and point it downwards
+                    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
+                    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]); // Rotate 180 deg on X to point down
+
+                    const finalConeModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, coneMatrix);
+                    const coneNormalMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.invert(coneNormalMatrix, coneMatrix);
+                    glMatrix.mat4.transpose(coneNormalMatrix, coneNormalMatrix);
+
+                    gl.uniform4fv(solidColorProgramInfo.uniformLocations.color, [1.0, 1.0, 0.0, 1.0]); // Yellow
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.modelViewMatrix, false, finalConeModelViewMatrix);
+                    gl.uniformMatrix4fv(solidColorProgramInfo.uniformLocations.normalMatrix, false, coneNormalMatrix);
+                    gl.drawArrays(gl.TRIANGLES, 0, coneBuffers.vertexCount);
+                }
+
+                if (vrShowAlert) {
+                    const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
+                    glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
+                    glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
+                    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
+                    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, alertModelMatrix);
+                    drawScene(gl, textureProgramInfo, alertBuffers, alertTexture, view.projectionMatrix, modelViewMatrix);
+                }
             }
         }
     }
