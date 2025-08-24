@@ -776,13 +776,14 @@ function onSessionEnded(event) {
 
 async function runXRRendering(session, mode) {
     const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl2", { xrCompatible: true }) || glCanvas.getContext("webgl", { xrCompatible: true });
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+    const layer = new XRWebGLLayer(session, gl, { antialias: false });
+    session.updateRenderState({ baseLayer: layer });
 
     let referenceSpace;
     try {
