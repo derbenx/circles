@@ -290,6 +290,9 @@ async function runXRRendering(session, mode, drawGameCallback) {
 // --- Drawing Functions ---
 
 function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
+    if (!session || !session.inputSources) {
+        return;
+    }
     gl.useProgram(programInfo.program);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);

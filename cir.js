@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 3;
+let ver = 4;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -162,7 +162,7 @@ function clku(evn){
  if (done) { return; }
   tx=Math.floor((mx/ww)*xx); ty=Math.floor((my/hh)*yy);
  if (fx+'x'+fy+'x'+gx+'x'+gy==mx+'x'+my+'x'+tx+'x'+ty){
-  if (grid[gx][gy].charAt(1)>0 && !evn.changedTouches){
+  if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(1) > 0 && !evn.changedTouches){
    rotate(gx,gy,grid[gx][gy].charAt(1));
   }
  }
