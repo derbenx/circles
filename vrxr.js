@@ -5,19 +5,19 @@ let arSession = null;
 
 // --- Public API ---
 
-function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
+function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
   if (vrSession) {
     vrSession.end();
   } else {
-    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio);
+    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
   }
 }
 
-function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
+function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     if (arSession) {
         arSession.end();
     } else {
-        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio);
+        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
     }
 }
 
@@ -47,7 +47,7 @@ let vrIntersection = null;
 
 // --- Core VR/XR Logic ---
 
-async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
+async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
   const vrButton = document.getElementById("btn-vr");
   try {
     vrSession = await navigator.xr.requestSession("immersive-vr", {
@@ -56,7 +56,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
     inVR = true;
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
-    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio);
+    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -66,7 +66,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
   }
 }
 
-async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
+async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     const xrButton = document.getElementById('btn-xr');
     try {
         arSession = await navigator.xr.requestSession('immersive-ar', {
@@ -76,7 +76,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
         inAR = true;
         xrButton.textContent = 'Stop XR';
         xrButton.disabled = false;
-        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio);
+        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
     } catch (e) {
         console.error("Failed to start AR session:", e);
         arSession = null;
@@ -86,7 +86,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
     }
 }
 
-async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio) {
+async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
@@ -133,6 +133,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     function onSessionEnded(event) {
         sessionActive = false;
         drag = 'n';
+        if (onEndCallback) onEndCallback();
         if (event.session === vrSession) {
             inVR = false;
             vrSession = null;

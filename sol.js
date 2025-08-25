@@ -329,62 +329,55 @@ function getCardTexture(gl, cardFace) {
 function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const boardAspectRatio = xx / 5.0;
 
-    // --- Layout Constants ---
-    const cardWidth3D = 0.2; // Base width in board's coordinate system
-    const cardHeight3D = cardWidth3D * 1.5; // Correct 1.5 aspect ratio
+    // --- Layout Calculations based on a strict grid ---
+    const boardAspectRatio = 7.0 / 5.0; // Visual aspect ratio
+    const boardW_3D = 2.0; // Total width in clip space (-1 to 1)
+    const boardH_3D = boardW_3D / boardAspectRatio;
+
+    const cellWidth = boardW_3D / xx;
+    const cellHeight = boardH_3D / yy;
+
+    const cardWidth3D = cellWidth * 0.9;
+    const cardHeight3D = cardWidth3D * 1.5;
     const cardDepth = 0.005;
-    const cardSpacingX = cardWidth3D + (cardWidth3D / 8); // 1/8th card width for spacing
-    const totalSpreadWidth = 7 * cardSpacingX - (cardWidth3D / 8); // 7 cards, 6 gaps
-    const layoutStartX = -totalSpreadWidth / 2;
 
-    const drawCard = (cardFace, x, y, z, rotationY = 0) => {
+    const drawCard = (cardFace, gridX, gridY, z_idx) => {
+        // Convert grid coordinates to 3D world coordinates
+        const xPos = (gridX - (xx-1) / 2) * (cardWidth3D * 1.15);
+        const yPos = (yy/2 - gridY) * (cellHeight) * 2.5;
+        const zPos = z_idx * cardDepth;
+
         const cardModelMatrix = glMatrix.mat4.create();
-        glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [x, y, z]);
-        glMatrix.mat4.rotateY(cardModelMatrix, cardModelMatrix, rotationY);
-        // To counteract the board's aspect ratio, we scale the card's X dimension inversely.
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
+        glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [xPos, yPos, zPos]);
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth3D, cardHeight3D, cardDepth]);
 
         // Draw the back and edges
         const backTexture = getCardTexture(gl, 'b1');
-        const backBuffers = {
-            position: card.position,
-            textureCoord: card.textureCoord,
-            indices: card.backIndices,
-            vertexCount: card.backVertexCount,
-        };
+        const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
         drawTextured(gl, textureProgramInfo, backBuffers, backTexture, cardModelMatrix, view);
 
-        // Draw the front face, if it's not a face-down card
+        // Draw the front face
         if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
             const frontTexture = getCardTexture(gl, cardFace);
-            const frontBuffers = {
-                position: card.position,
-                textureCoord: card.textureCoord,
-                indices: card.frontIndices,
-                vertexCount: card.frontVertexCount,
-            };
+            const frontBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.frontIndices, vertexCount: card.frontVertexCount };
             drawTextured(gl, textureProgramInfo, frontBuffers, frontTexture, cardModelMatrix, view);
         }
     };
 
     // --- Draw Piles ---
-    const topRowY = 0.6;
-    // Draw Deck & Pile
-    if (deck.length > 0) drawCard('b1', layoutStartX, topRowY, 0);
-    if (pile.length > 0) drawCard(pile[pile.length - 1], layoutStartX + cardSpacingX, topRowY, 0);
+    if (deck.length > 0) drawCard('b1', 0, 1, 0);
+    if (pile.length > 0) drawCard(pile[pile.length - 1], 1, 1, pile.length);
 
     // Draw Aces
-    const acesStartX = layoutStartX + 3 * cardSpacingX;
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
-        const xPos = acesStartX + i * cardSpacingX;
+        const xPos = 3 + i;
         if (acePile.length > 0) {
-            drawCard(acePile[acePile.length - 1], xPos, topRowY, 0);
+            drawCard(acePile[acePile.length - 1], xPos, 1, acePile.length);
         } else {
             const suit = sc[i].toLowerCase();
-            drawCard(suit, xPos, topRowY, 0);
+            drawCard(suit, xPos, 1, 0);
         }
     }
 
@@ -392,10 +385,7 @@ function drawSolitaire(gl, programs, buffers, view) {
     for (let i = 0; i < 7; i++) {
         for (let j = 0; j < sprd[i].length; j++) {
             const cardFace = sprd[i][j];
-            const xPos = layoutStartX + i * cardSpacingX;
-            const yPos = 0.2 - j * 0.05;
-            const zPos = j * 0.01;
-            drawCard(cardFace, xPos, yPos, zPos);
+            drawCard(cardFace, i, 6 + j, j);
         }
     }
 
@@ -404,46 +394,25 @@ function drawSolitaire(gl, programs, buffers, view) {
         const hx = Math.floor(((vrIntersection.local[0] + 1) / 2) * xx);
         const hy = Math.floor(((1 - vrIntersection.local[1]) / 2) * yy);
 
-        let hx_3d, hy_3d, hz_3d;
-        let highlight = false;
+        const hx_3d = (hx - (xx-1) / 2) * (cardWidth3D * 1.15);
+        const hy_3d = (yy/2 - hy) * (cellHeight) * 2.5;
 
-        let stack;
-        if (hy < 5 && hx >= 3 && hx < 7) { // Aces
-            stack = aces[hx-3];
-            hx_3d = acesStartX + (hx-3) * cardSpacingX;
-            hy_3d = topRowY;
-            hz_3d = stack.length * cardDepth;
-            highlight = true;
-        } else if (hy > 5 && hx < 7 && sprd[hx] && sprd[hx].length > 0) { // Spread
-            stack = sprd[hx];
-            let cardIndex = Math.min(stack.length - 1, Math.max(0, hy - 6));
-            hx_3d = layoutStartX + hx * cardSpacingX;
-            hy_3d = 0.2 - cardIndex * 0.05;
-            hz_3d = cardIndex * 0.01;
-            highlight = true;
-        } else if (hy < 5 && hx == 1 && pile.length > 0) { // Pile
-             hx_3d = layoutStartX + cardSpacingX;
-             hy_3d = topRowY;
-             hz_3d = pile.length * cardDepth;
-             highlight = true;
-        }
-
-        if (highlight) {
-            const markerMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [hx_3d, hy_3d, hz_3d]);
-            glMatrix.mat4.scale(markerMatrix, markerMatrix, [(cardWidth3D + 0.02) / boardAspectRatio, cardHeight3D + 0.02, cardDepth + 0.002]);
-            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Semi-transparent yellow
-        }
+        const markerMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [hx_3d, hy_3d, 0.1]); // Hover above
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [cardWidth3D + 0.02, cardHeight3D + 0.02, cardDepth]);
+        drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 0.0, 0.0, 0.5]); // Semi-transparent red
     }
+
 
     // Draw Flowing (dragged) cards
     if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const xPos = vrIntersection.local[0];
-            const yPos = vrIntersection.local[1] - i * 0.05;
-            const zPos = 0.2 + i * 0.01; // Lift off the board
-            drawCard(cardFace, xPos, yPos, zPos);
+            // Convert intersection coords to our board space
+            const xPos = vrIntersection.local[0] * boardAspectRatio;
+            const yPos = vrIntersection.local[1];
+            const zPos = 0.2 + i * 0.01;
+            drawCard(cardFace, xPos, yPos, 0);
         }
     }
 }
@@ -456,14 +425,14 @@ document.getElementById("btn-vr").onclick = () => {
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleVR(drawSolitaire, xx, yy, 7/5);
+    toggleVR(drawSolitaire, xx, yy, 7/5, draw);
 };
 document.getElementById("btn-xr").onclick = () => {
     // Clear the cache before starting a new AR session
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleAR(drawSolitaire, xx, yy, 7/5);
+    toggleAR(drawSolitaire, xx, yy, 7/5, draw);
 };
 
 (async () => {

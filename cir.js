@@ -677,8 +677,8 @@ function drawCircles(gl, programs, buffers, view) {
     }
 }
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw);
 
 (async () => {
     if (navigator.xr) {
