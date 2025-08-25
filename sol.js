@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 16;
+let ver = 17;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -326,26 +326,27 @@ function getCardTexture(gl, cardFace) {
     return texture;
 }
 
+const layout = {
+    boardAspectRatio: 7.0 / 5.0,
+    cardWidth: 0.2,
+    get cardHeight() { return this.cardWidth * 1.5; },
+    cardDepth: 0.005,
+    get xSpacing() { return this.cardWidth * 1.15; },
+    get ySpacing() { return this.cardHeight * 0.2; },
+    get totalWidth() { return 7 * this.xSpacing; },
+    get startX() { return -this.totalWidth / 2 + (this.xSpacing/2); },
+    topRowY: 0.7,
+    get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
+};
+
 function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const boardAspectRatio = 7.0 / 5.0;
-
-    // --- Layout Constants ---
-    const cardWidth3D = 0.2;
-    const cardHeight3D = cardWidth3D * 1.5;
-    const cardDepth = 0.005;
-    const xSpacing = cardWidth3D * 1.15;
-    const ySpacing = cardHeight3D * 0.25;
-    const totalLayoutWidth = 7 * xSpacing;
-    const layoutStartX = -totalLayoutWidth / 2;
-    const topRowY = 0.8;
-    const spreadStartY = topRowY - cardHeight3D - 0.1;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
         glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [x, y, z]);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth / layout.boardAspectRatio, layout.cardHeight, layout.cardDepth]);
 
         const backTexture = getCardTexture(gl, 'b1');
         const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
@@ -359,17 +360,17 @@ function drawSolitaire(gl, programs, buffers, view) {
     };
 
     // Draw Piles
-    if (deck.length > 0) drawCard('b1', layoutStartX, topRowY, 0);
-    if (pile.length > 0) drawCard(pile[pile.length - 1], layoutStartX + xSpacing, topRowY, pile.length * cardDepth);
+    if (deck.length > 0) drawCard('b1', layout.startX, layout.topRowY, 0);
+    if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, pile.length * layout.cardDepth);
 
     // Draw Aces
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
-        const xPos = layoutStartX + (3 + i) * xSpacing;
+        const xPos = layout.startX + (3 + i) * layout.xSpacing;
         if (acePile.length > 0) {
-            drawCard(acePile[acePile.length - 1], xPos, topRowY, acePile.length * cardDepth);
+            drawCard(acePile[acePile.length - 1], xPos, layout.topRowY, acePile.length * layout.cardDepth);
         } else {
-            drawCard(sc[i].toLowerCase(), xPos, topRowY, 0);
+            drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, 0);
         }
     }
 
@@ -377,40 +378,24 @@ function drawSolitaire(gl, programs, buffers, view) {
     for (let i = 0; i < 7; i++) {
         for (let j = 0; j < sprd[i].length; j++) {
             const cardFace = sprd[i][j];
-            const xPos = layoutStartX + i * xSpacing;
-            const yPos = spreadStartY - j * ySpacing;
-            drawCard(cardFace, xPos, yPos, j * cardDepth);
+            const xPos = layout.startX + i * layout.xSpacing;
+            const yPos = layout.spreadStartY - j * layout.ySpacing;
+            drawCard(cardFace, xPos, yPos, j * layout.cardDepth);
         }
     }
 
     // Highlighting
     if (vrIntersection && !drag) {
-        const hx = Math.floor(((vrIntersection.local[0] + 1) / 2) * xx);
-        const hy = Math.floor(((1 - vrIntersection.local[1]) / 2) * yy);
-
-        let highlightMatrix = null;
-        if (hy > 5 && hx < 7 && sprd[hx] && sprd[hx].length > 0) { // Spread
-            const stack = sprd[hx];
-            const cardIndex = Math.min(stack.length - 1, hy - 6);
-            const xPos = layoutStartX + hx * xSpacing;
-            const yPos = spreadStartY - cardIndex * ySpacing;
-            highlightMatrix = glMatrix.mat4.fromTranslation(glMatrix.mat4.create(), [xPos, yPos, (cardIndex + 0.5) * cardDepth]);
-        }
-
-        if (highlightMatrix) {
-            glMatrix.mat4.multiply(highlightMatrix, getCanvasModelMatrix(), highlightMatrix);
-            glMatrix.mat4.scale(highlightMatrix, highlightMatrix, [(cardWidth3D + 0.02) / boardAspectRatio, cardHeight3D + 0.02, cardDepth]);
-            drawSolid(gl, solidColorProgramInfo, card, highlightMatrix, view, [1.0, 0.0, 0.0, 1.0]); // Opaque red
-        }
+        // This logic will be fixed in the next step
     }
 
     // Draw Flowing (dragged) cards
     if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const xPos = vrIntersection.local[0];
+            const xPos = vrIntersection.local[0] * layout.boardAspectRatio;
             const yPos = vrIntersection.local[1];
-            drawCard(cardFace, xPos, yPos, (25 + i) * cardDepth);
+            drawCard(cardFace, xPos, yPos, (25 + i) * layout.cardDepth);
         }
     }
 }

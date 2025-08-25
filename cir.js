@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 16;
+let ver = 17;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
