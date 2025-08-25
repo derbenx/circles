@@ -352,6 +352,7 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
 
 
 function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
+    gl.useProgram(programInfo.program);
     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
     const normalMatrix = glMatrix.mat4.create();
     glMatrix.mat4.invert(normalMatrix, modelMatrix);

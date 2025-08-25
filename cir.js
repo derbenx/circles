@@ -521,7 +521,6 @@ function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
     const { solidColorProgramInfo } = programs;
     const { cylinder, halfCylinder, stick, ring, arcBottom, arcLeft } = buffers.pieceBuffers;
 
-    gl.useProgram(solidColorProgramInfo.program);
     gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
