@@ -1,4 +1,4 @@
-let vrxr_ver = 2;
+let vrxr_ver = 3;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -133,7 +133,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
     function onSessionEnded(event) {
         sessionActive = false;
-        drag = 'n';
         activeController = null;
         lastActiveController = null;
         if (onEndCallback) onEndCallback();
@@ -198,13 +197,18 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             else if (source.handedness === 'right') rightController = source;
         }
 
-        // Robustly select an active controller if one isn't already set
-        if (!activeController) {
-            if (rightController) activeController = rightController;
-            else if (leftController) activeController = leftController;
-            else if (session.inputSources.length > 0) activeController = session.inputSources[0];
+        // If an active controller is set, but is no longer in the input sources (e.g. it disconnected), clear it.
+        if (activeController && !session.inputSources.includes(activeController)) {
+            activeController = null;
         }
-        if (lastActiveController && activeController !== lastActiveController) drag = 'n';
+
+        // If no controller is active, try to default to one.
+        if (!activeController) {
+            activeController = rightController || leftController || session.inputSources[0] || null;
+        }
+
+        // Game-specific state like 'drag' should be handled by the game code.
+        // if (lastActiveController && activeController !== lastActiveController) drag = 'n';
         lastActiveController = activeController;
 
         // --- Handle controller inputs for movement, rotation, etc. ---
