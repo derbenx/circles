@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 14;
+let ver = 15;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -132,6 +132,8 @@ function clkd(evn, vrGx, vrGy){
     } else {
         gx=-1;gy=-1; // Invalidate click
     }
+    ffx = gx; // Store original click location for drop logic
+    ffy = gy;
 }
 
 async function clku(evn, vrGx, vrGy){
@@ -343,12 +345,26 @@ function drawSolitaire(gl, programs, buffers, view) {
         // To counteract the board's aspect ratio, we scale the card's X dimension inversely.
         glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
 
-        if (cardFace === 'b1' || cardFace.startsWith('x')) {
-            const backTexture = getCardTexture(gl, 'b1');
-            drawTextured(gl, textureProgramInfo, card, backTexture, cardModelMatrix, view);
-        } else {
+        // Draw the back and edges
+        const backTexture = getCardTexture(gl, 'b1');
+        const backBuffers = {
+            position: card.position,
+            textureCoord: card.textureCoord,
+            indices: card.backIndices,
+            vertexCount: card.backVertexCount,
+        };
+        drawTextured(gl, textureProgramInfo, backBuffers, backTexture, cardModelMatrix, view);
+
+        // Draw the front face, if it's not a face-down card
+        if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
             const frontTexture = getCardTexture(gl, cardFace);
-            drawTextured(gl, textureProgramInfo, card, frontTexture, cardModelMatrix, view);
+            const frontBuffers = {
+                position: card.position,
+                textureCoord: card.textureCoord,
+                indices: card.frontIndices,
+                vertexCount: card.frontVertexCount,
+            };
+            drawTextured(gl, textureProgramInfo, frontBuffers, frontTexture, cardModelMatrix, view);
         }
     };
 

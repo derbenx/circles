@@ -312,8 +312,8 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
                 // Apply the same downward rotation as the intersection test
-                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
-                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
+                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]); // Translate first
+                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]); // Then rotate
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
                 drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
             }
@@ -486,19 +486,20 @@ function setupSolidColorShaderProgram(gl) {
 }
 
 function initGenericBuffers(gl) {
-    const quad = createCuboid(2.0, 2.0, 0); // A flat plane for textures
+    const quad = createCuboid(2.0, 2.0, 0);
+    const quadIndices = new Uint16Array([...quad.frontIndices, ...quad.backIndices]);
     const quadBuffers = {
         position: gl.createBuffer(),
         textureCoord: gl.createBuffer(),
         indices: gl.createBuffer(),
-        vertexCount: quad.indices.length,
+        vertexCount: quadIndices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, quad.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.textureCoord);
     gl.bufferData(gl.ARRAY_BUFFER, quad.textureCoordinates, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quad.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndices, gl.STATIC_DRAW);
 
     const cone = createCone(1.0, 1.0, 12);
     const coneBuffers = {
@@ -516,13 +517,15 @@ function initGenericBuffers(gl) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createCuboid(1.0, 1.0, 1.0); // Will be scaled
+    const card = createCuboid(1.0, 1.0, 1.0);
     const cardBuffers = {
         position: gl.createBuffer(),
-        normal: gl.createBuffer(), // Use normals for solid color
+        normal: gl.createBuffer(),
         textureCoord: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: card.indices.length,
+        frontIndices: gl.createBuffer(),
+        backIndices: gl.createBuffer(),
+        frontVertexCount: card.frontIndices.length,
+        backVertexCount: card.backIndices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, card.vertices, gl.STATIC_DRAW);
@@ -530,8 +533,10 @@ function initPieceBuffers(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, card.normals, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.textureCoord);
     gl.bufferData(gl.ARRAY_BUFFER, card.textureCoordinates, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.indices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.frontIndices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.frontIndices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.backIndices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.backIndices, gl.STATIC_DRAW);
 
     // Buffers for Circles pieces
     const cylinder = createCylinder(0.5, .2, 16);
@@ -560,18 +565,19 @@ function initPieceBuffers(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.normals), gl.STATIC_DRAW);
 
     const stick = createCuboid(1.0, 1.0, 1.0);
+    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIndices]);
     const stickBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
         indices: gl.createBuffer(),
-        vertexCount: stick.indices.length,
+        vertexCount: stickIndices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stick.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
 
     const ring = createRing(0.5, 0.465, 1.0, 16);
     const ringBuffers = {
@@ -619,18 +625,19 @@ function initControllerBuffers(gl) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
 
     const stick = createCuboid(1.0, 1.0, 1.0);
+    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIndices]);
     const stickBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
         indices: gl.createBuffer(),
-        vertexCount: stick.indices.length,
+        vertexCount: stickIndices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stick.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
 
     return { sphere: sphereBuffers, stick: stickBuffers };
 }
@@ -740,17 +747,17 @@ function intersectPlane(transform, quadModelMatrix) {
 function createCuboid(width, height, depth) {
     const w = width / 2, h = height / 2, d = depth / 2;
     const vertices = new Float32Array([
-        // Front face
+        // Front face (0-3)
         -w, -h,  d,  w, -h,  d,  w,  h,  d, -w,  h,  d,
-        // Back face
+        // Back face (4-7)
         -w, -h, -d, -w,  h, -d,  w,  h, -d,  w, -h, -d,
-        // Top face
-        -w,  h, -d, -w,  h,  d,  w,  h,  d,  w,  h, -d,
-        // Bottom face
-        -w, -h, -d,  w, -h, -d,  w, -h,  d, -w, -h,  d,
-        // Right face
-         w, -h, -d,  w,  h, -d,  w,  h,  d,  w, -h,  d,
-        // Left face
+        // Top face (8-11)
+        -w,  h,  d,  w,  h,  d,  w,  h, -d, -w,  h, -d,
+        // Bottom face (12-15)
+        -w, -h,  d, -w, -h, -d,  w, -h, -d,  w, -h,  d,
+        // Right face (16-19)
+         w, -h,  d,  w, -h, -d,  w,  h, -d,  w,  h,  d,
+        // Left face (20-23)
         -w, -h, -d, -w, -h,  d, -w,  h,  d, -w,  h, -d,
     ]);
     const normals = new Float32Array([
@@ -768,25 +775,32 @@ function createCuboid(width, height, depth) {
         -1,0,0, -1,0,0, -1,0,0, -1,0,0,
     ]);
     const textureCoordinates = new Float32Array([
-        // Front face
+        // Front face (maps to the whole texture)
         0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
-        // Back face
-        1.0,  1.0, 1.0,  0.0, 0.0,  0.0, 0.0,  1.0,
-        // Top, Bottom, Right, Left faces (map to a single white pixel in the texture's border)
+        // Back face (maps to the whole texture, for the card back)
+        0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
+        // Top, Bottom, Right, Left faces (map to a single white pixel for the edge)
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Right
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Left
     ]);
-    const indices = new Uint16Array([
-        0,  1,  2,      0,  2,  3,    // front
+
+    // Indices for the front face
+    const frontIndices = new Uint16Array([
+        0,  1,  2,      0,  2,  3,
+    ]);
+
+    // Indices for the back and edge faces
+    const backIndices = new Uint16Array([
         4,  5,  6,      4,  6,  7,    // back
         8,  9,  10,     8,  10, 11,   // top
         12, 13, 14,     12, 14, 15,   // bottom
         16, 17, 18,     16, 18, 19,   // right
         20, 21, 22,     20, 22, 23,   // left
     ]);
-    return { vertices, normals, textureCoordinates, indices, vertexCount: 36 };
+
+    return { vertices, normals, textureCoordinates, frontIndices, backIndices };
 }
 
 function createCylinder(radius, height, segments) {
