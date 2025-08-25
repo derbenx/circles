@@ -17,6 +17,7 @@ var flox=[];var floy=[];
 var flod=0;
 var flower;
 var bgsk;
+var dragSource = null; // To track where cards came from
 var co1='lime',co2='green',drw=1,fre=1;
 
 // --- Initialization ---
@@ -73,12 +74,12 @@ function start(){
 
 function clkd(evn, vrGx, vrGy){
     if (flow.length || done) return;
+    dragSource = null; // Reset drag source
 
     let vrClick = (vrGx !== undefined);
     if (vrClick) {
         gx = vrGx;
         gy = vrGy;
-        fx = -1; fy = -1;
     } else {
         if (evn.changedTouches){
             var rect = can.getBoundingClientRect();
@@ -88,30 +89,35 @@ function clkd(evn, vrGx, vrGy){
             mx = evn.offsetX;
             my = evn.offsetY;
         }
-        fx=mx;fy=my;
         gx=Math.floor((mx/bw)*xx);
         gy=Math.floor((my/bh)*yy);
     }
 
+    // Store original grid coordinates for drop logic
+    ffx = gx;
+    ffy = gy;
+
     // --- Card collection logic ---
-    let tc=undefined;
     let fromPile = (gy<5 && gx==1);
     let fromAces = (gy<5 && gx>2 && gx<7 && aces[gx-3]);
     let fromSpread = (gy>5 && sprd[gx] && sprd[gx].length > 0);
 
     if (fromPile) {
-        if (pile.length > 0) flow.push(pile.pop());
+        if (pile.length > 0) {
+            flow.push(pile.pop());
+            dragSource = { pile: 'pile' };
+        }
     } else if (fromAces) {
-        if (aces[gx-3].length > 0) flow.push(aces[gx-3].pop());
+        if (aces[gx-3].length > 0) {
+            flow.push(aces[gx-3].pop());
+            dragSource = { pile: 'aces', x: gx - 3 };
+        }
     } else if (fromSpread) {
         let stack = sprd[gx];
         let cardIndex = gy - 6;
-
-        // Find the first face-up card
         let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
         if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
 
-        // Determine which card was actually clicked in 2D
         if (!vrClick && cardIndex < firstFaceUpIndex) {
             // Clicked a face-down card, do nothing
         } else {
@@ -120,6 +126,7 @@ function clkd(evn, vrGx, vrGy){
                 let numToDrag = stack.length - startIndex;
                 let dragged = stack.splice(startIndex, numToDrag);
                 flow.push(...dragged);
+                dragSource = { pile: 'spread', x: gx };
             }
         }
     }
@@ -127,13 +134,11 @@ function clkd(evn, vrGx, vrGy){
     if (flow.length > 0) {
         drag = 1;
         if (!vrClick) {
-            movr(evn); // Trigger initial draw for 2D drag animation
+            movr(evn);
         }
     } else {
-        gx=-1;gy=-1; // Invalidate click
+        gx=-1;gy=-1;
     }
-    ffx = gx; // Store original click location for drop logic
-    ffy = gy;
 }
 
 async function clku(evn, vrGx, vrGy){
@@ -173,37 +178,34 @@ async function clku(evn, vrGx, vrGy){
   let cvz=[ crdval(flow[0],0), crdval(dbtc,0) ];
   cvz.push( crdcol(flow[0],dbtc) );
 
-  let fail=0;
-  if (flow.length==1 && ty<6 && tx>2 && tx<7){ // Drop on Aces pile
-    if (flow[0][0]!=sc[tx-3]) fail = !fre ? 0 : 1;
-    if (cvz[0]!=cvz[1]+1) fail = !fre || (cvz[0]==0 && cvz[1]==-1) ? fail : 1;
-    if (fail) { // Drop failed, return card
-        if (ffy<5 && ffx<3) pile.push(flow[0]);
-        else if (ffy<5 && ffx>2) (aces[ffx-3]).push(flow[0]);
-        else sprd[ffx].push(...flow);
-    } else (aces[tx-3]).push(flow[0]);
+  let validDrop = false;
 
-  } else if(flow.length && ty>5){ // Drop on main spread
-    if (flow[0]!=undefined){
-        if (cvz[2] && cvz[2][3]==true) fail = !fre ? 0 : 1;
-        if (cvz[0]!=cvz[1]-1 && cvz[1]!=-1) fail= !fre ? 0 : 1;
+  // --- Check for valid drop ---
+  if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
+    if (flow.length === 1) {
+        if ( (flow[0][0] == sc[tx-3]) && (crdval(flow[0],0) == aces[tx-3].length) ) {
+            aces[tx-3].push(flow[0]);
+            validDrop = true;
+        }
+    }
+  } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
+      if (crdcol(flow[0], sprd[tx][sprd[tx].length-1])[3] == false) { // color check
+          if (crdval(flow[0],0) == crdval(sprd[tx][sprd[tx].length-1],0) - 1 || sprd[tx].length == 0) { // sequence check
+              sprd[tx].push(...flow);
+              validDrop = true;
+          }
+      }
+  }
 
-        if (fail) { // Drop failed, return card
-            if (ffy>5) sprd[ffx].push(...flow);
-            else if (ffx>2 && ffx<7) (aces[ffx-3]).push(flow[0]);
-            else pile.push(flow[0]);
-        } else sprd[tx].push(...flow);
-    }
-  } else { // Invalid drop location, return card
-    if (flow[0]){
-        if (ffy>5) sprd[ffx].push(...flow);
-        else if (ffy>2 && ffx<7) (aces[ffx-3]).push(flow[0]);
-        else pile.push(flow[0]);
-    }
+  // --- Handle invalid drop ---
+  if (!validDrop && dragSource) {
+      if (dragSource.pile === 'pile') pile.push(...flow);
+      else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
+      else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
   }
   clrcan(can);
  }
- drag=0;fx=-1;fy=-1;
+ drag=0;
  draw(drag ? 0 : 1);
  flow=[];
 
@@ -413,8 +415,20 @@ function drawSolitaire(gl, programs, buffers, view) {
 
 // --- VR/AR Bootstrap ---
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy, 7/5);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy, 7/5);
+document.getElementById("btn-vr").onclick = () => {
+    // Clear the cache before starting a new VR session
+    for (const key in cardTextureCache) {
+        delete cardTextureCache[key];
+    }
+    toggleVR(drawSolitaire, xx, yy, 7/5);
+};
+document.getElementById("btn-xr").onclick = () => {
+    // Clear the cache before starting a new AR session
+    for (const key in cardTextureCache) {
+        delete cardTextureCache[key];
+    }
+    toggleAR(drawSolitaire, xx, yy, 7/5);
+};
 
 (async () => {
     if (navigator.xr) {

@@ -312,8 +312,8 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
                 // Apply the same downward rotation as the intersection test
-                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]); // Translate first
-                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]); // Then rotate
+                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
+                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
                 drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
             }
