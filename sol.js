@@ -72,59 +72,52 @@ function start(){
 
 // --- Input Handlers ---
 
-function clkd(evn, vrGx, vrGy){
+function clkd(evn, vrIntersectionLocal){
     if (flow.length || done) return;
-    dragSource = null; // Reset drag source
+    dragSource = null;
 
-    let vrClick = (vrGx !== undefined);
-    if (vrClick) {
-        gx = vrGx;
-        gy = vrGy;
+    if (vrIntersectionLocal) {
+        const coords = getCardAtIntersection(vrIntersectionLocal);
+        if (coords) {
+            gx = coords.gx;
+            gy = coords.gy;
+        } else {
+            gx = -1; gy = -1;
+        }
     } else {
         if (evn.changedTouches){
             var rect = can.getBoundingClientRect();
             mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
             my=Math.floor(evn.changedTouches[0].clientY-rect.top);
         } else {
-            mx = evn.offsetX;
-            my = evn.offsetY;
+            mx = evn.offsetX; my = evn.offsetY;
         }
         gx=Math.floor((mx/bw)*xx);
         gy=Math.floor((my/bh)*yy);
     }
 
-    // Store original grid coordinates for drop logic
-    ffx = gx;
-    ffy = gy;
+    ffx = gx; ffy = gy;
 
-    // --- Card collection logic ---
+    // Card collection logic
     let fromPile = (gy<5 && gx==1);
-    let fromAces = (gy<5 && gx>2 && gx<7 && aces[gx-3]);
-    let fromSpread = (gy>5 && sprd[gx] && sprd[gx].length > 0);
+    let fromAces = (gy<5 && gx>=3 && gx<7 && aces[gx-3]);
+    let fromSpread = (gy>5 && gx<7 && sprd[gx] && sprd[gx].length > 0);
 
     if (fromPile) {
-        if (pile.length > 0) {
-            flow.push(pile.pop());
-            dragSource = { pile: 'pile' };
-        }
+        if (pile.length > 0) { flow.push(pile.pop()); dragSource = { pile: 'pile' }; }
     } else if (fromAces) {
-        if (aces[gx-3].length > 0) {
-            flow.push(aces[gx-3].pop());
-            dragSource = { pile: 'aces', x: gx - 3 };
-        }
+        if (aces[gx-3].length > 0) { flow.push(aces[gx-3].pop()); dragSource = { pile: 'aces', x: gx - 3 }; }
     } else if (fromSpread) {
         let stack = sprd[gx];
         let cardIndex = gy - 6;
         let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
-        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length; // All cards are face-down
+        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
 
-        // Only allow picking up face-up cards from the stack, using the click position
         if (cardIndex >= firstFaceUpIndex) {
             let startIndex = cardIndex;
             if (startIndex < stack.length) {
                 let numToDrag = stack.length - startIndex;
-                let dragged = stack.splice(startIndex, numToDrag);
-                flow.push(...dragged);
+                flow.push(...stack.splice(startIndex, numToDrag));
                 dragSource = { pile: 'spread', x: gx };
             }
         }
@@ -132,86 +125,80 @@ function clkd(evn, vrGx, vrGy){
 
     if (flow.length > 0) {
         drag = 1;
-        if (!vrClick) {
-            movr(evn);
-        }
+        if (!vrIntersectionLocal) movr(evn);
     } else {
-        gx=-1;gy=-1;
+        gx=-1; gy=-1;
     }
 }
 
-async function clku(evn, vrGx, vrGy){
- evn.stopPropagation();
- evn.preventDefault();
- clearInterval(flower);
- clrcan(spr);
- if (done) return;
+async function clku(evn, vrIntersectionLocal){
+    evn.stopPropagation();
+    evn.preventDefault();
+    clearInterval(flower);
+    clrcan(spr);
+    if (done) return;
 
- let tx, ty;
- if (vrGx !== undefined) {
-    tx = vrGx;
-    ty = vrGy;
- } else {
-    if (evn.changedTouches){
-        var rect = can.getBoundingClientRect();
-        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    let tx, ty;
+    if (vrIntersectionLocal) {
+        const coords = getCardAtIntersection(vrIntersectionLocal);
+        if(coords) {
+            tx = coords.gx;
+            ty = coords.gy;
+        } else {
+            tx = -1; ty = -1;
+        }
+    } else {
+        if (evn.changedTouches){
+            var rect = can.getBoundingClientRect();
+            mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+            my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+        } else {
+            mx = evn.offsetX; my = evn.offsetY;
+        }
+        tx=Math.floor((mx/bw)*xx); ty=Math.floor((my/bh)*yy);
     }
-    tx=Math.floor((mx/bw)*xx); ty=Math.floor((my/bh)*yy);
- }
 
- if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
-  let ccc=dr(drw);
-  if (ccc.length>0) {
-   pile.push(...ccc);
-  }else{
-   deck=pile;
-   deck.reverse();
-   pile=[];
-  }
- } else if (drag){ // Dropping dragged cards
-  let ffx=Math.floor((fx/bw)*xx);
-  let ffy=Math.floor((fy/bh)*yy);
-  let dbtc = (ty<5 && tx>2) ? aces[tx-3][aces[tx-3].length-1] : sprd[tx] ? sprd[tx][sprd[tx].length-1] : undefined;
+    if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
+        let ccc=dr(drw);
+        if (ccc.length>0) {
+            pile.push(...ccc);
+        }else{
+            deck=pile;
+            deck.reverse();
+            pile=[];
+        }
+    } else if (drag){ // Dropping dragged cards
+        let validDrop = false;
+        if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
+            if (flow.length === 1) {
+                if ( (flow[0][0] == sc[tx-3]) && (crdval(flow[0],0) == aces[tx-3].length) ) {
+                    aces[tx-3].push(flow[0]);
+                    validDrop = true;
+                }
+            }
+        } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
+            if (crdcol(flow[0], sprd[tx][sprd[tx].length-1])[3] == false) { // color check
+                if (crdval(flow[0],0) == crdval(sprd[tx][sprd[tx].length-1],0) - 1 || sprd[tx].length == 0) { // sequence check
+                    sprd[tx].push(...flow);
+                    validDrop = true;
+                }
+            }
+        }
 
-  let cvz=[ crdval(flow[0],0), crdval(dbtc,0) ];
-  cvz.push( crdcol(flow[0],dbtc) );
-
-  let validDrop = false;
-
-  // --- Check for valid drop ---
-  if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
-    if (flow.length === 1) {
-        if ( (flow[0][0] == sc[tx-3]) && (crdval(flow[0],0) == aces[tx-3].length) ) {
-            aces[tx-3].push(flow[0]);
-            validDrop = true;
+        if (!validDrop && dragSource) {
+            if (dragSource.pile === 'pile') pile.push(...flow);
+            else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
+            else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
         }
     }
-  } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
-      if (crdcol(flow[0], sprd[tx][sprd[tx].length-1])[3] == false) { // color check
-          if (crdval(flow[0],0) == crdval(sprd[tx][sprd[tx].length-1],0) - 1 || sprd[tx].length == 0) { // sequence check
-              sprd[tx].push(...flow);
-              validDrop = true;
-          }
-      }
-  }
+    drag=0;
+    draw(drag ? 0 : 1);
+    flow=[];
 
-  // --- Handle invalid drop ---
-  if (!validDrop && dragSource) {
-      if (dragSource.pile === 'pile') pile.push(...flow);
-      else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
-      else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
-  }
-  clrcan(can);
- }
- drag=0;
- draw(drag ? 0 : 1);
- flow=[];
-
- if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
-   done=1;
-   youWin();
-  }
+    if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
+        done=1;
+        youWin();
+    }
 }
 
 function movr(evn){
@@ -339,6 +326,63 @@ const layout = {
     get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
 };
 
+const layout = {
+    boardAspectRatio: 7.0 / 5.0,
+    cardWidth: 0.2,
+    get cardHeight() { return this.cardWidth * 1.5; },
+    cardDepth: 0.005,
+    get xSpacing() { return this.cardWidth * 1.15; },
+    get ySpacing() { return this.cardHeight * 0.2; },
+    get totalWidth() { return 7 * this.xSpacing; },
+    get startX() { return -this.totalWidth / 2 + (this.xSpacing/2); },
+    topRowY: 0.8,
+    get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
+};
+
+function getCardAtIntersection(local) {
+    if (!local) return null;
+
+    const clickX = local[0] * layout.boardAspectRatio; // Adjust click to stretched space
+    const clickY = local[1];
+
+    const cardW = layout.cardWidth;
+    const cardH = layout.cardHeight;
+
+    // Check top row
+    const topY = layout.topRowY;
+    if (clickY > topY - cardH/2 && clickY < topY + cardH/2) {
+        // Deck
+        let deckX = layout.startX;
+        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2) return {gx: 0, gy: 1};
+        // Pile
+        let pileX = layout.startX + layout.xSpacing;
+        if (clickX > pileX - cardW/2 && clickX < pileX + cardW/2) return {gx: 1, gy: 1};
+        // Aces
+        for (let i = 0; i < 4; i++) {
+            let aceX = layout.startX + (3 + i) * layout.xSpacing;
+            if (clickX > aceX - cardW/2 && clickX < aceX + cardW/2) return {gx: 3 + i, gy: 1};
+        }
+    }
+
+    // Check spread
+    for (let i = 0; i < 7; i++) {
+        const stack = sprd[i];
+        if (!stack || stack.length === 0) continue;
+        const xPos = layout.startX + i * layout.xSpacing;
+        if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2) {
+            for (let j = stack.length - 1; j >= 0; j--) {
+                const yPos = layout.spreadStartY - j * layout.ySpacing;
+                const topOfCard = yPos + cardH/2;
+                const bottomOfCard = (j === stack.length - 1) ? yPos - cardH/2 : yPos - layout.ySpacing + cardH/2;
+                if (clickY > bottomOfCard && clickY < topOfCard) {
+                    return {gx: i, gy: 6 + j};
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
@@ -386,14 +430,36 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     // Highlighting
     if (vrIntersection && !drag) {
-        // This logic will be fixed in the next step
+        const coords = getCardAtIntersection(vrIntersection.local);
+        if (coords) {
+            let z_idx = 0;
+            let xPos, yPos;
+
+            if (coords.gy < 5) { // Top row
+                yPos = layout.topRowY;
+                if (coords.gx === 0) xPos = layout.startX;
+                else if (coords.gx === 1) xPos = layout.startX + layout.xSpacing;
+                else xPos = layout.startX + coords.gx * layout.xSpacing;
+            } else { // Spread
+                const stack = sprd[coords.gx];
+                const cardIndex = coords.gy - 6;
+                xPos = layout.startX + coords.gx * layout.xSpacing;
+                yPos = layout.spreadStartY - cardIndex * layout.ySpacing;
+                z_idx = cardIndex;
+            }
+
+            const markerMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, (z_idx + 0.5) * layout.cardDepth]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [(layout.cardWidth + 0.02) / layout.boardAspectRatio, layout.cardHeight + 0.02, layout.cardDepth]);
+            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 0.0, 0.0, 1.0]); // Opaque red
+        }
     }
 
     // Draw Flowing (dragged) cards
     if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const xPos = vrIntersection.local[0] * layout.boardAspectRatio;
+            const xPos = vrIntersection.local[0];
             const yPos = vrIntersection.local[1];
             drawCard(cardFace, xPos, yPos, (25 + i) * layout.cardDepth);
         }
