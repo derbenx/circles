@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 10;
+let ver = 11;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -24,8 +24,8 @@ start();
 
 document.getElementById("soldrw").onchange = () => { drw=document.getElementById("soldrw").value*1; };
 document.getElementById("solfre").onchange = () => { fre=document.getElementById("solfre").value*1; };
-document.getElementById("co1").onchange = () => { co1=document.getElementById("co1").value; redraw(); };
-document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; redraw(); };
+document.getElementById("co1").onchange = () => { co1=document.getElementById("co1").value; draw(); };
+document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
 
 document.getElementById("soltogsetup").onclick = function(){
  var soltog=document.getElementById("solsetup");
@@ -58,7 +58,7 @@ function start(){
   sprd[ii]=tmp;
  }
 
- redraw();
+ draw();
 
  spr.onmousedown = clkd;
  spr.onmouseup = clku;
@@ -72,29 +72,66 @@ function start(){
 // --- Input Handlers ---
 
 function clkd(evn, vrGx, vrGy){
- if (flow.length || done) return;
- flox=[];floy=[];
- clrcan(can);
- redraw(1);
- bgsk=0;
+    if (flow.length || done) return;
 
- if (vrGx !== undefined) {
-    gx = vrGx;
-    gy = vrGy;
-    fx = -1; fy = -1; // VR doesn't have a distinct mouse down coordinate
- } else {
-    if (evn.changedTouches){
-        var rect = can.getBoundingClientRect();
-        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    let vrClick = (vrGx !== undefined);
+    if (vrClick) {
+        gx = vrGx;
+        gy = vrGy;
+        fx = -1; fy = -1;
+    } else {
+        if (evn.changedTouches){
+            var rect = can.getBoundingClientRect();
+            mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+            my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+        } else {
+            mx = evn.offsetX;
+            my = evn.offsetY;
+        }
+        fx=mx;fy=my;
+        gx=Math.floor((mx/bw)*xx);
+        gy=Math.floor((my/bh)*yy);
     }
-    fx=mx;fy=my;
-    gx=Math.floor((mx/bw)*xx); gy=Math.floor((my/bh)*yy);
- }
 
- if (gy>5 && sprd[gx] && sprd[gx][gy-6] && sprd[gx][gy-6].substr(0,1)=='x'){
-  fx=-1;fy=-1;gx=-1;gy=-1;
- }
+    // --- Card collection logic ---
+    let tc=undefined;
+    let fromPile = (gy<5 && gx==1);
+    let fromAces = (gy<5 && gx>2 && gx<7 && aces[gx-3]);
+    let fromSpread = (gy>5 && sprd[gx] && sprd[gx].length > 0);
+
+    if (fromPile) {
+        if (pile.length > 0) flow.push(pile.pop());
+    } else if (fromAces) {
+        if (aces[gx-3].length > 0) flow.push(aces[gx-3].pop());
+    } else if (fromSpread) {
+        let stack = sprd[gx];
+        let cardIndex = gy - 6;
+
+        // Find the first face-up card
+        let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
+        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
+
+        // Determine which card was actually clicked in 2D
+        if (!vrClick && cardIndex < firstFaceUpIndex) {
+            // Clicked a face-down card, do nothing
+        } else {
+            let startIndex = vrClick ? firstFaceUpIndex : Math.max(firstFaceUpIndex, cardIndex);
+            if (startIndex < stack.length) {
+                let numToDrag = stack.length - startIndex;
+                let dragged = stack.splice(startIndex, numToDrag);
+                flow.push(...dragged);
+            }
+        }
+    }
+
+    if (flow.length > 0) {
+        drag = 1;
+        if (!vrClick) {
+            movr(evn); // Trigger initial draw for 2D drag animation
+        }
+    } else {
+        gx=-1;gy=-1; // Invalidate click
+    }
 }
 
 async function clku(evn, vrGx, vrGy){
@@ -165,7 +202,7 @@ async function clku(evn, vrGx, vrGy){
   clrcan(can);
  }
  drag=0;fx=-1;fy=-1;
- redraw(drag ? 0 : 1);
+ draw(drag ? 0 : 1);
  flow=[];
 
  if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
@@ -175,64 +212,35 @@ async function clku(evn, vrGx, vrGy){
 }
 
 function movr(evn){
- if (done || fx==-1) return;
- mx=evn.offsetX; my=evn.offsetY;
- if (!mx && evn.changedTouches!=undefined){
-  var rect = can.getBoundingClientRect();
-  mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-  my=Math.floor(evn.changedTouches[0].clientY-rect.top);
- }
+    if (done || fx==-1 || !drag) return; // Only run for 2D mouse-drag
 
- drag=1;
- let tmpw=bw/(xx+1);
- let tx=Math.floor((fx/bw)*xx);
- let ty=Math.floor((fy/bh)*yy);
-
- if (tx>-1){
-  if (!flow[0]) { // Start of drag, collect cards
-   let tc=undefined;
-   if (gy<5 && gx==1) tc=pile[pile.length-1];
-   else if (gy>5) {
-       for (i=0;i<20;i++){ // Look up the stack for the card clicked
-        tc= tc===undefined ? sprd[tx][ty-6-i] :  tc;
-        if (tc!=undefined) break;
-       }
-   } else if (gy<5 && gx>2 && gx<7 && aces[gx-3]) {
-       flow[0]=aces[gx-3].pop();
-   }
-
-   if (tc && !flow[0]) {
-       if (gy<5 && gx==1) {
-           if(pile.length>0) flow[0]=pile.pop(); else fx=-1;
-       } else {
-           let i=0, tmpz;
-           while (tmpz!=tc){
-            tmpz=sprd[tx].pop();
-            if (tmpz){ flow[i]=tmpz; i++; }
-           }
-           flow.reverse();
-       }
-   }
-   if (flow[0]==undefined) flow=[];
-  }
-
-  if (flow.length) { // During drag, update position for animation
-    clrcan(spr);
-    for (i=0;i<flow.length;i++){
-     dcd(spr,mx-(tmpw/2),my+((bw/yy)*i)-(tmpw/2),flow[i],tmpw,co1,co2);
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    } else {
+        mx=evn.offsetX;
+        my=evn.offsetY;
     }
-  }
- }
- if (!bgsk) {
-   clrcan(can);
-   redraw(1);
-   bgsk=1;
- }
+
+    // This function is now only for 2D animation of the sprite canvas
+    if (flow.length) {
+        if (!bgsk) { // Redraw background once at start of drag
+            clrcan(can);
+            draw(1);
+            bgsk=1;
+        }
+        let tmpw=bw/(xx+1);
+        clrcan(spr);
+        for (let i=0;i<flow.length;i++){
+            dcd(spr,mx-(tmpw/2),my+((bw/yy)*i)-(tmpw/2),flow[i],tmpw,co1,co2);
+        }
+    }
 }
 
 // --- Drawing ---
 
-function redraw(flip=0) {
+function draw(flip=0) {
  if (inVR || inAR) return; // Don't draw 2D if in VR/AR
  let xxx=xx+1;
  let tmpw=bw/xxx;
@@ -318,9 +326,10 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     const drawCard = (cardFace, x, y, z, rotationY = 0) => {
         const cardModelMatrix = glMatrix.mat4.create();
+        const boardAspectRatio = xx / 5.0; // Use a float to ensure float division
         glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [x, y, z]);
         glMatrix.mat4.rotateY(cardModelMatrix, cardModelMatrix, rotationY);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth, cardHeight, cardDepth]);
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth / boardAspectRatio, cardHeight, cardDepth]);
 
         if (cardFace === 'b1' || cardFace.startsWith('x')) {
             const backTexture = getCardTexture(gl, 'b1');
