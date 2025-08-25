@@ -162,7 +162,7 @@ function clku(evn, vrIntersectionLocal){
  if (done) { return; }
   let tx, ty;
   if (vrIntersectionLocal) {
-    const coords = getCircleAtIntersection(vrIntersectionLocal.local);
+    const coords = getCircleAtIntersection(vrIntersectionLocal);
     if (coords) {
         tx = coords.gx;
         ty = coords.gy;
@@ -217,7 +217,7 @@ function clku(evn, vrIntersectionLocal){
 function clkd(evn, vrIntersectionLocal){
  if (done) { return; }
  if (vrIntersectionLocal) {
-    const coords = getCircleAtIntersection(vrIntersectionLocal.local);
+    const coords = getCircleAtIntersection(vrIntersectionLocal);
     if (coords) {
         gx = coords.gx;
         gy = coords.gy;
