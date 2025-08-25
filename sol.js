@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 12;
+let ver = 13;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -302,17 +302,20 @@ function getCardTexture(gl, cardFace) {
 
     // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
-    textureCanvas.width = 200; // A reasonable resolution for the texture
-    textureCanvas.height = 280; // 1.4 aspect ratio
+    const baseSize = 200;
+    textureCanvas.width = baseSize;
+    textureCanvas.height = baseSize * 1.5; // Correct 1.5 aspect ratio
+
     const ctx = textureCanvas.getContext('2d');
 
-    // Fill the background white to avoid transparent corners
+    // Fill the entire canvas white to create the border
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
-    // Use the global dcd() function from cards.js to draw on our temp canvas
-    // It expects a canvas element, not a context
-    dcd(textureCanvas, 0, 0, cardFace, 200, co1, co2);
+    // Draw the card with a margin, effectively scaling it to 95% and centering it
+    const cardSize = baseSize * 0.95;
+    const margin = (baseSize - cardSize) / 2;
+    dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
 
     // Create a WebGL texture from the canvas
     const texture = initTexture(gl, textureCanvas);
@@ -359,11 +362,9 @@ function drawSolitaire(gl, programs, buffers, view) {
         if (acePile.length > 0) {
             drawCard(acePile[acePile.length - 1], 0.1 + i * cardSpacingX, 0.6, 0);
         } else {
-             // Draw empty slot marker
-            const markerMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [0.1 + i * cardSpacingX, 0.6, 0]);
-            glMatrix.mat4.scale(markerMatrix, markerMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
-            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [0,0.5,0,0.5]);
+            // Draw the empty slot marker with the correct suit symbol
+            const suit = sc[i].toLowerCase();
+            drawCard(suit, 0.1 + i * cardSpacingX, 0.6, 0);
         }
     }
 
