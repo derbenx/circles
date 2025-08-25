@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 17;
+let ver = 18;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -312,19 +312,6 @@ function getCardTexture(gl, cardFace) {
     cardTextureCache[cardFace] = texture;
     return texture;
 }
-
-const layout = {
-    boardAspectRatio: 7.0 / 5.0,
-    cardWidth: 0.2,
-    get cardHeight() { return this.cardWidth * 1.5; },
-    cardDepth: 0.005,
-    get xSpacing() { return this.cardWidth * 1.15; },
-    get ySpacing() { return this.cardHeight * 0.2; },
-    get totalWidth() { return 7 * this.xSpacing; },
-    get startX() { return -this.totalWidth / 2 + (this.xSpacing/2); },
-    topRowY: 0.7,
-    get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
-};
 
 const layout = {
     boardAspectRatio: 7.0 / 5.0,
