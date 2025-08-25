@@ -532,22 +532,19 @@ function drawSolitaire(gl, programs, buffers, view) {
     }
 
     // Draw Flowing (dragged) cards
-    if (drag && flow.length > 0 && vrIntersection && vrIntersection.gripPose) {
+    if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const cardModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+            const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
-            // Offset the card slightly in front of the controller and stack them
-            const offset = glMatrix.vec3.fromValues(0, 0, -0.05 - (i * layout.cardDepth * 2));
-            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, offset);
+            // Position the card at the intersection point on the board plane, with an offset.
+            const x = vrIntersection.local[0];
+            const y = vrIntersection.local[1];
+            const z = (i + 1) * layout.cardDepth * 5; // Pull forward and stack
+            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
 
-            // Orient the card to face the user
-            glMatrix.mat4.rotateX(cardModelMatrix, cardModelMatrix, -Math.PI / 2);
-
-            // Scale the card to the correct dimensions, matching the size of the cards on the board
-            const worldCardWidth = layout.cardWidth * layout.boardAspectRatio;
-            const worldCardHeight = layout.cardHeight;
-            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [worldCardWidth, worldCardHeight, layout.cardDepth]);
+            // Scale the card to the correct dimensions.
+            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
 
             drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
         }

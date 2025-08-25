@@ -679,14 +679,19 @@ function drawCircles(gl, programs, buffers, view) {
     }
 
     // Draw dragged piece
-    if (drag === 'y' && vrIntersection && vrIntersection.gripPose) {
+    if (drag === 'y' && vrIntersection) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
-            const pieceModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+            const pieceModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
-            // Offset the piece slightly in front of the controller
-            const offset = glMatrix.vec3.fromValues(0, 0, -0.1);
-            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, offset);
+            // Position the piece at the intersection point on the board plane, with an offset.
+            const x = vrIntersection.local[0];
+            const y = vrIntersection.local[1];
+            const z = 0.1; // Pull forward
+            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x, y, z]);
+
+            // Rotate to be flat on the board
+            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
             // Apply same scaling as on-board pieces
             const tileDim = 2.0 / yy;
