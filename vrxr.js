@@ -5,19 +5,19 @@ let arSession = null;
 
 // --- Public API ---
 
-function toggleVR(drawGameCallback) {
+function toggleVR(drawGameCallback, gameXx, gameYy) {
   if (vrSession) {
     vrSession.end();
   } else {
-    activateVR(drawGameCallback);
+    activateVR(drawGameCallback, gameXx, gameYy);
   }
 }
 
-function toggleAR(drawGameCallback) {
+function toggleAR(drawGameCallback, gameXx, gameYy) {
     if (arSession) {
         arSession.end();
     } else {
-        activateAR(drawGameCallback);
+        activateAR(drawGameCallback, gameXx, gameYy);
     }
 }
 
@@ -47,7 +47,7 @@ let vrIntersection = null;
 
 // --- Core VR/XR Logic ---
 
-async function activateVR(drawGameCallback) {
+async function activateVR(drawGameCallback, gameXx, gameYy) {
   const vrButton = document.getElementById("btn-vr");
   try {
     vrSession = await navigator.xr.requestSession("immersive-vr", {
@@ -56,7 +56,7 @@ async function activateVR(drawGameCallback) {
     inVR = true;
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
-    runXRRendering(vrSession, 'immersive-vr', drawGameCallback);
+    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy);
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -66,7 +66,7 @@ async function activateVR(drawGameCallback) {
   }
 }
 
-async function activateAR(drawGameCallback) {
+async function activateAR(drawGameCallback, gameXx, gameYy) {
     const xrButton = document.getElementById('btn-xr');
     try {
         arSession = await navigator.xr.requestSession('immersive-ar', {
@@ -76,7 +76,7 @@ async function activateAR(drawGameCallback) {
         inAR = true;
         xrButton.textContent = 'Stop XR';
         xrButton.disabled = false;
-        runXRRendering(arSession, 'immersive-ar', drawGameCallback);
+        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy);
     } catch (e) {
         console.error("Failed to start AR session:", e);
         arSession = null;
@@ -86,7 +86,7 @@ async function activateAR(drawGameCallback) {
     }
 }
 
-async function runXRRendering(session, mode, drawGameCallback) {
+async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy) {
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
@@ -158,7 +158,9 @@ async function runXRRendering(session, mode, drawGameCallback) {
         return;
       }
       if (vrIntersection) {
-        clkd({ preventDefault: () => {} }); // Assumes game has a global clkd function
+        let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
+        let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
+        clkd({ preventDefault: () => {} }, gx, gy); // Pass gx, gy to game
       }
     });
 
@@ -168,7 +170,9 @@ async function runXRRendering(session, mode, drawGameCallback) {
         return;
       }
       if (vrIntersection) {
-        clku({ preventDefault: () => {} }); // Assumes game has a global clku function
+        let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
+        let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
+        clku({ preventDefault: () => {} }, gx, gy); // Pass gx, gy to game
       }
     });
 
@@ -228,9 +232,7 @@ async function runXRRendering(session, mode, drawGameCallback) {
                 const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                 if (intersection) {
                     vrIntersection = intersection;
-                    // These globals are used by the game logic (e.g., in movr)
-                    mx = ((intersection.local[0] + 1) / 2) * ww;
-                    my = ((1 - intersection.local[1]) / 2) * hh;
+                    // The game logic will now get grid coordinates directly
                 }
             }
 
@@ -238,10 +240,11 @@ async function runXRRendering(session, mode, drawGameCallback) {
                 const primaryButton = activeController.gamepad.buttons[4];
                 if (primaryButton && primaryButton.pressed && !primaryButtonPressedLastFrame) {
                     if (vrIntersection && typeof rotate === 'function') {
-                        let gx_for_rotate = Math.floor((mx/ww)*xx);
-                        let gy_for_rotate = Math.floor((my/hh)*yy);
-                        if (grid[gx_for_rotate][gy_for_rotate].charAt(1) > 0) {
-                            rotate(gx_for_rotate, gy_for_rotate, grid[gx_for_rotate][gy_for_rotate].charAt(1));
+                        let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
+                        let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
+
+                        if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(1) > 0) {
+                            rotate(gx, gy, grid[gx][gy].charAt(1));
                             if(typeof sCook === 'function' && typeof prog === 'function') sCook("prog", prog());
                         }
                     }
@@ -251,7 +254,7 @@ async function runXRRendering(session, mode, drawGameCallback) {
         }
 
         // Update canvas model matrix based on controls
-        const aspectRatio = ww / hh; // Assumes global ww, hh from game
+        const aspectRatio = gameXx / gameYy;
         glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
         glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
         glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);

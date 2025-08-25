@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 7;
+let ver = 8;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -71,38 +71,51 @@ function start(){
 
 // --- Input Handlers ---
 
-function clkd(evn){
+function clkd(evn, vrGx, vrGy){
  if (flow.length || done) return;
  flox=[];floy=[];
  clrcan(can);
  redraw(1);
  bgsk=0;
- if (evn.changedTouches){
-  var rect = can.getBoundingClientRect();
-  mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-  my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+
+ if (vrGx !== undefined) {
+    gx = vrGx;
+    gy = vrGy;
+    fx = -1; fy = -1; // VR doesn't have a distinct mouse down coordinate
+ } else {
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    }
+    fx=mx;fy=my;
+    gx=Math.floor((mx/bw)*xx); gy=Math.floor((my/bh)*yy);
  }
- fx=mx;fy=my;
- gx=Math.floor((mx/bw)*xx); gy=Math.floor((my/bh)*yy);
- if (gy>5 && sprd[gx][gy-6] && sprd[gx][gy-6].substr(0,1)=='x'){
+
+ if (gy>5 && sprd[gx] && sprd[gx][gy-6] && sprd[gx][gy-6].substr(0,1)=='x'){
   fx=-1;fy=-1;gx=-1;gy=-1;
  }
 }
 
-async function clku(evn){
+async function clku(evn, vrGx, vrGy){
  evn.stopPropagation();
  evn.preventDefault();
  clearInterval(flower);
  clrcan(spr);
  if (done) return;
 
- if (evn.changedTouches){
-  var rect = can.getBoundingClientRect();
-  mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-  my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+ let tx, ty;
+ if (vrGx !== undefined) {
+    tx = vrGx;
+    ty = vrGy;
+ } else {
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    }
+    tx=Math.floor((mx/bw)*xx); ty=Math.floor((my/bh)*yy);
  }
- let tx=Math.floor((mx/bw)*xx);
- let ty=Math.floor((my/bh)*yy);
 
  if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
   let ccc=dr(drw);
@@ -434,8 +447,8 @@ function drawSolitaire(gl, programs, buffers, view) {
 
 // --- VR/AR Bootstrap ---
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy);
 
 (async () => {
     if (navigator.xr) {

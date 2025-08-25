@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 5;
+let ver = 8;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -158,9 +158,18 @@ function debug(t){
  dbtm=setTimeout(function(){dbug.remove();dbug='';}, t);
 }
 
-function clku(evn){
+function clku(evn, vrGx, vrGy){
  if (done) { return; }
-  tx=Math.floor((mx/ww)*xx); ty=Math.floor((my/hh)*yy);
+  let tx, ty;
+  if (vrGx !== undefined) {
+    tx = vrGx;
+    ty = vrGy;
+  } else {
+    tx = Math.floor((mx/ww)*xx);
+    ty = Math.floor((my/hh)*yy);
+  }
+
+ // In VR, fx and fy are -1, so this click-vs-drag check will be false, which is ok.
  if (fx+'x'+fy+'x'+gx+'x'+gy==mx+'x'+my+'x'+tx+'x'+ty){
   if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(1) > 0 && !evn.changedTouches){
    rotate(gx,gy,grid[gx][gy].charAt(1));
@@ -200,16 +209,24 @@ function clku(evn){
   setTimeout(fini, 300);
  }
 }
-function clkd(evn){
+function clkd(evn, vrGx, vrGy){
  if (done) { return; }
- if (evn.changedTouches){
-  var rect = can.getBoundingClientRect();
-  mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-  my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+ if (vrGx !== undefined) {
+    gx = vrGx;
+    gy = vrGy;
+    // For VR, we don't have a distinct "mouse down" coordinate, so we can fake it.
+    fx = -1; fy = -1;
+ } else {
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
+    }
+    fx=mx;fy=my;
+    gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  }
- fx=mx;fy=my;
- gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
- if (grid[gx][gy].charAt(0)>1) {
+
+ if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(0)>1) {
   drag='y';
  }
 }
@@ -660,8 +677,8 @@ function drawCircles(gl, programs, buffers, view) {
     }
 }
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy);
 
 (async () => {
     if (navigator.xr) {
