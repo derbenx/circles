@@ -1,4 +1,5 @@
 // Solitaire Game Logic
+let ver = 1;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -37,6 +38,7 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
+ document.getElementById('version-display').value = ver;
  game=document.body;
  bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
  bh=bw;

@@ -1,4 +1,5 @@
 //console.log('circJS');
+let ver = 1;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -67,6 +68,7 @@ function wipe(){
 }
 
 function newg(){
+ document.getElementById('version-display').value = ver;
  document.getElementById("circhelp").style.display='none';
  document.getElementById("circsetup").style.display='none';
  var elem = document.getElementById("spr").style.display='block';
