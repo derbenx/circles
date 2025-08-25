@@ -67,12 +67,10 @@ function wipe(){
 }
 
 function newg(){
-  //reset
  document.getElementById("circhelp").style.display='none';
  document.getElementById("circsetup").style.display='none';
  var elem = document.getElementById("spr").style.display='block';
  done=0;
-
  tmp=gCook("prog");
  if (tmp) {
   tmp=tmp.split('!');
@@ -80,7 +78,6 @@ function newg(){
   xx=(szxy[0]*1)+1;
   yy=(szxy[1]*1)+1;
   z=1;
-
   grid = new Array(xx).fill(null).map(()=>new Array(yy).fill(null));
   for (var x=0;x<xx;x++){
    for (var y=0;y<yy;y++){
@@ -98,29 +95,15 @@ function newg(){
   var ty = window.innerHeight;
   var tw, th;
   if (rat) {
-      if (tx > ty) {
-          th = ts;
-          tw = tx / (ty / ts);
-      } else {
-          tw = ts;
-          th = ty / (tx / ts);
-      }
-  } else {
-      tw = ts;
-      th = ts;
-  }
-
+      if (tx > ty) { th = ts; tw = tx / (ty / ts); }
+      else { tw = ts; th = ty / (tx / ts); }
+  } else { tw = ts; th = ts; }
   var options = {
-      wdh: Math.floor(tw),
-      hgt: Math.floor(th),
-      mov: document.getElementById('mov').value,
-      rot: document.getElementById('rot').value,
-      clr: document.getElementById('clr').value,
-      pnt: document.getElementById('pnt').value,
-      pct: document.getElementById('pct').value,
-      rat: document.getElementById('rat').value
+      wdh: Math.floor(tw), hgt: Math.floor(th),
+      mov: document.getElementById('mov').value, rot: document.getElementById('rot').value,
+      clr: document.getElementById('clr').value, pnt: document.getElementById('pnt').value,
+      pct: document.getElementById('pct').value, rat: document.getElementById('rat').value
   };
-
   var puzzleData = generatePuzzle(options);
   dbstart(puzzleData);
  }
@@ -130,7 +113,6 @@ function dbstart(data){
  xx=data.xx*1;
  yy=data.yy*1;
  outt=xx;
-
  grid = new Array(xx).fill(null).map(()=>new Array(yy).fill(null));
  for (var y=0;y<yy;y++){
   for (var x=0;x<xx;x++){
@@ -297,17 +279,14 @@ function scale(){
  draw(1);
 }
 function draw(pri=0){
+ if (inVR || inAR) return; // Don't draw 2D canvas if in VR/AR
  var fc= new Date();
  var fps = 1000 / (fc - fo);
  fo = fc;
  if (fps<30 && pri<1) { return; }
  ctx = can.getContext('2d');
- if (inAR) {
-    ctx.clearRect(0, 0, can.width, can.height);
- } else {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, can.width, can.height);
- }
+ ctx.fillStyle = "black";
+ ctx.fillRect(0, 0, can.width, can.height);
  if (px){
   gx=px;gy=py;
  }
@@ -373,7 +352,6 @@ function drci(rad,x,y,p,s=0) {
  }
  if (pp.charAt(0)>0) {
   tmp.beginPath();
-
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI, false);
   tmp.fillStyle = gc(col.charAt(0));
   tmp.fill();
@@ -382,97 +360,45 @@ function drci(rad,x,y,p,s=0) {
   tmp.strokeStyle = s==1 ? 'red' : ol;
   tmp.lineWidth = 3;
   tmp.stroke();
-
  rx=rad/3;
  $i=0;
-
   if (pp.charAt($i)=='2' || pp.charAt($i)=='3') {
-   tmp.beginPath();
-   tmp.strokeStyle = 'black';
-   tmp.moveTo(x, y-(rad/3));
-   tmp.lineTo(x,y+(rad/3));
-   tmp.stroke();
+   tmp.beginPath(); tmp.strokeStyle = 'black'; tmp.moveTo(x, y-(rad/3)); tmp.lineTo(x,y+(rad/3)); tmp.stroke();
   }
   if (pp.charAt($i)=='2' || pp.charAt($i)=='4') {
-   tmp.beginPath();
-   tmp.strokeStyle = 'black';
-   tmp.moveTo(x-(rad/3), y);
-   tmp.lineTo(x+(rad/3), y);
-   tmp.stroke();
+   tmp.beginPath(); tmp.strokeStyle = 'black'; tmp.moveTo(x-(rad/3), y); tmp.lineTo(x+(rad/3), y); tmp.stroke();
   }
-
  $i++;
  if (pp.charAt($i)!='0') {
   if (pp.charAt($i)=='1') {
-   tmp.beginPath();
-   tmp.arc(x, y, rad/2, 0, 2 * Math.PI);
-   tmp.strokeStyle = 'black';
-   tmp.lineWidth = 3;
-   tmp.stroke();
+   tmp.beginPath(); tmp.arc(x, y, rad/2, 0, 2 * Math.PI); tmp.strokeStyle = 'black'; tmp.lineWidth = 3; tmp.stroke();
   }
   if (pp.charAt($i)=='2') {
-   tmp.beginPath();
-   tmp.arc(x, y, rad/2, 0, 1 * Math.PI);
-   tmp.strokeStyle = 'black';
-   tmp.lineWidth = 3;
-   tmp.stroke();
+   tmp.beginPath(); tmp.arc(x, y, rad/2, 0, 1 * Math.PI); tmp.strokeStyle = 'black'; tmp.lineWidth = 3; tmp.stroke();
   }
   if (pp.charAt($i)=='3') {
-   tmp.beginPath();
-   tmp.arc(x, y, rad/2, 1.5, 1.5 * Math.PI);
-   tmp.strokeStyle = 'black';
-   tmp.lineWidth = 3;
-   tmp.stroke();
+   tmp.beginPath(); tmp.arc(x, y, rad/2, 1.5, 1.5 * Math.PI); tmp.strokeStyle = 'black'; tmp.lineWidth = 3; tmp.stroke();
   }
-
  }
   $i++;
  if (pp.charAt($i)!='0') {
-
-  tmp.beginPath();
-  tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false);
-  tmp.fillStyle = gc(pp.charAt($i));
-  tmp.fill();
-  tmp.beginPath();
-  tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false);
-  tmp.strokeStyle = ol;
-  tmp.stroke();
+  tmp.beginPath(); tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false); tmp.fillStyle = gc(pp.charAt($i)); tmp.fill();
+  tmp.beginPath(); tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false); tmp.strokeStyle = ol; tmp.stroke();
  }
  $i++;
  if (pp.charAt($i)!='0') {
-
-  tmp.beginPath();
-  tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false);
-  tmp.fillStyle = gc(pp.charAt($i));
-  tmp.fill();
-  tmp.beginPath();
-  tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false);
-  tmp.strokeStyle = ol;
-  tmp.stroke();
+  tmp.beginPath(); tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false); tmp.fillStyle = gc(pp.charAt($i)); tmp.fill();
+  tmp.beginPath(); tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false); tmp.strokeStyle = ol; tmp.stroke();
  }
  $i++;
  if (pp.charAt($i)!='0') {
-
-  tmp.beginPath();
-  tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false);
-  tmp.fillStyle = gc(pp.charAt($i));
-  tmp.fill();
-  tmp.beginPath();
-  tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false);
-  tmp.strokeStyle = ol;
-  tmp.stroke();
+  tmp.beginPath(); tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false); tmp.fillStyle = gc(pp.charAt($i)); tmp.fill();
+  tmp.beginPath(); tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false); tmp.strokeStyle = ol; tmp.stroke();
 }
 $i++;
  if (pp.charAt($i)!='0') {
-
-  tmp.beginPath();
-  tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false);
-  tmp.fillStyle = gc(pp.charAt($i));
-  tmp.fill();
-  tmp.beginPath();
-  tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false);
-  tmp.strokeStyle = ol;
-  tmp.stroke();
+  tmp.beginPath(); tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false); tmp.fillStyle = gc(pp.charAt($i)); tmp.fill();
+  tmp.beginPath(); tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false); tmp.strokeStyle = ol; tmp.stroke();
   }
  }
 }
@@ -484,27 +410,19 @@ function solve(){
    if (grid[x][y].charAt(0)>0){
     ii=0; bit=tmp.charAt(ii);
     if (bit!='0' && x>0) {
-      chk=grid[x-1][y].substr(4,1);
-      if (bit!=chk) { return 1; }
-      tt++;
+      chk=grid[x-1][y].substr(4,1); if (bit!=chk) { return 1; } tt++;
     }
     ii++; bit=tmp.charAt(ii);
     if (bit!='0' && y>0) {
-      chk=grid[x][y-1].substr(5,1);
-      if (bit!=chk) { return 1; }
-      tt++;
+      chk=grid[x][y-1].substr(5,1); if (bit!=chk) { return 1; } tt++;
     }
     ii++; bit=tmp.charAt(ii);
     if (bit!='0' && x<(xx-1)) {
-      chk=grid[x+1][y].substr(2,1);
-      if (bit!=chk) { return 1; }
-      tt++;
+      chk=grid[x+1][y].substr(2,1); if (bit!=chk) { return 1; } tt++;
     }
     ii++; bit=tmp.charAt(ii);
     if (bit!='0' && y<(yy-1)) {
-      chk=grid[x][y+1].substr(3,1);
-      if (bit!=chk) { return 1; }
-      tt++;
+      chk=grid[x][y+1].substr(3,1); if (bit!=chk) { return 1; } tt++;
     }
     if (tt<1) { return 1; }
    }
@@ -518,9 +436,7 @@ function fini(){
  elem.style.display='none';
  var msg='Congrats you won!\n\nTry a new puzzle, change some settings!\n\nYou can now save this image to share with others!\n\n';
  if (inVR || inAR) {
-    vrShowAlert = true;
-    vrAlertMessage = msg;
-    vrAlertNeedsUpdate = true;
+    showVROverlay(msg, wipe);
  } else {
     alert(msg);
  }
@@ -544,7 +460,6 @@ function sav(msg='Click Ok to save this game.',sav=0){
  } else {
   temp=outt ? outt: gCook('orig');
  }
- console.log('temp: ',temp);
  aa.href = 'data:attachment/text,' + encodeURI(temp);
  aa.target = '_blank';
  aa.download = 'circles.dbs';
@@ -569,16 +484,11 @@ function gCook(cname) {
   let ca = decodedCookie.split(';');
   for(let i = 0; i <ca.length; i++) {
     let c = ca[i];
-    while (c.charAt(0) == ' ') {
-      c = c.substring(1);
-    }
-    if (c.indexOf(name) == 0) {
-      return c.substring(name.length, c.length);
-    }
+    while (c.charAt(0) == ' ') { c = c.substring(1); }
+    if (c.indexOf(name) == 0) { return c.substring(name.length, c.length); }
   }
   return "";
 }
-
 
 function loadr(event){
  file=this.files[0];
@@ -599,75 +509,168 @@ function openFileDialog(accept, callback) {
  inputElement.dispatchEvent(new MouseEvent("click"));
 }
 
-document.getElementById("btn-vr").onclick = () => {
-    activateVR(drawCircles);
+const colorMap = {
+    'g': [0.0, 1.0, 0.0, 1.0], 'r': [1.0, 0.0, 0.0, 1.0],
+    'y': [1.0, 1.0, 0.0, 1.0], 'b': [0.0, 0.0, 1.0, 1.0],
+    'v': [0.5, 0.0, 0.5, 1.0], 'c': [0.0, 1.0, 1.0, 1.0],
+    'p': [1.0, 0.5, 0.0, 1.0], 'l': [0.5, 1.0, 0.5, 1.0],
+    'e': [0.5, 0.5, 0.5, 1.0],
 };
-document.getElementById("btn-xr").onclick = () => {
-    activateAR(drawCircles);
-};
 
-function drawCircles(gl, pose, frame) {
-    const glLayer = session.renderState.baseLayer;
-    const compositeCanvas = document.createElement("canvas");
-    const compositeCtx = compositeCanvas.getContext("2d");
-    const sourceCanvas = document.getElementById("can");
-    const spriteCanvas = document.getElementById("spr");
-    let texture = initTexture(gl, sourceCanvas);
-    const buffers = initBuffers(gl);
-    const pointerTexture = initTexture(gl, pointerCanvas);
+function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
+    const { solidColorProgramInfo } = programs;
+    const { cylinder, halfCylinder, stick, ring, arcBottom, arcLeft } = buffers.piece;
 
-    for (const view of pose.views) {
-        const viewport = glLayer.getViewport(view);
-        gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-        const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, canvasModelMatrix);
+    gl.useProgram(solidColorProgramInfo.program);
+    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
+    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
-        draw(1);
+    // Draw main cylinder body
+    drawSolid(gl, solidColorProgramInfo, cylinder, pieceModelMatrix, view, [0.0, 0.8, 0.0, 1.0]);
 
-        compositeCanvas.width = sourceCanvas.width;
-        compositeCanvas.height = sourceCanvas.height;
-        compositeCtx.drawImage(sourceCanvas, 0, 0);
-        compositeCtx.drawImage(spriteCanvas, 0, 0);
-
-        updateTexture(gl, texture, compositeCanvas);
-
-        drawScene(gl, programInfo, buffers, texture, view.projectionMatrix, modelViewMatrix);
-
-        if (vrIntersection) {
-            const { mat4, vec3, quat } = glMatrix;
-            const pointerModelMatrix = mat4.create();
-            const boardRotation = quat.create();
-            mat4.getRotation(boardRotation, canvasModelMatrix);
-            mat4.fromRotationTranslationScale(
-                pointerModelMatrix,
-                boardRotation,
-                vrIntersection.world,
-                [0.025, 0.025, 0.025]
-            );
-            const pointerModelViewMatrix = mat4.multiply(mat4.create(), view.transform.inverse.matrix, pointerModelMatrix);
-            drawScene(gl, programInfo, buffers, pointerTexture, view.projectionMatrix, pointerModelViewMatrix);
+    // Draw nubs
+    const nubColors = pieceData.substr(2, 4);
+    for (let i = 0; i < 4; i++) {
+        const colorChar = nubColors.charAt(i);
+        if (colorChar !== '0') {
+            const nubLocalMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, [0, 0.05, 0]);
+            const translations = [ [-0.51, 0, 0], [0, 0, -0.51], [0.51, 0, 0], [0, 0, 0.51] ];
+            const orientations = [ Math.PI, Math.PI / 2, 0, -Math.PI / 2 ];
+            glMatrix.mat4.translate(nubLocalMatrix, nubLocalMatrix, translations[i]);
+            glMatrix.mat4.rotate(nubLocalMatrix, nubLocalMatrix, orientations[i] + Math.PI, [0, 1, 0]);
+            const finalNubMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
+            const nubScale = 1 / 1.2;
+            glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
+            const color = colorMap[colorChar] || [1,1,1,1];
+            drawSolid(gl, solidColorProgramInfo, halfCylinder, finalNubMatrix, view, color);
         }
     }
 
-    for (const source of frame.session.inputSources) {
-        if (source.gripSpace) {
-            const gripPose = frame.getPose(source.gripSpace, referenceSpace);
-            if (gripPose) {
-                const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
+    // Draw markers
+    const markerColor = [0.0, 0.0, 0.0, 1.0];
+    const moveMarker = pieceData.charAt(0);
+    const rotateMarker = pieceData.charAt(1);
+    const markerHeight = 0.15;
+    if (moveMarker === '2' || moveMarker === '4') {
+        const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+        glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
+        drawSolid(gl, solidColorProgramInfo, stick, markerMatrix, view, markerColor);
+    }
+    if (moveMarker === '2' || moveMarker === '3') {
+        const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+        glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+        glMatrix.mat4.rotate(markerMatrix, markerMatrix, Math.PI / 2, [0, 1, 0]);
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.25, 0.02, 0.02]);
+        drawSolid(gl, solidColorProgramInfo, stick, markerMatrix, view, markerColor);
+    }
+    if (rotateMarker === '1') {
+        const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+        glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+        drawSolid(gl, solidColorProgramInfo, ring, markerMatrix, view, markerColor);
+    }
+    if (rotateMarker === '2') {
+        const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+        glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+        drawSolid(gl, solidColorProgramInfo, arcBottom, markerMatrix, view, markerColor);
+    }
+    if (rotateMarker === '3') {
+        const markerMatrix = glMatrix.mat4.clone(pieceModelMatrix);
+        glMatrix.mat4.translate(markerMatrix, markerMatrix, [0, markerHeight, 0]);
+        glMatrix.mat4.scale(markerMatrix, markerMatrix, [0.6, 0.02, 0.6]);
+        drawSolid(gl, solidColorProgramInfo, arcLeft, markerMatrix, view, markerColor);
+    }
+}
 
-                const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), pose.views[0].transform.inverse.matrix, controllerMatrix);
 
-                const sphere = createSphere(1.0, 16, 16);
-                const sphereBuffers = initBuffers(gl);
-                gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
-                gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
-                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
+function drawCircles(gl, programs, buffers, view) {
+    const { solidColorProgramInfo } = programs;
+    const { stick } = buffers.piece; // grid lines use the stick buffer
 
-                // This is a simplified draw call, we'll need a proper shader for this
-                // For now, just using the existing shader
-                drawScene(gl, programInfo, sphereBuffers, initTexture(gl, document.createElement('canvas')), pose.views[0].projectionMatrix, modelViewMatrix);
+    // Draw 3D grid
+    const pieceHeight = 0.36 / yy;
+    const gridHeight = pieceHeight / 3;
+    const lineWidth = 0.0075;
+    const gridColor = [0.0, 1.0, 0.0, 1.0];
+
+    for (let y = 0; y <= yy; y++) {
+        const y_pos = (y / yy) * 2.0 - 1.0;
+        const gridLineModelMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.fromTranslation(gridLineModelMatrix, [0, -y_pos, gridHeight / 2 + 0.001]);
+        glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [2.0, lineWidth, gridHeight]);
+        const finalMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.multiply(finalMatrix, getCanvasModelMatrix(), gridLineModelMatrix);
+        drawSolid(gl, solidColorProgramInfo, stick, finalMatrix, view, gridColor);
+    }
+
+    for (let x = 0; x <= xx; x++) {
+        const x_pos = (x / xx) * 2.0 - 1.0;
+        const gridLineModelMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.fromTranslation(gridLineModelMatrix, [x_pos, 0, gridHeight / 2 + 0.001]);
+        glMatrix.mat4.scale(gridLineModelMatrix, gridLineModelMatrix, [lineWidth / (xx/yy), 2.0, gridHeight]);
+        const finalMatrix = glMatrix.mat4.create();
+        glMatrix.mat4.multiply(finalMatrix, getCanvasModelMatrix(), gridLineModelMatrix);
+        drawSolid(gl, solidColorProgramInfo, stick, finalMatrix, view, gridColor);
+    }
+
+    // Draw pieces
+    for (let y = 0; y < yy; y++) {
+        for (let x = 0; x < xx; x++) {
+             if (drag === 'y' && x === gx && y === gy) continue;
+            if (grid[x][y].charAt(0) > 0) {
+                const localPieceMatrix = glMatrix.mat4.create();
+                const x_local = (x + 0.5) / xx * 2.0 - 1.0;
+                const y_local = (y + 0.5) / yy * 2.0 - 1.0;
+                glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [x_local, -y_local, 0.02]);
+                glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
+                const tileDim = 2.0 / yy;
+                const diameter = tileDim * 0.95;
+                glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+                const pieceModelMatrix = glMatrix.mat4.create();
+                glMatrix.mat4.multiply(pieceModelMatrix, getCanvasModelMatrix(), localPieceMatrix);
+                draw3dPiece(gl, programs, buffers, grid[x][y], pieceModelMatrix, view);
             }
         }
     }
+
+    // Draw dragged piece
+    if (drag === 'y' && vrIntersection) {
+        const pieceData = grid[gx][gy];
+        if (pieceData && pieceData.charAt(0) > 1) {
+            const localPieceMatrix = glMatrix.mat4.create();
+            let final_x = vrIntersection.local[0];
+            let final_y = -vrIntersection.local[1];
+            const moveType = pieceData.charAt(0);
+            if (moveType === '4') { final_y = (gy + 0.5) / yy * 2.0 - 1.0; }
+            else if (moveType === '3') { final_x = (gx + 0.5) / xx * 2.0 - 1.0; }
+            glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [final_x, -final_y, 0.1]);
+            glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
+            const tileDim = 2.0 / yy;
+            const diameter = tileDim * 0.95;
+            glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
+            const pieceModelMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.multiply(pieceModelMatrix, getCanvasModelMatrix(), localPieceMatrix);
+            draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view);
+        }
+    }
 }
+
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles);
+
+(async () => {
+    if (navigator.xr) {
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-ar');
+            if (supported) {
+                document.getElementById('btn-xr').style.display = 'inline';
+            }
+        } catch (e) {
+            console.error("Error checking for AR support:", e);
+        }
+    }
+})();
