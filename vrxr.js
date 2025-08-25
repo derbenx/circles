@@ -553,12 +553,17 @@ function initPieceBuffers(gl) {
 
     const stick = createCuboid(1.0, 1.0, 1.0);
     const stickBuffers = {
-        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: stick.vertexCount,
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: stick.indices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stick.indices, gl.STATIC_DRAW);
 
     const ring = createRing(0.5, 0.465, 1.0, 16);
     const ringBuffers = {
@@ -609,12 +614,15 @@ function initControllerBuffers(gl) {
     const stickBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
-        vertexCount: stick.vertexCount,
+        indices: gl.createBuffer(),
+        vertexCount: stick.indices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stick.indices, gl.STATIC_DRAW);
 
     return { sphere: sphereBuffers, stick: stickBuffers };
 }
