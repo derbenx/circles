@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 15;
+let ver = 16;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -116,12 +116,11 @@ function clkd(evn, vrGx, vrGy){
         let stack = sprd[gx];
         let cardIndex = gy - 6;
         let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
-        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
+        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length; // All cards are face-down
 
-        if (!vrClick && cardIndex < firstFaceUpIndex) {
-            // Clicked a face-down card, do nothing
-        } else {
-            let startIndex = vrClick ? firstFaceUpIndex : Math.max(firstFaceUpIndex, cardIndex);
+        // Only allow picking up face-up cards from the stack, using the click position
+        if (cardIndex >= firstFaceUpIndex) {
+            let startIndex = cardIndex;
             if (startIndex < stack.length) {
                 let numToDrag = stack.length - startIndex;
                 let dragged = stack.splice(startIndex, numToDrag);
@@ -397,6 +396,43 @@ function drawSolitaire(gl, programs, buffers, view) {
             const yPos = 0.2 - j * 0.05;
             const zPos = j * 0.01;
             drawCard(cardFace, xPos, yPos, zPos);
+        }
+    }
+
+    // --- Highlighting hovered card ---
+    if (vrIntersection && !drag) {
+        const hx = Math.floor(((vrIntersection.local[0] + 1) / 2) * xx);
+        const hy = Math.floor(((1 - vrIntersection.local[1]) / 2) * yy);
+
+        let hx_3d, hy_3d, hz_3d;
+        let highlight = false;
+
+        let stack;
+        if (hy < 5 && hx >= 3 && hx < 7) { // Aces
+            stack = aces[hx-3];
+            hx_3d = acesStartX + (hx-3) * cardSpacingX;
+            hy_3d = topRowY;
+            hz_3d = stack.length * cardDepth;
+            highlight = true;
+        } else if (hy > 5 && hx < 7 && sprd[hx] && sprd[hx].length > 0) { // Spread
+            stack = sprd[hx];
+            let cardIndex = Math.min(stack.length - 1, Math.max(0, hy - 6));
+            hx_3d = layoutStartX + hx * cardSpacingX;
+            hy_3d = 0.2 - cardIndex * 0.05;
+            hz_3d = cardIndex * 0.01;
+            highlight = true;
+        } else if (hy < 5 && hx == 1 && pile.length > 0) { // Pile
+             hx_3d = layoutStartX + cardSpacingX;
+             hy_3d = topRowY;
+             hz_3d = pile.length * cardDepth;
+             highlight = true;
+        }
+
+        if (highlight) {
+            const markerMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [hx_3d, hy_3d, hz_3d]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [(cardWidth3D + 0.02) / boardAspectRatio, cardHeight3D + 0.02, cardDepth + 0.002]);
+            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Semi-transparent yellow
         }
     }
 
