@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 5;
+let ver = 7;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -271,6 +271,84 @@ function youWin() {
 }
 
 // --- VR/AR Drawing ---
+
+// --- Self-contained drawing function for textures ---
+function drawCardForTexture(ctx, cardFace, size, co1, co2) {
+    const card_w = size;
+    const card_h = size * 1.4;
+
+    // Card background
+    ctx.fillStyle = co1;
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = size / 25;
+    ctx.fillRect(0, 0, card_w, card_h);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(size / 25, size / 25, card_w - (size / 12.5), card_h - (size / 12.5));
+
+    if (cardFace === 'b1' || cardFace.startsWith('x')) {
+        ctx.fillStyle = co2;
+        ctx.fillRect(size/10, size/10, size*0.8, card_h*0.9);
+        return;
+    }
+
+    if (cardFace.length < 2) { // Empty ace pile markers
+        const suit = cardFace.substr(0,1);
+        const f_col = (suit=='h' || suit=='d') ? 'red' : 'black';
+        drawSuitSymbol(ctx, suit, card_w/2, card_h/2, size/1.5, f_col);
+        return;
+    }
+
+    // Card face
+    const suit = cardFace.substr(0,1);
+    let val = cardFace.substr(1,1).toUpperCase();
+    if (val === '0' || val === 'T') val = '10';
+
+    const f_col = (suit=='h' || suit=='d') ? 'red' : 'black';
+
+    // Draw text
+    ctx.fillStyle = f_col;
+    ctx.font = (size/4) + "px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(val, size/5, size/5);
+    ctx.fillText(val, card_w - size/5, card_h - size/5);
+
+    // Draw suit symbol
+    drawSuitSymbol(ctx, suit, card_w/2, card_h/2, size/2.5, f_col);
+}
+
+function drawSuitSymbol(ctx, suit, x, y, sz, f_col) {
+    ctx.fillStyle = f_col;
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (suit=='c') { // Clubs
+        ctx.arc(x - sz/3, y + sz/6, sz/3, 0, 2 * Math.PI, false);
+        ctx.arc(x + sz/3, y + sz/6, sz/3, 0, 2 * Math.PI, false);
+        ctx.arc(x, y - sz/3, sz/3, 0, 2 * Math.PI, false);
+        ctx.rect(x - sz/6, y-sz/6, sz/3, sz/2);
+    } else if (suit=='s') { // Spades
+        ctx.arc(x - sz/3, y, sz/3, 0, 2 * Math.PI, false);
+        ctx.arc(x + sz/3, y, sz/3, 0, 2 * Math.PI, false);
+        ctx.moveTo(x - sz/2, y);
+        ctx.lineTo(x, y - sz);
+        ctx.lineTo(x + sz/2, y);
+    } else if (suit=='d') { // Diamonds
+        ctx.moveTo(x, y - sz * 0.8);
+        ctx.lineTo(x - sz/2, y);
+        ctx.lineTo(x, y + sz * 0.8);
+        ctx.lineTo(x + sz/2, y);
+    } else if (suit=='h') { // Hearts
+        ctx.arc(x - sz/4, y - sz/4, sz/4, Math.PI, 2*Math.PI, false);
+        ctx.arc(x + sz/4, y - sz/4, sz/4, Math.PI, 2*Math.PI, false);
+        ctx.moveTo(x - sz/2, y - sz/4);
+        ctx.lineTo(x, y + sz/2);
+        ctx.lineTo(x + sz/2, y - sz/4);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
 const cardTextureCache = {};
 
 function getCardTexture(gl, cardFace) {
@@ -279,9 +357,9 @@ function getCardTexture(gl, cardFace) {
     }
     const canvas = document.createElement('canvas');
     canvas.width = 256;
-    canvas.height = 256;
+    canvas.height = 256 * 1.4;
     const ctx = canvas.getContext('2d');
-    dcd(ctx, 0, 0, cardFace, 256, co1, co2, 1); // Use a modified dcd to draw on any context
+    drawCardForTexture(ctx, cardFace, 256, co1, co2);
     const texture = initTexture(gl, canvas);
     cardTextureCache[cardFace] = texture;
     return texture;
@@ -368,40 +446,6 @@ document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire);
     }
 })();
 
-// Modify dcd to be able to draw on a given context (for texture generation)
-function dcd(ctx,x,y,c,s,co1,co2, onCanvas=0){
-    if (onCanvas === 0) { // original behavior
-        ctx = ctx.getContext("2d");
-    }
-	var r=s/13;
-	ctx.font = s/4+"px Arial";
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle";
-	var f,a,b;
-	if (c==''){f='black';}
-	if (c.length==2){
-		a=c.substr(0,1);b=c.substr(1,1);
-		if (a=='h' || a=='d'){f='red';}else{f='black';}
-	} else if (c.length==1) {
-		f=co2;
-	} else {
-		f='black';
-	}
-	ctx.fillStyle=co1;
-	ctx.strokeStyle=f;
-	ctx.lineWidth = s/10;
-	ctx.fillRect(x,y,s,s*1.4);
-	ctx.fillStyle='white';
-	ctx.fillRect(x+s/25,y+s/25,s*.92,s*1.4-s/12.5);
-	ctx.fillStyle=f;
-	if (c.length==2){
-		ctx.fillText(val[b], x+s/5, y+s/5);
-		ctx.fillText(val[b], x+s-s/5, y+s*1.4-s/5);
-		ds(ctx,x+s/2,y+s/1.9,s/2,a);
-	}else if(c.length==1){
-		ds(ctx,x+s/2,y+s/1.9,s/2,c);
-	}
-}
 // ds() and other card drawing functions are assumed to be in cards.js and globally available.
 // shf(), dr(), crdval(), crdcol() are also in cards.js
 // sc[] is in cards.js ('C', 'T', 'S', 'D')
