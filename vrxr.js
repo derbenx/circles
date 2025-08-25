@@ -160,7 +160,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy) {
       if (vrIntersection) {
         let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
         let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
-        clkd({ preventDefault: () => {} }, gx, gy); // Pass gx, gy to game
+        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, gx, gy); // Pass gx, gy to game
       }
     });
 
@@ -172,7 +172,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy) {
       if (vrIntersection) {
         let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
         let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
-        clku({ preventDefault: () => {} }, gx, gy); // Pass gx, gy to game
+        clku({ preventDefault: () => {}, stopPropagation: () => {} }, gx, gy); // Pass gx, gy to game
       }
     });
 
