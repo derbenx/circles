@@ -18,13 +18,14 @@ var flod=0;
 var flower;
 var bgsk;
 var dragSource = null; // To track where cards came from
-var co1='lime',co2='green',drw=1,fre=1;
+var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
 
 // --- Initialization ---
 start();
 
 document.getElementById("soldrw").onchange = () => { drw=document.getElementById("soldrw").value*1; };
 document.getElementById("solfre").onchange = () => { fre=document.getElementById("solfre").value*1; };
+document.getElementById("solauto").onchange = () => { autoFlip=document.getElementById("solauto").value*1; };
 document.getElementById("co1").onchange = () => { co1=document.getElementById("co1").value; draw(); };
 document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
 
@@ -92,34 +93,41 @@ function clkd(evn, vrIntersectionLocal){
         } else {
             mx = evn.offsetX; my = evn.offsetY;
         }
-        fx=mx; fy=my; // This was missing
-        gx=Math.floor((mx/bw)*xx);
-        gy=Math.floor((my/bh)*yy);
+        const coords = get2DCardAtPoint(mx, my);
+        if (coords) {
+            gx = coords.gx;
+            gy = coords.gy;
+        } else {
+            gx = -1; gy = -1;
+        }
+        fx=mx; fy=my;
     }
 
     ffx = gx; ffy = gy;
 
     // Card collection logic
-    let fromPile = (gy<5 && gx==1);
-    let fromAces = (gy<5 && gx>=3 && gx<7 && aces[gx-3]);
-    let fromSpread = (gy>5 && gx<7 && sprd[gx] && sprd[gx].length > 0);
+    if (gx !== -1) { // A card was actually clicked
+        let fromPile = (gy < 5 && gx === 1);
+        let fromAces = (gy < 5 && gx >= 3 && gx < 7 && aces[gx - 3]);
+        let fromSpread = (gy > 5 && gx < 7 && sprd[gx] && sprd[gx].length > 0);
 
-    if (fromPile) {
-        if (pile.length > 0) { flow.push(pile.pop()); dragSource = { pile: 'pile' }; }
-    } else if (fromAces) {
-        if (aces[gx-3].length > 0) { flow.push(aces[gx-3].pop()); dragSource = { pile: 'aces', x: gx - 3 }; }
-    } else if (fromSpread) {
-        let stack = sprd[gx];
-        let cardIndex = gy - 6;
-        let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
-        if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
+        if (fromPile) {
+            if (pile.length > 0) { flow.push(pile.pop()); dragSource = { pile: 'pile' }; }
+        } else if (fromAces) {
+            if (aces[gx - 3].length > 0) { flow.push(aces[gx - 3].pop()); dragSource = { pile: 'aces', x: gx - 3 }; }
+        } else if (fromSpread) {
+            let stack = sprd[gx];
+            let cardIndex = gy - 6;
+            let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
+            if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
 
-        if (cardIndex >= firstFaceUpIndex) {
-            let startIndex = cardIndex;
-            if (startIndex < stack.length) {
-                let numToDrag = stack.length - startIndex;
-                flow.push(...stack.splice(startIndex, numToDrag));
-                dragSource = { pile: 'spread', x: gx };
+            if (cardIndex >= firstFaceUpIndex) {
+                let startIndex = cardIndex;
+                if (startIndex < stack.length) {
+                    let numToDrag = stack.length - startIndex;
+                    flow.push(...stack.splice(startIndex, numToDrag));
+                    dragSource = { pile: 'spread', x: gx };
+                }
             }
         }
     }
@@ -156,7 +164,15 @@ async function clku(evn, vrIntersectionLocal){
         } else {
             mx = evn.offsetX; my = evn.offsetY;
         }
-        tx=Math.floor((mx/bw)*xx); ty=Math.floor((my/bh)*yy);
+        const coords = get2DCardAtPoint(mx, my);
+        if (coords) {
+            tx = coords.gx;
+            ty = coords.gy;
+        } else {
+            // Fallback for clicking on empty areas (like deck)
+            tx = Math.floor((mx / bw) * xx);
+            ty = Math.floor((my / bh) * yy);
+        }
     }
 
     if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
@@ -178,10 +194,17 @@ async function clku(evn, vrIntersectionLocal){
                 }
             }
         } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
-            if (crdcol(flow[0], sprd[tx][sprd[tx].length-1])[3] == false) { // color check
-                if (crdval(flow[0],0) == crdval(sprd[tx][sprd[tx].length-1],0) - 1 || sprd[tx].length == 0) { // sequence check
+            if (sprd[tx].length === 0) { // Case 1: Dropping on an empty pile
+                if (crdval(flow[0], 0) === 12) { // Must be a King
                     sprd[tx].push(...flow);
                     validDrop = true;
+                }
+            } else { // Case 2: Dropping on an existing pile
+                if (crdcol(flow[0], sprd[tx][sprd[tx].length - 1])[3] == false) { // color check
+                    if (crdval(flow[0], 0) == crdval(sprd[tx][sprd[tx].length - 1], 0) - 1) { // sequence check
+                        sprd[tx].push(...flow);
+                        validDrop = true;
+                    }
                 }
             }
         }
@@ -191,9 +214,22 @@ async function clku(evn, vrIntersectionLocal){
             else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
             else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
         }
+    } else if (flow.length < 1 && !autoFlip) { // Manual flip logic
+        if (ty > 5 && tx < 7 && sprd[tx] && sprd[tx].length > 0) {
+            let stack = sprd[tx];
+            let cardIndex = ty - 6;
+            if (cardIndex === stack.length - 1) { // Can only flip the last card
+                let card = stack[cardIndex];
+                if (card.startsWith('x')) {
+                    stack[cardIndex] = card.substr(1, 2);
+                }
+            }
+        }
     }
+
     drag=0;
-    draw(drag ? 0 : 1);
+    // When drag is true, prevent auto-flip. When false (after drop), allow it.
+    draw(drag);
     flow=[];
 
     if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
@@ -231,7 +267,43 @@ function movr(evn){
 
 // --- Drawing ---
 
-function draw(flip=0) {
+function get2DCardAtPoint(clickX, clickY) {
+    let xxx = xx + 1;
+    let tmpw = bw / xxx;
+    let cardHeight = tmpw * 1.5;
+    let ySpacing = (bw / yy);
+
+    // Check top row (from front to back)
+    for (let ii = 6; ii >= 0; ii--) {
+        if (ii === 2) continue; // Skip empty space
+        let x1 = (ii * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
+        let y1 = (bw / yy);
+        let x2 = x1 + tmpw;
+        let y2 = y1 + cardHeight;
+        if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
+            if (ii > 2) return { gx: ii, gy: 1 }; // Aces
+            return { gx: ii, gy: 1 }; // Deck and Pile
+        }
+    }
+
+    // Check spread piles (from front to back)
+    for (let i = 0; i < 7; i++) {
+        const stack = sprd[i];
+        if (!stack || stack.length === 0) continue;
+        for (let j = stack.length - 1; j >= 0; j--) {
+            let x1 = (i * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
+            let y1 = ySpacing * (j + 6);
+            let x2 = x1 + tmpw;
+            let y2 = y1 + (j === stack.length - 1 ? cardHeight : ySpacing);
+            if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
+                return { gx: i, gy: 6 + j };
+            }
+        }
+    }
+    return null;
+}
+
+function draw(preventAutoFlip = false) {
  if (inVR || inAR) return; // Don't draw 2D if in VR/AR
  let xxx=xx+1;
  let tmpw=bw/xxx;
@@ -255,11 +327,11 @@ function draw(flip=0) {
   for (let i=0;i<sprd[ii].length;i++) {
    let crd=sprd[ii][i];
    if (crd){
-    if (flip==0 && crd.substr(0,1)=='x' && i==sprd[ii].length-1){
+    if (autoFlip && !preventAutoFlip && crd.startsWith('x') && i === sprd[ii].length - 1){
      sprd[ii][i]=crd.substr(1,2);
      crd=sprd[ii][i];
     }
-    let cardFace = crd.substr(0,1)=='x' ? 'b1' : crd;
+    let cardFace = crd.startsWith('x') ? 'b1' : crd;
     dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
    }
   }
