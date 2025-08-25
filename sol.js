@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 11;
+let ver = 12;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -304,6 +304,11 @@ function getCardTexture(gl, cardFace) {
     const textureCanvas = document.createElement('canvas');
     textureCanvas.width = 200; // A reasonable resolution for the texture
     textureCanvas.height = 280; // 1.4 aspect ratio
+    const ctx = textureCanvas.getContext('2d');
+
+    // Fill the background white to avoid transparent corners
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
     // Use the global dcd() function from cards.js to draw on our temp canvas
     // It expects a canvas element, not a context
@@ -318,18 +323,18 @@ function getCardTexture(gl, cardFace) {
 function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const cardWidth = 0.2;
-    const cardHeight = cardWidth * 1.4;
+    const boardAspectRatio = xx / 5.0;
+    const cardWidth3D = 0.23; // Base width in board's coordinate system
+    const cardHeight3D = cardWidth3D * 1.4;
     const cardDepth = 0.005;
-    const xxx = xx + 1;
-    const tmpw = 2.0 / xxx; // 2.0 is the width of the board in clip space
+    const cardSpacingX = cardWidth3D + (cardWidth3D / 8); // 1/8th card width for spacing
 
     const drawCard = (cardFace, x, y, z, rotationY = 0) => {
         const cardModelMatrix = glMatrix.mat4.create();
-        const boardAspectRatio = xx / 5.0; // Use a float to ensure float division
         glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [x, y, z]);
         glMatrix.mat4.rotateY(cardModelMatrix, cardModelMatrix, rotationY);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth / boardAspectRatio, cardHeight, cardDepth]);
+        // To counteract the board's aspect ratio, we scale the card's X dimension inversely.
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
 
         if (cardFace === 'b1' || cardFace.startsWith('x')) {
             const backTexture = getCardTexture(gl, 'b1');
@@ -340,21 +345,24 @@ function drawSolitaire(gl, programs, buffers, view) {
         }
     };
 
+    // --- Layout Calculations ---
+    const spreadWidth = 7 * cardWidth3D + 6 * (cardWidth3D / 8);
+    const spreadStartX = -spreadWidth / 2;
+
     // Draw Deck & Pile
     if (deck.length > 0) drawCard('b1', -0.8, 0.6, 0);
-    if (pile.length > 0) drawCard(pile[pile.length - 1], -0.6, 0.6, 0);
+    if (pile.length > 0) drawCard(pile[pile.length - 1], -0.55, 0.6, 0);
 
     // Draw Aces
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
-        const initialCard = sc[i].toLowerCase();
         if (acePile.length > 0) {
-            drawCard(acePile[acePile.length - 1], 0.2 + i * 0.25, 0.6, 0);
+            drawCard(acePile[acePile.length - 1], 0.1 + i * cardSpacingX, 0.6, 0);
         } else {
              // Draw empty slot marker
             const markerMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [0.2 + i * 0.25, 0.6, 0]);
-            glMatrix.mat4.scale(markerMatrix, markerMatrix, [cardWidth, cardHeight, cardDepth]);
+            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [0.1 + i * cardSpacingX, 0.6, 0]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [cardWidth3D / boardAspectRatio, cardHeight3D, cardDepth]);
             drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [0,0.5,0,0.5]);
         }
     }
@@ -363,7 +371,7 @@ function drawSolitaire(gl, programs, buffers, view) {
     for (let i = 0; i < 7; i++) {
         for (let j = 0; j < sprd[i].length; j++) {
             const cardFace = sprd[i][j];
-            const xPos = -0.9 + i * 0.3;
+            const xPos = spreadStartX + i * cardSpacingX;
             const yPos = 0.2 - j * 0.05;
             const zPos = j * 0.01;
             drawCard(cardFace, xPos, yPos, zPos);
