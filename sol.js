@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 9;
+let ver = 10;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -284,96 +284,25 @@ function youWin() {
 }
 
 // --- VR/AR Drawing ---
-
-// --- Self-contained drawing function for textures ---
-function drawCardForTexture(ctx, cardFace, size, co1, co2) {
-    const card_w = size;
-    const card_h = size * 1.4;
-
-    // Card background
-    ctx.fillStyle = co1;
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = size / 25;
-    ctx.fillRect(0, 0, card_w, card_h);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(size / 25, size / 25, card_w - (size / 12.5), card_h - (size / 12.5));
-
-    if (cardFace === 'b1' || cardFace.startsWith('x')) {
-        ctx.fillStyle = co2;
-        ctx.fillRect(size/10, size/10, size*0.8, card_h*0.9);
-        return;
-    }
-
-    if (cardFace.length < 2) { // Empty ace pile markers
-        const suit = cardFace.substr(0,1);
-        const f_col = (suit=='h' || suit=='d') ? 'red' : 'black';
-        drawSuitSymbol(ctx, suit, card_w/2, card_h/2, size/1.5, f_col);
-        return;
-    }
-
-    // Card face
-    const suit = cardFace.substr(0,1);
-    let val = cardFace.substr(1,1).toUpperCase();
-    if (val === '0' || val === 'T') val = '10';
-
-    const f_col = (suit=='h' || suit=='d') ? 'red' : 'black';
-
-    // Draw text
-    ctx.fillStyle = f_col;
-    ctx.font = (size/4) + "px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(val, size/5, size/5);
-    ctx.fillText(val, card_w - size/5, card_h - size/5);
-
-    // Draw suit symbol
-    drawSuitSymbol(ctx, suit, card_w/2, card_h/2, size/2.5, f_col);
-}
-
-function drawSuitSymbol(ctx, suit, x, y, sz, f_col) {
-    ctx.fillStyle = f_col;
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    if (suit=='c') { // Clubs
-        ctx.arc(x - sz/3, y + sz/6, sz/3, 0, 2 * Math.PI, false);
-        ctx.arc(x + sz/3, y + sz/6, sz/3, 0, 2 * Math.PI, false);
-        ctx.arc(x, y - sz/3, sz/3, 0, 2 * Math.PI, false);
-        ctx.rect(x - sz/6, y-sz/6, sz/3, sz/2);
-    } else if (suit=='s') { // Spades
-        ctx.arc(x - sz/3, y, sz/3, 0, 2 * Math.PI, false);
-        ctx.arc(x + sz/3, y, sz/3, 0, 2 * Math.PI, false);
-        ctx.moveTo(x - sz/2, y);
-        ctx.lineTo(x, y - sz);
-        ctx.lineTo(x + sz/2, y);
-    } else if (suit=='d') { // Diamonds
-        ctx.moveTo(x, y - sz * 0.8);
-        ctx.lineTo(x - sz/2, y);
-        ctx.lineTo(x, y + sz * 0.8);
-        ctx.lineTo(x + sz/2, y);
-    } else if (suit=='h') { // Hearts
-        ctx.arc(x - sz/4, y - sz/4, sz/4, Math.PI, 2*Math.PI, false);
-        ctx.arc(x + sz/4, y - sz/4, sz/4, Math.PI, 2*Math.PI, false);
-        ctx.moveTo(x - sz/2, y - sz/4);
-        ctx.lineTo(x, y + sz/2);
-        ctx.lineTo(x + sz/2, y - sz/4);
-    }
-    ctx.closePath();
-    ctx.fill();
-}
-
 const cardTextureCache = {};
 
 function getCardTexture(gl, cardFace) {
+    // Use a cache to avoid recreating textures
     if (cardTextureCache[cardFace]) {
         return cardTextureCache[cardFace];
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256 * 1.4;
-    const ctx = canvas.getContext('2d');
-    drawCardForTexture(ctx, cardFace, 256, co1, co2);
-    const texture = initTexture(gl, canvas);
+
+    // Create an off-screen canvas to draw the card face
+    const textureCanvas = document.createElement('canvas');
+    textureCanvas.width = 200; // A reasonable resolution for the texture
+    textureCanvas.height = 280; // 1.4 aspect ratio
+
+    // Use the global dcd() function from cards.js to draw on our temp canvas
+    // It expects a canvas element, not a context
+    dcd(textureCanvas, 0, 0, cardFace, 200, co1, co2);
+
+    // Create a WebGL texture from the canvas
+    const texture = initTexture(gl, textureCanvas);
     cardTextureCache[cardFace] = texture;
     return texture;
 }
@@ -447,8 +376,8 @@ function drawSolitaire(gl, programs, buffers, view) {
 
 // --- VR/AR Bootstrap ---
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, 5);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, 5);
 
 (async () => {
     if (navigator.xr) {
