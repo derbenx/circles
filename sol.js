@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 2;
+let ver = 3;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;

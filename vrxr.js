@@ -294,7 +294,8 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
 
-    for (const source of session.inputSources) {
+    for (let i = 0; i < session.inputSources.length; i++) {
+        const source = session.inputSources[i];
         if (source.gripSpace) {
             const gripPose = frame.getPose(source.gripSpace, referenceSpace);
             if (gripPose) {
@@ -305,6 +306,8 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
 
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                // Apply the same downward rotation as the intersection test
+                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
                 glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
                 drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
@@ -701,6 +704,11 @@ function intersectPlane(transform, quadModelMatrix) {
   const { vec3, mat4 } = glMatrix;
   const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
   const rayDirection = vec3.fromValues(0, 0, -1);
+
+  // Apply a downward rotation to the ray to match user expectation
+  const rotationX = mat4.fromXRotation(mat4.create(), -Math.PI / 6); // -30 degrees
+  vec3.transformMat4(rayDirection, rayDirection, rotationX);
+
   vec3.transformQuat(rayDirection, rayDirection, [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
   const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
   const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModelMatrix);
