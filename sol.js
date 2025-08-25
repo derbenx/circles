@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 13;
+let ver = 14;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -397,8 +397,8 @@ function drawSolitaire(gl, programs, buffers, view) {
 
 // --- VR/AR Bootstrap ---
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy, 7/5);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy, 7/5);
 
 (async () => {
     if (navigator.xr) {

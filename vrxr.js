@@ -5,19 +5,19 @@ let arSession = null;
 
 // --- Public API ---
 
-function toggleVR(drawGameCallback, gameXx, gameYy) {
+function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
   if (vrSession) {
     vrSession.end();
   } else {
-    activateVR(drawGameCallback, gameXx, gameYy);
+    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio);
   }
 }
 
-function toggleAR(drawGameCallback, gameXx, gameYy) {
+function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
     if (arSession) {
         arSession.end();
     } else {
-        activateAR(drawGameCallback, gameXx, gameYy);
+        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio);
     }
 }
 
@@ -47,7 +47,7 @@ let vrIntersection = null;
 
 // --- Core VR/XR Logic ---
 
-async function activateVR(drawGameCallback, gameXx, gameYy) {
+async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
   const vrButton = document.getElementById("btn-vr");
   try {
     vrSession = await navigator.xr.requestSession("immersive-vr", {
@@ -56,7 +56,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy) {
     inVR = true;
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
-    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy);
+    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio);
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -66,7 +66,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy) {
   }
 }
 
-async function activateAR(drawGameCallback, gameXx, gameYy) {
+async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio) {
     const xrButton = document.getElementById('btn-xr');
     try {
         arSession = await navigator.xr.requestSession('immersive-ar', {
@@ -76,7 +76,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy) {
         inAR = true;
         xrButton.textContent = 'Stop XR';
         xrButton.disabled = false;
-        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy);
+        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio);
     } catch (e) {
         console.error("Failed to start AR session:", e);
         arSession = null;
@@ -86,7 +86,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy) {
     }
 }
 
-async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy) {
+async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio) {
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
@@ -254,7 +254,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy) {
         }
 
         // Update canvas model matrix based on controls
-        const aspectRatio = gameXx / gameYy;
+        const aspectRatio = boardAspectRatio || (gameXx / gameYy);
         glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
         glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
         glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
@@ -772,14 +772,11 @@ function createCuboid(width, height, depth) {
         0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
         // Back face
         1.0,  1.0, 1.0,  0.0, 0.0,  0.0, 0.0,  1.0,
-        // Top face (map to a single white pixel)
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        // Bottom face
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        // Right face
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        // Left face
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        // Top, Bottom, Right, Left faces (map to a single white pixel in the texture's border)
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Right
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Left
     ]);
     const indices = new Uint16Array([
         0,  1,  2,      0,  2,  3,    // front
