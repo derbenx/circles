@@ -656,22 +656,21 @@ function drawCircles(gl, programs, buffers, view) {
     }
 
     // Draw dragged piece
-    if (drag === 'y' && vrIntersection) {
+    if (drag === 'y' && vrIntersection && vrIntersection.gripPose) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
-            const localPieceMatrix = glMatrix.mat4.create();
-            let final_x = vrIntersection.local[0];
-            let final_y = -vrIntersection.local[1];
-            const moveType = pieceData.charAt(0);
-            if (moveType === '4') { final_y = (gy + 0.5) / yy * 2.0 - 1.0; }
-            else if (moveType === '3') { final_x = (gx + 0.5) / xx * 2.0 - 1.0; }
-            glMatrix.mat4.translate(localPieceMatrix, localPieceMatrix, [final_x, -final_y, 0.1]);
-            glMatrix.mat4.rotate(localPieceMatrix, localPieceMatrix, Math.PI / 2, [1, 0, 0]);
+            const pieceModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+
+            // Offset the piece slightly in front of the controller
+            const offset = glMatrix.vec3.fromValues(0, 0, -0.1);
+            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, offset);
+
+            // Apply same scaling as on-board pieces
             const tileDim = 2.0 / yy;
             const diameter = tileDim * 0.95;
-            glMatrix.mat4.scale(localPieceMatrix, localPieceMatrix, [diameter / (xx/yy), diameter, diameter]);
-            const pieceModelMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.multiply(pieceModelMatrix, getCanvasModelMatrix(), localPieceMatrix);
+            const aspectRatio = xx / yy;
+            glMatrix.mat4.scale(pieceModelMatrix, pieceModelMatrix, [diameter / aspectRatio, diameter, diameter]);
+
             draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view);
         }
     }

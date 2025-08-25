@@ -198,7 +198,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             else if (source.handedness === 'right') rightController = source;
         }
 
-        activeController = activeController || rightController || leftController;
+        // Robustly select an active controller if one isn't already set
+        if (!activeController) {
+            if (rightController) activeController = rightController;
+            else if (leftController) activeController = leftController;
+            else if (session.inputSources.length > 0) activeController = session.inputSources[0];
+        }
         if (lastActiveController && activeController !== lastActiveController) drag = 'n';
         lastActiveController = activeController;
 
@@ -233,8 +238,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             if (gripPose) {
                 const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                 if (intersection) {
-                    vrIntersection = intersection;
-                    // The game logic will now get grid coordinates directly
+                    // Pass the intersection details, including the gripPose for dragged object rendering
+                    vrIntersection = { ...intersection, gripPose, controller: activeController };
                 }
             }
 
@@ -715,33 +720,39 @@ function createPointerCanvas() {
 }
 
 function intersectPlane(transform, quadModelMatrix) {
-  const { vec3, mat4 } = glMatrix;
-  const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
-  const rayDirection = vec3.fromValues(0, 0, -1);
+    const { vec3, mat4, quat } = glMatrix;
+    const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
 
-  // Apply a downward rotation to the ray to match user expectation
-  const rotationX = mat4.fromXRotation(mat4.create(), -Math.PI / 6); // -30 degrees
-  vec3.transformMat4(rayDirection, rayDirection, rotationX);
+    // Create a quaternion for the downward rotation
+    const rotX = quat.create();
+    quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
 
-  vec3.transformQuat(rayDirection, rayDirection, [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
-  const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
-  const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModelMatrix);
-  const rayDirectionLocal = vec3.transformMat4(vec3.create(), rayDirection, invModelMatrix);
-  vec3.subtract(rayDirectionLocal, rayDirectionLocal, vec3.transformMat4(vec3.create(), [0,0,0], invModelMatrix));
-  vec3.normalize(rayDirectionLocal, rayDirectionLocal);
-  const planeNormal = vec3.fromValues(0, 0, 1);
-  const denom = vec3.dot(planeNormal, rayDirectionLocal);
-  if (Math.abs(denom) > 0.0001) {
-    const t = -rayOriginLocal[2] / denom;
-    if (t >= 0) {
-      const intersectionLocal = vec3.add(vec3.create(), rayOriginLocal, vec3.scale(vec3.create(), rayDirectionLocal, t));
-      if (intersectionLocal[0] >= -1 && intersectionLocal[0] <= 1 && intersectionLocal[1] >= -1 && intersectionLocal[1] <= 1) {
-        const intersectionWorld = vec3.transformMat4(vec3.create(), intersectionLocal, quadModelMatrix);
-        return { world: intersectionWorld, local: intersectionLocal };
-      }
+    // Combine the controller's orientation with the downward rotation
+    const finalRot = quat.multiply(quat.create(), [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w], rotX);
+
+    // Get the forward direction from the final rotation
+    const rayDirection = vec3.fromValues(0, 0, -1);
+    vec3.transformQuat(rayDirection, rayDirection, finalRot);
+
+    // The rest of the function remains the same, but this is a safer way to handle rotations.
+    const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
+    const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModelMatrix);
+    const rayDirectionLocal = vec3.transformMat4(vec3.create(), rayDirection, invModelMatrix);
+    vec3.subtract(rayDirectionLocal, rayDirectionLocal, vec3.transformMat4(vec3.create(), [0,0,0], invModelMatrix));
+    vec3.normalize(rayDirectionLocal, rayDirectionLocal);
+    const planeNormal = vec3.fromValues(0, 0, 1);
+    const denom = vec3.dot(planeNormal, rayDirectionLocal);
+    if (Math.abs(denom) > 0.0001) {
+        const t = -rayOriginLocal[2] / denom;
+        if (t >= 0) {
+            const intersectionLocal = vec3.add(vec3.create(), rayOriginLocal, vec3.scale(vec3.create(), rayDirectionLocal, t));
+            if (intersectionLocal[0] >= -1 && intersectionLocal[0] <= 1 && intersectionLocal[1] >= -1 && intersectionLocal[1] <= 1) {
+                const intersectionWorld = vec3.transformMat4(vec3.create(), intersectionLocal, quadModelMatrix);
+                return { world: intersectionWorld, local: intersectionLocal };
+            }
+        }
     }
-  }
-  return null;
+    return null;
 }
 
 // --- Geometry Creation ---

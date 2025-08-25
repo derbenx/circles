@@ -450,28 +450,31 @@ function getCardAtIntersection(local) {
     return null;
 }
 
+function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
+    const { textureProgramInfo } = programs;
+    const { card } = buffers.pieceBuffers;
+
+    const backTexture = getCardTexture(gl, 'b1');
+    const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
+    drawTextured(gl, textureProgramInfo, backBuffers, backTexture, modelMatrix, view);
+
+    if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
+        const frontTexture = getCardTexture(gl, cardFace);
+        const frontBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.frontIndices, vertexCount: card.frontVertexCount };
+        drawTextured(gl, textureProgramInfo, frontBuffers, frontTexture, modelMatrix, view);
+    }
+}
+
 function drawSolitaire(gl, programs, buffers, view) {
-    const { textureProgramInfo, solidColorProgramInfo } = programs;
+    const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
-        // Start with the main canvas transform
         const canvasMatrix = getCanvasModelMatrix();
-        // Transform the card locally, then apply the canvas transform
         glMatrix.mat4.translate(cardModelMatrix, canvasMatrix, [x, y, z]);
-        // Scale the card to its final dimensions. The layout object has pre-calculated the correct aspect ratio.
         glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
-
-        const backTexture = getCardTexture(gl, 'b1');
-        const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
-        drawTextured(gl, textureProgramInfo, backBuffers, backTexture, cardModelMatrix, view);
-
-        if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
-            const frontTexture = getCardTexture(gl, cardFace);
-            const frontBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.frontIndices, vertexCount: card.frontVertexCount };
-            drawTextured(gl, textureProgramInfo, frontBuffers, frontTexture, cardModelMatrix, view);
-        }
+        drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
     };
 
     // Draw Piles
@@ -529,13 +532,24 @@ function drawSolitaire(gl, programs, buffers, view) {
     }
 
     // Draw Flowing (dragged) cards
-    if (drag && flow.length > 0 && vrIntersection) {
+    if (drag && flow.length > 0 && vrIntersection && vrIntersection.gripPose) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            // Get controller position in world space
-            const controllerPos = vrIntersection.controller.gripSpace.transform.position;
-            // Draw card in front of the controller
-            drawCard(cardFace, controllerPos.x, controllerPos.y, controllerPos.z + 0.1 + (i * layout.cardDepth));
+            const cardModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+
+            // Offset the card slightly in front of the controller and stack them
+            const offset = glMatrix.vec3.fromValues(0, 0, -0.05 - (i * layout.cardDepth * 2));
+            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, offset);
+
+            // Orient the card to face the user
+            glMatrix.mat4.rotateX(cardModelMatrix, cardModelMatrix, -Math.PI / 2);
+
+            // Scale the card to the correct dimensions, matching the size of the cards on the board
+            const worldCardWidth = layout.cardWidth * layout.boardAspectRatio;
+            const worldCardHeight = layout.cardHeight;
+            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [worldCardWidth, worldCardHeight, layout.cardDepth]);
+
+            drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
         }
     }
 }
