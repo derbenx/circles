@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 19;
+let ver = 21;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -158,12 +158,17 @@ function debug(t){
  dbtm=setTimeout(function(){dbug.remove();dbug='';}, t);
 }
 
-function clku(evn, vrGx, vrGy){
+function clku(evn, vrIntersectionLocal){
  if (done) { return; }
   let tx, ty;
-  if (vrGx !== undefined) {
-    tx = vrGx;
-    ty = vrGy;
+  if (vrIntersectionLocal) {
+    const coords = getCircleAtIntersection(vrIntersectionLocal.local);
+    if (coords) {
+        tx = coords.gx;
+        ty = coords.gy;
+    } else {
+        tx = -1; ty = -1;
+    }
   } else {
     tx = Math.floor((mx/ww)*xx);
     ty = Math.floor((my/hh)*yy);
@@ -209,13 +214,17 @@ function clku(evn, vrGx, vrGy){
   setTimeout(fini, 300);
  }
 }
-function clkd(evn, vrGx, vrGy){
+function clkd(evn, vrIntersectionLocal){
  if (done) { return; }
- if (vrGx !== undefined) {
-    gx = vrGx;
-    gy = vrGy;
-    // For VR, we don't have a distinct "mouse down" coordinate, so we can fake it.
-    fx = -1; fy = -1;
+ if (vrIntersectionLocal) {
+    const coords = getCircleAtIntersection(vrIntersectionLocal.local);
+    if (coords) {
+        gx = coords.gx;
+        gy = coords.gy;
+    } else {
+        gx = -1; gy = -1;
+    }
+    fx = -1; fy = -1; // No 2D mouse coords in VR
  } else {
     if (evn.changedTouches){
         var rect = can.getBoundingClientRect();
@@ -604,6 +613,20 @@ function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
     }
 }
 
+function getCircleAtIntersection(local) {
+    if (!local) return null;
+
+    // Convert the [-1, 1] local coordinates to grid coordinates
+    const gx = Math.floor(((local[0] + 1.0) / 2.0) * xx);
+    const gy = Math.floor(((1.0 - local[1]) / 2.0) * yy);
+
+    // Basic bounds check
+    if (gx >= 0 && gx < xx && gy >= 0 && gy < yy) {
+        return { gx, gy };
+    }
+
+    return null;
+}
 
 function drawCircles(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;

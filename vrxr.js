@@ -1,4 +1,4 @@
-let vrxr_ver = 1;
+let vrxr_ver = 2;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
