@@ -54,7 +54,6 @@ async function activateVR(drawGameCallback) {
       optionalFeatures: ["local-floor"],
     });
     inVR = true;
-    vrSession.addEventListener("end", onSessionEnded);
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
     runXRRendering(vrSession, 'immersive-vr', drawGameCallback);
@@ -75,7 +74,6 @@ async function activateAR(drawGameCallback) {
             domOverlay: { root: document.body }
         });
         inAR = true;
-        arSession.addEventListener('end', onSessionEnded);
         xrButton.textContent = 'Stop XR';
         xrButton.disabled = false;
         runXRRendering(arSession, 'immersive-ar', drawGameCallback);
@@ -86,25 +84,6 @@ async function activateAR(drawGameCallback) {
         xrButton.textContent = 'Start XR';
         xrButton.disabled = false;
     }
-}
-
-function onSessionEnded(event) {
-    const session = event.session;
-    if (session === vrSession) {
-        inVR = false;
-        vrSession = null;
-        const vrButton = document.getElementById("btn-vr");
-        vrButton.textContent = "Start VR";
-        vrButton.disabled = false;
-    } else if (session === arSession) {
-        inAR = false;
-        arSession = null;
-        const xrButton = document.getElementById('btn-xr');
-        xrButton.textContent = 'Start XR';
-    }
-    session.removeEventListener('end', onSessionEnded);
-    // Reset any game state that should be cleaned up on exit
-    drag = 'n';
 }
 
 async function runXRRendering(session, mode, drawGameCallback) {
@@ -149,6 +128,25 @@ async function runXRRendering(session, mode, drawGameCallback) {
     let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
+    let sessionActive = true;
+
+    function onSessionEnded(event) {
+        sessionActive = false;
+        drag = 'n';
+        if (event.session === vrSession) {
+            inVR = false;
+            vrSession = null;
+            const vrButton = document.getElementById("btn-vr");
+            if(vrButton) vrButton.textContent = "Start VR";
+        } else if (event.session === arSession) {
+            inAR = false;
+            arSession = null;
+            const xrButton = document.getElementById('btn-xr');
+            if(xrButton) xrButton.textContent = 'Start XR';
+        }
+    }
+    session.addEventListener('end', onSessionEnded);
+
 
     // --- Event Listeners ---
     session.addEventListener('selectstart', (event) => {
@@ -175,6 +173,7 @@ async function runXRRendering(session, mode, drawGameCallback) {
     });
 
     function onXRFrame(time, frame) {
+        if (!sessionActive) return;
         session.requestAnimationFrame(onXRFrame);
 
         // Update game state before drawing
@@ -262,7 +261,7 @@ async function runXRRendering(session, mode, drawGameCallback) {
         const glLayer = session.renderState.baseLayer;
         gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
         if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
-        else gl.clearColor(0.1, 0.2, 0.3, 1.0);
+    else gl.clearColor(0, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         for (const view of pose.views) {
