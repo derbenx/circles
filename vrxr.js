@@ -768,18 +768,18 @@ function createCuboid(width, height, depth) {
         -1,0,0, -1,0,0, -1,0,0, -1,0,0,
     ]);
     const textureCoordinates = new Float32Array([
-        // Front
+        // Front face
         0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
-        // Back
+        // Back face
         1.0,  1.0, 1.0,  0.0, 0.0,  0.0, 0.0,  1.0,
-        // Top
-        0.0,  1.0, 0.0,  0.0, 1.0,  0.0, 1.0,  1.0,
-        // Bottom
-        0.0,  0.0, 1.0,  0.0, 1.0,  1.0, 0.0,  1.0,
-        // Right
-        1.0,  1.0, 1.0,  0.0, 0.0,  0.0, 0.0,  1.0,
-        // Left
-        0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
+        // Top face (map to a single white pixel)
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        // Bottom face
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        // Right face
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        // Left face
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     ]);
     const indices = new Uint16Array([
         0,  1,  2,      0,  2,  3,    // front

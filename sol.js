@@ -327,10 +327,14 @@ function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
     const boardAspectRatio = xx / 5.0;
-    const cardWidth3D = 0.23; // Base width in board's coordinate system
-    const cardHeight3D = cardWidth3D * 1.4;
+
+    // --- Layout Constants ---
+    const cardWidth3D = 0.2; // Base width in board's coordinate system
+    const cardHeight3D = cardWidth3D * 1.5; // Correct 1.5 aspect ratio
     const cardDepth = 0.005;
     const cardSpacingX = cardWidth3D + (cardWidth3D / 8); // 1/8th card width for spacing
+    const totalSpreadWidth = 7 * cardSpacingX - (cardWidth3D / 8); // 7 cards, 6 gaps
+    const layoutStartX = -totalSpreadWidth / 2;
 
     const drawCard = (cardFace, x, y, z, rotationY = 0) => {
         const cardModelMatrix = glMatrix.mat4.create();
@@ -348,23 +352,22 @@ function drawSolitaire(gl, programs, buffers, view) {
         }
     };
 
-    // --- Layout Calculations ---
-    const spreadWidth = 7 * cardWidth3D + 6 * (cardWidth3D / 8);
-    const spreadStartX = -spreadWidth / 2;
-
+    // --- Draw Piles ---
+    const topRowY = 0.6;
     // Draw Deck & Pile
-    if (deck.length > 0) drawCard('b1', -0.8, 0.6, 0);
-    if (pile.length > 0) drawCard(pile[pile.length - 1], -0.55, 0.6, 0);
+    if (deck.length > 0) drawCard('b1', layoutStartX, topRowY, 0);
+    if (pile.length > 0) drawCard(pile[pile.length - 1], layoutStartX + cardSpacingX, topRowY, 0);
 
     // Draw Aces
+    const acesStartX = layoutStartX + 3 * cardSpacingX;
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
+        const xPos = acesStartX + i * cardSpacingX;
         if (acePile.length > 0) {
-            drawCard(acePile[acePile.length - 1], 0.1 + i * cardSpacingX, 0.6, 0);
+            drawCard(acePile[acePile.length - 1], xPos, topRowY, 0);
         } else {
-            // Draw the empty slot marker with the correct suit symbol
             const suit = sc[i].toLowerCase();
-            drawCard(suit, 0.1 + i * cardSpacingX, 0.6, 0);
+            drawCard(suit, xPos, topRowY, 0);
         }
     }
 
@@ -372,7 +375,7 @@ function drawSolitaire(gl, programs, buffers, view) {
     for (let i = 0; i < 7; i++) {
         for (let j = 0; j < sprd[i].length; j++) {
             const cardFace = sprd[i][j];
-            const xPos = spreadStartX + i * cardSpacingX;
+            const xPos = layoutStartX + i * cardSpacingX;
             const yPos = 0.2 - j * 0.05;
             const zPos = j * 0.01;
             drawCard(cardFace, xPos, yPos, zPos);
@@ -394,8 +397,8 @@ function drawSolitaire(gl, programs, buffers, view) {
 
 // --- VR/AR Bootstrap ---
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, 5);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, 5);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawSolitaire, xx, yy);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawSolitaire, xx, yy);
 
 (async () => {
     if (navigator.xr) {
