@@ -275,7 +275,7 @@ async function runXRRendering(session, mode, drawGameCallback) {
             }
 
             // Draw controllers, cursor, and alerts on top
-            drawControllers(gl, solidColorProgramInfo, controllerBuffers, frame, referenceSpace, view);
+            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view);
             if (vrIntersection) {
                 drawCursor(gl, programs, buffers.genericBuffers, textures.pointerTexture, view);
             }
@@ -289,12 +289,12 @@ async function runXRRendering(session, mode, drawGameCallback) {
 
 // --- Drawing Functions ---
 
-function drawControllers(gl, programInfo, buffers, frame, referenceSpace, view) {
+function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
     gl.useProgram(programInfo.program);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
 
-    for (const source of vrSession.inputSources) {
+    for (const source of session.inputSources) {
         if (source.gripSpace) {
             const gripPose = frame.getPose(source.gripSpace, referenceSpace);
             if (gripPose) {
