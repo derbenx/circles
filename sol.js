@@ -287,7 +287,7 @@ function getCardTexture(gl, cardFace) {
 
 function drawSolitaire(gl, programs, buffers, view) {
     const { textureProgramInfo, solidColorProgramInfo } = programs;
-    const { card } = buffers.piece;
+    const { card } = buffers.pieceBuffers;
     const cardWidth = 0.2;
     const cardHeight = cardWidth * 1.4;
     const cardDepth = 0.005;

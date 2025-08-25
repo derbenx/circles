@@ -519,7 +519,7 @@ const colorMap = {
 
 function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
     const { solidColorProgramInfo } = programs;
-    const { cylinder, halfCylinder, stick, ring, arcBottom, arcLeft } = buffers.piece;
+    const { cylinder, halfCylinder, stick, ring, arcBottom, arcLeft } = buffers.pieceBuffers;
 
     gl.useProgram(solidColorProgramInfo.program);
     gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
@@ -589,7 +589,7 @@ function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
 
 function drawCircles(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
-    const { stick } = buffers.piece; // grid lines use the stick buffer
+    const { stick } = buffers.pieceBuffers; // grid lines use the stick buffer
 
     // Draw 3D grid
     const pieceHeight = 0.36 / yy;
