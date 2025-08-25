@@ -1,4 +1,4 @@
-let vrxr_ver = 3;
+let vrxr_ver = 4;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -198,7 +198,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         }
 
         // If an active controller is set, but is no longer in the input sources (e.g. it disconnected), clear it.
-        if (activeController && !session.inputSources.includes(activeController)) {
+        if (activeController && !Array.from(session.inputSources).includes(activeController)) {
             activeController = null;
         }
 
