@@ -683,10 +683,22 @@ function drawCircles(gl, programs, buffers, view) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
             const pieceModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+            const moveMarker = pieceData.charAt(0);
 
-            // Position the piece at the intersection point on the board plane, with an offset.
-            const x = vrIntersection.local[0];
-            const y = vrIntersection.local[1];
+            let x = vrIntersection.local[0];
+            let y = vrIntersection.local[1];
+
+            // Constrain visual drag position
+            if (moveMarker === '3' || moveMarker === '4') { // Restricted movement
+                const startXLocal = (gx + 0.5) / xx * 2.0 - 1.0;
+                const startYLocal = -((gy + 0.5) / yy * 2.0 - 1.0); // Negated to match rendering convention
+                if (moveMarker === '3') { // Vertical only
+                    x = startXLocal;
+                } else { // Horizontal only
+                    y = startYLocal;
+                }
+            }
+
             const z = 0.1; // Pull forward
             glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x, y, z]);
 
