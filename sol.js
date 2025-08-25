@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 22;
+let ver = 23;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -540,7 +540,7 @@ function drawSolitaire(gl, programs, buffers, view) {
             // Position the card at the intersection point on the board plane, with an offset.
             const x = vrIntersection.local[0];
             const y = vrIntersection.local[1];
-            const z = (i + 1) * layout.cardDepth * 5; // Pull forward and stack
+            const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
             glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
 
             // Scale the card to the correct dimensions.
