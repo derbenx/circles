@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 18;
+let ver = 19;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -92,6 +92,7 @@ function clkd(evn, vrIntersectionLocal){
         } else {
             mx = evn.offsetX; my = evn.offsetY;
         }
+        fx=mx; fy=my; // This was missing
         gx=Math.floor((mx/bw)*xx);
         gy=Math.floor((my/bh)*yy);
     }
@@ -313,29 +314,35 @@ function getCardTexture(gl, cardFace) {
     return texture;
 }
 
+// --- Unified Layout and Interaction Logic ---
+
 const layout = {
     boardAspectRatio: 7.0 / 5.0,
     cardWidth: 0.2,
-    get cardHeight() { return this.cardWidth * 1.5; },
+    // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
+    // so the final rendered card appears correct.
+    get cardHeight() { return (this.cardWidth * 1.5) / this.boardAspectRatio; },
     cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
     get totalWidth() { return 7 * this.xSpacing; },
     get startX() { return -this.totalWidth / 2 + (this.xSpacing/2); },
-    topRowY: 0.8,
+    topRowY: 0.6,
     get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
 };
+
 
 function getCardAtIntersection(local) {
     if (!local) return null;
 
-    const clickX = local[0] * layout.boardAspectRatio; // Adjust click to stretched space
+    // Intersection point `local` is in the unscaled local space of the board, i.e., [-1, 1] for both X and Y.
+    const clickX = local[0];
     const clickY = local[1];
 
     const cardW = layout.cardWidth;
     const cardH = layout.cardHeight;
 
-    // Check top row
+    // Check top row by iterating through positions
     const topY = layout.topRowY;
     if (clickY > topY - cardH/2 && clickY < topY + cardH/2) {
         // Deck
@@ -359,8 +366,9 @@ function getCardAtIntersection(local) {
         if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2) {
             for (let j = stack.length - 1; j >= 0; j--) {
                 const yPos = layout.spreadStartY - j * layout.ySpacing;
+                // The clickable area for a card in a spread is only the exposed part
                 const topOfCard = yPos + cardH/2;
-                const bottomOfCard = (j === stack.length - 1) ? yPos - cardH/2 : yPos - layout.ySpacing + cardH/2;
+                const bottomOfCard = (j === stack.length - 1) ? (yPos - cardH/2) : (yPos + cardH/2 - layout.ySpacing);
                 if (clickY > bottomOfCard && clickY < topOfCard) {
                     return {gx: i, gy: 6 + j};
                 }
@@ -376,8 +384,12 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
-        glMatrix.mat4.translate(cardModelMatrix, getCanvasModelMatrix(), [x, y, z]);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth / layout.boardAspectRatio, layout.cardHeight, layout.cardDepth]);
+        // Start with the main canvas transform
+        const canvasMatrix = getCanvasModelMatrix();
+        // Transform the card locally, then apply the canvas transform
+        glMatrix.mat4.translate(cardModelMatrix, canvasMatrix, [x, y, z]);
+        // Scale the card to its final dimensions. The layout object has pre-calculated the correct aspect ratio.
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
 
         const backTexture = getCardTexture(gl, 'b1');
         const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
@@ -392,7 +404,7 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     // Draw Piles
     if (deck.length > 0) drawCard('b1', layout.startX, layout.topRowY, 0);
-    if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, pile.length * layout.cardDepth);
+    if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, 0.1 * layout.cardDepth);
 
     // Draw Aces
     for (let i = 0; i < 4; i++) {
@@ -401,7 +413,8 @@ function drawSolitaire(gl, programs, buffers, view) {
         if (acePile.length > 0) {
             drawCard(acePile[acePile.length - 1], xPos, layout.topRowY, acePile.length * layout.cardDepth);
         } else {
-            drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, 0);
+            // Draw a placeholder for the ace piles
+            drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, -0.1 * layout.cardDepth);
         }
     }
 
@@ -421,14 +434,15 @@ function drawSolitaire(gl, programs, buffers, view) {
         if (coords) {
             let z_idx = 0;
             let xPos, yPos;
+            let stackSize = 1;
 
             if (coords.gy < 5) { // Top row
                 yPos = layout.topRowY;
-                if (coords.gx === 0) xPos = layout.startX;
-                else if (coords.gx === 1) xPos = layout.startX + layout.xSpacing;
-                else xPos = layout.startX + coords.gx * layout.xSpacing;
+                if (coords.gx === 0) { xPos = layout.startX; stackSize = deck.length; }
+                else if (coords.gx === 1) { xPos = layout.startX + layout.xSpacing; stackSize = pile.length; }
+                else { xPos = layout.startX + (3 + (coords.gx - 3)) * layout.xSpacing; stackSize = aces[coords.gx-3].length; }
+                z_idx = stackSize;
             } else { // Spread
-                const stack = sprd[coords.gx];
                 const cardIndex = coords.gy - 6;
                 xPos = layout.startX + coords.gx * layout.xSpacing;
                 yPos = layout.spreadStartY - cardIndex * layout.ySpacing;
@@ -436,9 +450,9 @@ function drawSolitaire(gl, programs, buffers, view) {
             }
 
             const markerMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, (z_idx + 0.5) * layout.cardDepth]);
-            glMatrix.mat4.scale(markerMatrix, markerMatrix, [(layout.cardWidth + 0.02) / layout.boardAspectRatio, layout.cardHeight + 0.02, layout.cardDepth]);
-            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 0.0, 0.0, 1.0]); // Opaque red
+            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, (z_idx + 0.1) * layout.cardDepth]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, layout.cardDepth]);
+            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Transparent yellow
         }
     }
 
@@ -446,9 +460,10 @@ function drawSolitaire(gl, programs, buffers, view) {
     if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const xPos = vrIntersection.local[0];
-            const yPos = vrIntersection.local[1];
-            drawCard(cardFace, xPos, yPos, (25 + i) * layout.cardDepth);
+            // Get controller position in world space
+            const controllerPos = vrIntersection.controller.gripSpace.transform.position;
+            // Draw card in front of the controller
+            drawCard(cardFace, controllerPos.x, controllerPos.y, controllerPos.z + 0.1 + (i * layout.cardDepth));
         }
     }
 }

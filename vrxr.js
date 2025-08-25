@@ -1,3 +1,4 @@
+let ver = 1;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -133,6 +134,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     function onSessionEnded(event) {
         sessionActive = false;
         drag = 'n';
+        activeController = null;
+        lastActiveController = null;
         if (onEndCallback) onEndCallback();
         if (event.session === vrSession) {
             inVR = false;
