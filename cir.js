@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 22;
+let ver = 23;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -679,14 +679,31 @@ function drawCircles(gl, programs, buffers, view) {
     }
 
     // Draw dragged piece
-    if (drag === 'y' && vrIntersection && vrIntersection.gripPose) {
+    if (drag === 'y' && vrIntersection) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
-            const pieceModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+            const pieceModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+            const moveMarker = pieceData.charAt(0);
 
-            // Offset the piece slightly in front of the controller
-            const offset = glMatrix.vec3.fromValues(0, 0, -0.1);
-            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, offset);
+            let x = vrIntersection.local[0];
+            let y = vrIntersection.local[1];
+
+            // Constrain visual drag position
+            if (moveMarker === '3' || moveMarker === '4') { // Restricted movement
+                const startXLocal = (gx + 0.5) / xx * 2.0 - 1.0;
+                const startYLocal = -((gy + 0.5) / yy * 2.0 - 1.0); // Negated to match rendering convention
+                if (moveMarker === '3') { // Vertical only
+                    x = startXLocal;
+                } else { // Horizontal only
+                    y = startYLocal;
+                }
+            }
+
+            const z = 0.1; // Pull forward
+            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x, y, z]);
+
+            // Rotate to be flat on the board
+            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
             // Apply same scaling as on-board pieces
             const tileDim = 2.0 / yy;
