@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 26;
+let ver = 27;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -145,6 +145,7 @@ async function clku(evn, vrIntersectionLocal){
     evn.preventDefault();
     clearInterval(flower);
     clrcan(spr);
+    bgsk = undefined; // Reset background sketch flag
     if (done) return;
 
     let tx, ty;
@@ -548,8 +549,12 @@ function drawSolitaire(gl, programs, buffers, view) {
 
             // Position the card at the intersection point on the board plane, with an offset.
             const x = vrIntersection.local[0];
-            const y = vrIntersection.local[1];
+            let y = vrIntersection.local[1];
             const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
+
+            // Add a cascade effect for the stack
+            y -= i * layout.ySpacing;
+
             glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
 
             // Scale the card to the correct dimensions.
