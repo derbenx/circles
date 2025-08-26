@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 35;
+let ver = 38;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -232,9 +232,7 @@ async function clku(evn, vrIntersectionLocal){
                 } else if (targetPileId.startsWith('sprd')) {
                     const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
                     if (targetPileCards.length === 0) {
-                        if (crdval(cardToDrop.id, 0) === 12) { // King
-                            validDrop = true;
-                        }
+                        validDrop = true; // Allow any card on empty spread
                     } else {
                         const topCard = targetPileCards.sort((a,b)=>b.order-a.order)[0];
                         if (crdcol(cardToDrop.id, topCard.id)[3] == false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
@@ -351,10 +349,8 @@ async function clku(evn, vrIntersectionLocal){
             }
         } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
             if (sprd[tx].length === 0) { // Case 1: Dropping on an empty pile
-                if (crdval(flow[0], 0) === 12) { // Must be a King
-                    sprd[tx].push(...flow);
-                    validDrop = true;
-                }
+                sprd[tx].push(...flow);
+                validDrop = true;
             } else { // Case 2: Dropping on an existing pile
                 if (crdcol(flow[0], sprd[tx][sprd[tx].length - 1])[3] == false) { // color check
                     if (crdval(flow[0], 0) == crdval(sprd[tx][sprd[tx].length - 1], 0) - 1) { // sequence check
@@ -615,12 +611,9 @@ function getCardAtIntersection(local) {
     const cardH = layout.cardHeight;
 
     // Create a list of all cards, sorted by visibility (top cards first)
-    // A simple heuristic: check tableau piles from top card down, then top row.
-    // A full z-sort is possible but might be overkill if layout is fixed.
     const tableauCards = masterDeck.filter(c => c.pile.startsWith('sprd')).sort((a,b) => b.order - a.order);
-    const topRowCards = masterDeck.filter(c => !c.pile.startsWith('sprd')).sort((a,b) => b.order - a.order);
+    const topRowCards = masterDeck.filter(c => !c.pile.startsWith('sprd') && c.pile !== 'flow').sort((a,b) => b.order - a.order);
     const sortedCards = [...tableauCards, ...topRowCards];
-
 
     for (const card of sortedCards) {
         let x, y;
@@ -667,7 +660,15 @@ function getCardAtIntersection(local) {
         }
     }
 
-    // If no card was hit, check for empty pile locations (for dropping)
+    // If no card was hit, check for empty pile locations
+    // Deck
+    if (masterDeck.filter(c => c.pile === 'deck').length === 0) {
+        const deckX = layout.startX;
+        const topY = layout.topRowY;
+        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2 && clickY > topY - cardH/2 && clickY < topY + cardH/2) {
+            return { type: 'pile', pileId: 'deck' };
+        }
+    }
     // Aces
     for (let i = 0; i < 4; i++) {
         const pileId = 'aces' + i;
