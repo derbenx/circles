@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 29;
+let ver = 30;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -441,7 +441,7 @@ const layout = {
     // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
     // so the final rendered card appears correct.
     get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
-    cardDepth: 0.005,
+    cardDepth: 0.002,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
     get totalWidth() { return 7 * this.xSpacing; },
@@ -515,7 +515,7 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
 function drawSolitaire(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const backingZ = -0.1 * layout.cardDepth;
+    const backingZ = -layout.cardDepth;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
@@ -545,7 +545,9 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     // --- Draw all active cards on top ---
     // Draw Piles
-    if (deck.length > 0) drawCard('b1', layout.startX, layout.topRowY, 0);
+    for (let i = 0; i < deck.length; i++) {
+        drawCard('b1', layout.startX, layout.topRowY, i * 0.0002);
+    }
     if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, 0.1 * layout.cardDepth);
 
     // Draw Aces
