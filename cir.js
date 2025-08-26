@@ -10,6 +10,7 @@ const spr=document.getElementById('spr');
 var dbtm,dbug,fo,rstim;
 var fc= new Date(); //for cookie?
 var done=0;
+var axPressStartTime = 0; // For VR hybrid click
 var mx,my;// current pointer location
 var gx,gy;// grabbed square
 var fx,fy;// mouse grabbed coords
@@ -722,8 +723,33 @@ function drawCircles(gl, programs, buffers, view) {
     }
 }
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw);
+function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
+    if (buttonIndex === 4) { // A/X buttons
+        if (isPressed) {
+            // Button pressed, record time and start drag
+            axPressStartTime = performance.now();
+            if (intersection) {
+                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
+            }
+        } else {
+            // Button released
+            const pressDuration = performance.now() - axPressStartTime;
+            if (pressDuration < 200) { // Short press = rotate
+                // Check if a piece was actually picked up
+                if (drag === 'y' && grid[gx] && grid[gx][gy]) {
+                     if (grid[gx][gy].charAt(1) > 0) {
+                        rotate(gx, gy, grid[gx][gy].charAt(1));
+                     }
+                }
+            }
+            // Always end the drag/select operation on release
+            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
+        }
+    }
+}
+
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw, vrButtonHandler);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw, vrButtonHandler);
 
 (async () => {
     if (navigator.xr) {

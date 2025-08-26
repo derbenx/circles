@@ -348,6 +348,19 @@ function autoFlipCards() {
     }
 }
 
+function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
+    if (buttonIndex === 4) { // A/X buttons
+        if (isPressed) {
+            if (intersection) {
+                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
+            }
+        } else {
+            // On release, we don't necessarily need an intersection, the game logic handles the drop.
+            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
+        }
+    }
+}
+
 function youWin() {
     let msg = "Congratulations, you won!";
     if (inVR || inAR) {
@@ -573,14 +586,14 @@ document.getElementById("btn-vr").onclick = () => {
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleVR(drawSolitaire, xx, yy, 7/5, draw);
+    toggleVR(drawSolitaire, xx, yy, 7/5, draw, vrButtonHandler);
 };
 document.getElementById("btn-xr").onclick = () => {
     // Clear the cache before starting a new AR session
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleAR(drawSolitaire, xx, yy, 7/5, draw);
+    toggleAR(drawSolitaire, xx, yy, 7/5, draw, vrButtonHandler);
 };
 
 (async () => {
