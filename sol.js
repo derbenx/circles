@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 32;
+let ver = 33;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -716,7 +716,7 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
 function drawSolitaire(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const backingZ = -layout.cardDepth;
+    const backingZ = -layout.cardDepth * 2;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
@@ -764,12 +764,12 @@ function drawSolitaire(gl, programs, buffers, view) {
         } else if (card.pile === 'deck') {
             x = layout.startX;
             y = layout.topRowY;
-            z = card.order * (layout.cardDepth / 4); // Proportional stack
+            z = card.order * layout.cardDepth; // Stack cards by their thickness
             drawCard(cardFace, x, y, z);
         } else if (card.pile === 'pile') {
             x = layout.startX + layout.xSpacing;
             y = layout.topRowY;
-            z = card.order * (layout.cardDepth / 4); // Proportional stack
+            z = card.order * layout.cardDepth; // Stack cards by their thickness
             drawCard(cardFace, x, y, z);
         }
         // Not drawing 'flow' cards for now, will be handled in the next step
