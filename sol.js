@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 39;
+let ver = 42;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -21,6 +21,8 @@ var bgsk;
 var dragSource = null; // To track where cards came from
 var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
 var gCardDepth = 0.005; // Global card thickness for 3D
+var dragTargetX, dragTargetY, dragCurrentX, dragCurrentY, dragAnimationId;
+var dragTargetVec = null, dragCurrentVec = null;
 
 // --- Initialization ---
 start();
@@ -110,6 +112,22 @@ function start(){
 
 // --- Input Handlers ---
 
+function animateDrag() {
+    if (!drag) return; // Stop if drag has ended
+
+    dragCurrentX += (dragTargetX - dragCurrentX) * 0.2;
+    dragCurrentY += (dragTargetY - dragCurrentY) * 0.2;
+
+    // Redraw the sprite canvas
+    let tmpw=bw/(xx+1);
+    clrcan(spr);
+    for (let i=0;i<flow.length;i++){
+        dcd(spr, dragCurrentX-(tmpw/2), dragCurrentY+((bw/yy)*i)-(tmpw/2), flow[i], tmpw, co1, co2);
+    }
+
+    dragAnimationId = requestAnimationFrame(animateDrag);
+}
+
 function clkd(evn, vrIntersectionLocal){
     if (masterDeck.filter(c=>c.pile === 'flow').length > 0 || done) return;
 
@@ -138,6 +156,8 @@ function clkd(evn, vrIntersectionLocal){
                     card.pile = 'flow';
                 });
                 drag = 1;
+                dragTargetVec = [...vrIntersectionLocal];
+                dragCurrentVec = [...vrIntersectionLocal];
                 rebuildLegacyArrays(); // Keep 2D flow in sync
             }
         }
@@ -193,7 +213,13 @@ function clkd(evn, vrIntersectionLocal){
 
     if (flow.length > 0) {
         drag = 1;
-        if (!vrIntersectionLocal) movr(evn);
+        if (!vrIntersectionLocal) {
+            dragTargetX = mx; dragTargetY = my;
+            dragCurrentX = mx; dragCurrentY = my;
+            if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
+            dragAnimationId = requestAnimationFrame(animateDrag);
+            movr(evn);
+        }
     } else {
         gx=-1; gy=-1;
     }
@@ -208,6 +234,7 @@ async function clku(evn, vrIntersectionLocal){
         const hit = getCardAtIntersection(vrIntersectionLocal);
 
         if (flowCards.length > 0) { // It's a drop
+            flowCards.sort((a, b) => a.originalOrder - b.originalOrder); // Sort the stack
             let validDrop = false;
             let targetPileId = null;
 
@@ -220,7 +247,7 @@ async function clku(evn, vrIntersectionLocal){
             }
 
             if (targetPileId) {
-                const cardToDrop = flowCards[0];
+                const cardToDrop = flowCards[0]; // This is now the correct top card of the stack
                 if (targetPileId.startsWith('aces')) {
                     const acePileIndex = parseInt(targetPileId.substring(4));
                     const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
@@ -245,7 +272,7 @@ async function clku(evn, vrIntersectionLocal){
             if (validDrop) {
                 const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
                 let newOrder = targetPileCards.length;
-                flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach(card => {
+                flowCards.forEach(card => { // No need to sort again here
                     card.pile = targetPileId;
                     card.order = newOrder++;
                 });
@@ -281,6 +308,9 @@ async function clku(evn, vrIntersectionLocal){
         }
 
         drag = 0;
+        dragTargetVec = null;
+        dragCurrentVec = null;
+        if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
         autoFlipCards();
         rebuildLegacyArrays();
         draw();
@@ -295,6 +325,7 @@ async function clku(evn, vrIntersectionLocal){
     // --- 2D Path ---
     evn.stopPropagation();
     evn.preventDefault();
+    if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
     clearInterval(flower);
     clrcan(spr);
     bgsk = undefined; // Reset background sketch flag
@@ -409,11 +440,8 @@ function movr(evn){
             draw(1);
             bgsk=1;
         }
-        let tmpw=bw/(xx+1);
-        clrcan(spr);
-        for (let i=0;i<flow.length;i++){
-            dcd(spr,mx-(tmpw/2),my+((bw/yy)*i)-(tmpw/2),flow[i],tmpw,co1,co2);
-        }
+        dragTargetX = mx;
+        dragTargetY = my;
     }
 }
 
@@ -791,16 +819,23 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     // Draw Flowing (dragged) cards
     if (drag && vrIntersection) {
+        dragTargetVec = vrIntersection.local; // Update target
+        if (dragCurrentVec) {
+            // Interpolate current towards target
+            dragCurrentVec[0] += (dragTargetVec[0] - dragCurrentVec[0]) * 0.2;
+            dragCurrentVec[1] += (dragTargetVec[1] - dragCurrentVec[1]) * 0.2;
+        }
+
         const flowCards = masterDeck.filter(c => c.pile === 'flow');
         if (flowCards.length > 0) {
-            const yOffset = ((flowCards.length - 1) * layout.ySpacing) / 2;
+            const yOffset = (flowCards.length - 1) * layout.ySpacing;
             flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card, i) => {
                 const cardFace = card.faceUp ? card.id : 'b1';
                 const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
-                // Position the card at the intersection point on the board plane, with an offset.
-                const x = vrIntersection.local[0];
-                let y = vrIntersection.local[1] + yOffset;
+                // Position the card at the smoothed intersection point on the board plane, with an offset.
+                const x = dragCurrentVec[0];
+                let y = dragCurrentVec[1] + yOffset;
                 const z = 0.18 + (i * gCardDepth * 1.1); // Pull forward just below cursor and stack tightly
 
                 // Add a cascade effect for the stack
