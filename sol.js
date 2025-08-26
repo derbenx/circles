@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 34;
+let ver = 35;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -320,14 +320,26 @@ async function clku(evn, vrIntersectionLocal){
     }
 
     if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
-        let ccc=dr(drw);
-        if (ccc.length>0) {
-            pile.push(...ccc);
-        }else{
-            deck=pile;
-            deck.reverse();
-            pile=[];
+        const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
+        if (deckCards.length > 0) {
+            const pileCards = masterDeck.filter(c => c.pile === 'pile');
+            const numToMove = Math.min(drw, deckCards.length);
+            for (let i = 0; i < numToMove; i++) {
+                const card = deckCards[i];
+                card.pile = 'pile';
+                card.order = pileCards.length + i;
+                card.faceUp = true;
+            }
+        } else { // Reset deck from pile
+            masterDeck.filter(c => c.pile === 'pile').forEach(c => {
+                c.pile = 'deck';
+                c.faceUp = false;
+            });
+            // Re-order deck
+            const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
+            newDeckCards.forEach((c,i)=>c.order=i);
         }
+        rebuildLegacyArrays(); // Sync back to legacy arrays for 2D view
     } else if (drag){ // Dropping dragged cards
         let validDrop = false;
         if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
