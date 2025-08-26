@@ -254,7 +254,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
         // --- Generic Button Handling ---
         if (buttonHandler) {
-            for (const source of session.inputSources) {
+            for (let i = 0; i < session.inputSources.length; i++) {
+                const source = session.inputSources[i];
                 if (source.gamepad && source.handedness) {
                     const handedness = source.handedness;
                     if (!buttonStatesLastFrame[handedness]) {

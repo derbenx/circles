@@ -10,7 +10,7 @@ const spr=document.getElementById('spr');
 var dbtm,dbug,fo,rstim;
 var fc= new Date(); //for cookie?
 var done=0;
-var axPressStartTime = 0; // For VR hybrid click
+var axPressInfo = { left: null, right: null }; // For VR hybrid click
 var mx,my;// current pointer location
 var gx,gy;// grabbed square
 var fx,fy;// mouse grabbed coords
@@ -632,6 +632,18 @@ function getCircleAtIntersection(local) {
 }
 
 function drawCircles(gl, programs, buffers, view) {
+    // --- Handle delayed drag initiation for hybrid click ---
+    for (const hand in axPressInfo) {
+        if (axPressInfo[hand] && drag !== 'y') {
+            if (performance.now() - axPressInfo[hand].time > 200) {
+                // Long press detected, start the drag
+                if (axPressInfo[hand].intersection) {
+                    clkd({ preventDefault: () => {}, stopPropagation: () => {} }, axPressInfo[hand].intersection.local);
+                }
+            }
+        }
+    }
+
     const { solidColorProgramInfo } = programs;
     const { stick } = buffers.pieceBuffers; // grid lines use the stick buffer
 
@@ -726,24 +738,21 @@ function drawCircles(gl, programs, buffers, view) {
 function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
     if (buttonIndex === 4) { // A/X buttons
         if (isPressed) {
-            // Button pressed, record time and start drag
-            axPressStartTime = performance.now();
-            if (intersection) {
-                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
-            }
-        } else {
-            // Button released
-            const pressDuration = performance.now() - axPressStartTime;
-            if (pressDuration < 200) { // Short press = rotate
-                // Check if a piece was actually picked up
-                if (drag === 'y' && grid[gx] && grid[gx][gy]) {
-                     if (grid[gx][gy].charAt(1) > 0) {
-                        rotate(gx, gy, grid[gx][gy].charAt(1));
-                     }
+            axPressInfo[handedness] = { time: performance.now(), intersection: intersection };
+        } else { // Button released
+            if (axPressInfo[handedness]) {
+                if (drag !== 'y') { // Drag was not initiated, so it's a short click
+                    if (axPressInfo[handedness].intersection) {
+                         const coords = getCircleAtIntersection(axPressInfo[handedness].intersection.local);
+                         if (coords && grid[coords.gx][coords.gy].charAt(1) > 0) {
+                            rotate(coords.gx, coords.gy, grid[coords.gx][coords.gy].charAt(1));
+                         }
+                    }
                 }
+                // Always call clku on release to end the action/drag
+                clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
+                axPressInfo[handedness] = null;
             }
-            // Always end the drag/select operation on release
-            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
         }
     }
 }
