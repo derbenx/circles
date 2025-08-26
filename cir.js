@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 24;
+let ver = 22;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -10,7 +10,6 @@ const spr=document.getElementById('spr');
 var dbtm,dbug,fo,rstim;
 var fc= new Date(); //for cookie?
 var done=0;
-var axPressInfo = { left: null, right: null }; // For VR hybrid click
 var mx,my;// current pointer location
 var gx,gy;// grabbed square
 var fx,fy;// mouse grabbed coords
@@ -251,8 +250,6 @@ function movr(evn){
    my=Math.floor(me.clientY-rect.top);
   }
  }
- mx = Math.max(0, Math.min(mx, ww));
- my = Math.max(0, Math.min(my, hh));
  if (drag=='n'){
   gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  } else { draw(); }
@@ -632,18 +629,6 @@ function getCircleAtIntersection(local) {
 }
 
 function drawCircles(gl, programs, buffers, view) {
-    // --- Handle delayed drag initiation for hybrid click ---
-    for (const hand in axPressInfo) {
-        if (axPressInfo[hand] && drag !== 'y') {
-            if (performance.now() - axPressInfo[hand].time > 200) {
-                // Long press detected, start the drag
-                if (axPressInfo[hand].intersection) {
-                    clkd({ preventDefault: () => {}, stopPropagation: () => {} }, axPressInfo[hand].intersection.local);
-                }
-            }
-        }
-    }
-
     const { solidColorProgramInfo } = programs;
     const { stick } = buffers.pieceBuffers; // grid lines use the stick buffer
 
@@ -694,35 +679,14 @@ function drawCircles(gl, programs, buffers, view) {
     }
 
     // Draw dragged piece
-    if (drag === 'y' && vrIntersection) {
+    if (drag === 'y' && vrIntersection && vrIntersection.gripPose) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
-            const pieceModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
-            const moveMarker = pieceData.charAt(0);
+            const pieceModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
 
-            let x = vrIntersection.local[0];
-            let y = vrIntersection.local[1];
-
-            // Clamp to board edges
-            x = Math.max(-1, Math.min(x, 1));
-            y = Math.max(-1, Math.min(y, 1));
-
-            // Constrain visual drag position
-            if (moveMarker === '3' || moveMarker === '4') { // Restricted movement
-                const startXLocal = (gx + 0.5) / xx * 2.0 - 1.0;
-                const startYLocal = -((gy + 0.5) / yy * 2.0 - 1.0); // Negated to match rendering convention
-                if (moveMarker === '3') { // Vertical only
-                    x = startXLocal;
-                } else { // Horizontal only
-                    y = startYLocal;
-                }
-            }
-
-            const z = 0.1; // Pull forward
-            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x, y, z]);
-
-            // Rotate to be flat on the board
-            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
+            // Offset the piece slightly in front of the controller
+            const offset = glMatrix.vec3.fromValues(0, 0, -0.1);
+            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, offset);
 
             // Apply same scaling as on-board pieces
             const tileDim = 2.0 / yy;
@@ -735,30 +699,8 @@ function drawCircles(gl, programs, buffers, view) {
     }
 }
 
-function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
-    if (buttonIndex === 4) { // A/X buttons
-        if (isPressed) {
-            axPressInfo[handedness] = { time: performance.now(), intersection: intersection };
-        } else { // Button released
-            if (axPressInfo[handedness]) {
-                if (drag !== 'y') { // Drag was not initiated, so it's a short click
-                    if (axPressInfo[handedness].intersection) {
-                         const coords = getCircleAtIntersection(axPressInfo[handedness].intersection.local);
-                         if (coords && grid[coords.gx][coords.gy].charAt(1) > 0) {
-                            rotate(coords.gx, coords.gy, grid[coords.gx][coords.gy].charAt(1));
-                         }
-                    }
-                }
-                // Always call clku on release to end the action/drag
-                clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
-                axPressInfo[handedness] = null;
-            }
-        }
-    }
-}
-
-document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw, vrButtonHandler);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw, vrButtonHandler);
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw);
 
 (async () => {
     if (navigator.xr) {

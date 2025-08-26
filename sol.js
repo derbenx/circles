@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 27;
+let ver = 28;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -109,24 +109,26 @@ function clkd(evn, vrIntersectionLocal){
     if (gx !== -1) { // A card was actually clicked
         let fromPile = (gy < 5 && gx === 1);
         let fromAces = (gy < 5 && gx >= 3 && gx < 7 && aces[gx - 3]);
-        let fromSpread = (gy > 5 && gx < 7 && sprd[gx] && sprd[gx].length > 0);
+        let fromSpread = (gy > 5 && gx < 7 && (sprd[gx] && sprd[gx].length > 0 || sprd[gx].length === 0));
 
         if (fromPile) {
             if (pile.length > 0) { flow.push(pile.pop()); dragSource = { pile: 'pile' }; }
         } else if (fromAces) {
             if (aces[gx - 3].length > 0) { flow.push(aces[gx - 3].pop()); dragSource = { pile: 'aces', x: gx - 3 }; }
         } else if (fromSpread) {
-            let stack = sprd[gx];
-            let cardIndex = gy - 6;
-            let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
-            if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
+            if(sprd[gx].length > 0) {
+                let stack = sprd[gx];
+                let cardIndex = gy - 6;
+                let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
+                if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
 
-            if (cardIndex >= firstFaceUpIndex) {
-                let startIndex = cardIndex;
-                if (startIndex < stack.length) {
-                    let numToDrag = stack.length - startIndex;
-                    flow.push(...stack.splice(startIndex, numToDrag));
-                    dragSource = { pile: 'spread', x: gx };
+                if (cardIndex >= firstFaceUpIndex) {
+                    let startIndex = cardIndex;
+                    if (startIndex < stack.length) {
+                        let numToDrag = stack.length - startIndex;
+                        flow.push(...stack.splice(startIndex, numToDrag));
+                        dragSource = { pile: 'spread', x: gx };
+                    }
                 }
             }
         }
@@ -145,7 +147,7 @@ async function clku(evn, vrIntersectionLocal){
     evn.preventDefault();
     clearInterval(flower);
     clrcan(spr);
-    bgsk = undefined; // Reset background sketch flag
+    bgsk = undefined;
     if (done) return;
 
     let tx, ty;
@@ -170,13 +172,12 @@ async function clku(evn, vrIntersectionLocal){
             tx = coords.gx;
             ty = coords.gy;
         } else {
-            // Fallback for clicking on empty areas (like deck)
             tx = Math.floor((mx / bw) * xx);
             ty = Math.floor((my / bh) * yy);
         }
     }
 
-    if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
+    if (flow.length<1 && tx==0 && ty>=1 && ty<=4){
         let ccc=dr(drw);
         if (ccc.length>0) {
             pile.push(...ccc);
@@ -185,24 +186,24 @@ async function clku(evn, vrIntersectionLocal){
             deck.reverse();
             pile=[];
         }
-    } else if (drag){ // Dropping dragged cards
+    } else if (drag){
         let validDrop = false;
-        if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
+        if (ty < 5 && tx >= 3 && tx < 7) {
             if (flow.length === 1) {
                 if ( (flow[0][0] == sc[tx-3]) && (crdval(flow[0],0) == aces[tx-3].length) ) {
                     aces[tx-3].push(flow[0]);
                     validDrop = true;
                 }
             }
-        } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
-            if (sprd[tx].length === 0) { // Case 1: Dropping on an empty pile
-                if (crdval(flow[0], 0) === 12) { // Must be a King
+        } else if (ty > 5 && tx < 7 && sprd[tx]) {
+            if (sprd[tx].length === 0) {
+                if (crdval(flow[0], 0) === 12) {
                     sprd[tx].push(...flow);
                     validDrop = true;
                 }
-            } else { // Case 2: Dropping on an existing pile
-                if (crdcol(flow[0], sprd[tx][sprd[tx].length - 1])[3] == false) { // color check
-                    if (crdval(flow[0], 0) == crdval(sprd[tx][sprd[tx].length - 1], 0) - 1) { // sequence check
+            } else {
+                if (crdcol(flow[0], sprd[tx][sprd[tx].length - 1])[3] == false) {
+                    if (crdval(flow[0], 0) == crdval(sprd[tx][sprd[tx].length - 1], 0) - 1) {
                         sprd[tx].push(...flow);
                         validDrop = true;
                     }
@@ -215,11 +216,11 @@ async function clku(evn, vrIntersectionLocal){
             else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
             else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
         }
-    } else if (flow.length < 1 && !autoFlip) { // Manual flip logic
+    } else if (flow.length < 1 && !autoFlip) {
         if (ty > 5 && tx < 7 && sprd[tx] && sprd[tx].length > 0) {
             let stack = sprd[tx];
             let cardIndex = ty - 6;
-            if (cardIndex === stack.length - 1) { // Can only flip the last card
+            if (cardIndex === stack.length - 1) {
                 let card = stack[cardIndex];
                 if (card.startsWith('x')) {
                     stack[cardIndex] = card.substr(1, 2);
@@ -240,7 +241,7 @@ async function clku(evn, vrIntersectionLocal){
 }
 
 function movr(evn){
-    if (done || fx==-1 || !drag) return; // Only run for 2D mouse-drag
+    if (done || fx==-1 || !drag) return;
 
     if (evn.changedTouches){
         var rect = can.getBoundingClientRect();
@@ -251,11 +252,10 @@ function movr(evn){
         my=evn.offsetY;
     }
 
-    // This function is now only for 2D animation of the sprite canvas
     if (flow.length) {
-        if (!bgsk) { // Redraw background once at start of drag
+        if (!bgsk) {
             clrcan(can);
-            draw(1);
+            draw();
             bgsk=1;
         }
         let tmpw=bw/(xx+1);
@@ -266,31 +266,27 @@ function movr(evn){
     }
 }
 
-// --- Drawing ---
-
 function get2DCardAtPoint(clickX, clickY) {
     let xxx = xx + 1;
     let tmpw = bw / xxx;
     let cardHeight = tmpw * 1.5;
     let ySpacing = (bw / yy);
 
-    // Check top row (from front to back)
     for (let ii = 6; ii >= 0; ii--) {
-        if (ii === 2) continue; // Skip empty space
+        if (ii === 2) continue;
         let x1 = (ii * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
         let y1 = (bw / yy);
         let x2 = x1 + tmpw;
         let y2 = y1 + cardHeight;
         if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
-            if (ii > 2) return { gx: ii, gy: 1 }; // Aces
-            return { gx: ii, gy: 1 }; // Deck and Pile
+            if (ii > 2) return { gx: ii, gy: 1 };
+            return { gx: ii, gy: 1 };
         }
     }
 
-    // Check spread piles (from front to back)
     for (let i = 0; i < 7; i++) {
         const stack = sprd[i];
-        if (!stack || stack.length === 0) continue;
+        if (!stack) continue;
         for (let j = stack.length - 1; j >= 0; j--) {
             let x1 = (i * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
             let y1 = ySpacing * (j + 6);
@@ -305,12 +301,11 @@ function get2DCardAtPoint(clickX, clickY) {
 }
 
 function draw() {
- if (inVR || inAR) return; // Don't draw 2D if in VR/AR
+ if (inVR || inAR) return;
  let xxx=xx+1;
  let tmpw=bw/xxx;
  clrcan(can);
 
- // Top row
  for (let ii=0;ii<7;ii++) {
   if (ii!=2) {
    let tc='';
@@ -323,7 +318,6 @@ function draw() {
    dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),tc,tmpw,co1,co2);
   }
  }
- // Card spread
  for (let ii=0;ii<7;ii++) {
   for (let i=0;i<sprd[ii].length;i++) {
    let crd=sprd[ii][i];
@@ -349,13 +343,12 @@ function autoFlipCards() {
 }
 
 function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
-    if (buttonIndex === 4) { // A/X buttons
+    if (buttonIndex === 4) {
         if (isPressed) {
             if (intersection) {
                 clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
             }
         } else {
-            // On release, we don't necessarily need an intersection, the game logic handles the drop.
             clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
         }
     }
@@ -377,46 +370,55 @@ function youWin() {
     }
 }
 
-// --- VR/AR Drawing ---
 const cardTextureCache = {};
-
 function getCardTexture(gl, cardFace) {
-    // Use a cache to avoid recreating textures
     if (cardTextureCache[cardFace]) {
         return cardTextureCache[cardFace];
     }
-
-    // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
     const baseSize = 200;
     textureCanvas.width = baseSize;
-    textureCanvas.height = baseSize * 1.5; // Correct 1.5 aspect ratio
-
+    textureCanvas.height = baseSize * 1.5;
     const ctx = textureCanvas.getContext('2d');
-
-    // Fill the entire canvas white to create the border
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
-
-    // Draw the card with a margin, effectively scaling it to 95% and centering it
     const cardSize = baseSize * 0.95;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
-
-    // Create a WebGL texture from the canvas
     const texture = initTexture(gl, textureCanvas);
     cardTextureCache[cardFace] = texture;
     return texture;
 }
 
-// --- Unified Layout and Interaction Logic ---
+const placeholderTextureCache = {};
+function getPlaceholderTexture(gl) {
+    if (placeholderTextureCache.texture) {
+        return placeholderTextureCache.texture;
+    }
+    const canvas = document.createElement('canvas');
+    const baseSize = 200;
+    canvas.width = baseSize;
+    canvas.height = baseSize * 1.5;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0, 50, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(20, 20);
+    ctx.lineTo(canvas.width - 20, canvas.height - 20);
+    ctx.moveTo(canvas.width - 20, 20);
+    ctx.lineTo(20, canvas.height - 20);
+    ctx.stroke();
+    const texture = initTexture(gl, canvas);
+    placeholderTextureCache.texture = texture;
+    return texture;
+}
 
 const layout = {
     boardAspectRatio: 7.0 / 5.0,
     cardWidth: 0.2,
-    // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
-    // so the final rendered card appears correct.
-    get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
+    get cardHeight() { return this.cardWidth * 1.5; },
     cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
@@ -426,46 +428,43 @@ const layout = {
     get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
 };
 
-
 function getCardAtIntersection(local) {
     if (!local) return null;
-
-    // Intersection point `local` is in the unscaled local space of the board, i.e., [-1, 1] for both X and Y.
     const clickX = local[0];
     const clickY = local[1];
-
     const cardW = layout.cardWidth;
     const cardH = layout.cardHeight;
 
-    // Check top row by iterating through positions
     const topY = layout.topRowY;
     if (clickY > topY - cardH/2 && clickY < topY + cardH/2) {
-        // Deck
-        let deckX = layout.startX;
-        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2) return {gx: 0, gy: 1};
-        // Pile
-        let pileX = layout.startX + layout.xSpacing;
-        if (clickX > pileX - cardW/2 && clickX < pileX + cardW/2) return {gx: 1, gy: 1};
-        // Aces
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 7; i++) {
+            if (i === 2) continue;
             let aceX = layout.startX + (3 + i) * layout.xSpacing;
-            if (clickX > aceX - cardW/2 && clickX < aceX + cardW/2) return {gx: 3 + i, gy: 1};
+            if (i < 2) aceX = layout.startX + i * layout.xSpacing;
+            if (clickX > aceX - cardW/2 && clickX < aceX + cardW/2) {
+                if (i > 2) return {gx: 3 + i, gy: 1};
+                return {gx: i, gy: 1};
+            }
         }
     }
 
-    // Check spread
     for (let i = 0; i < 7; i++) {
         const stack = sprd[i];
-        if (!stack || stack.length === 0) continue;
         const xPos = layout.startX + i * layout.xSpacing;
         if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2) {
-            for (let j = stack.length - 1; j >= 0; j--) {
-                const yPos = layout.spreadStartY - j * layout.ySpacing;
-                // The clickable area for a card in a spread is only the exposed part
-                const topOfCard = yPos + cardH/2;
-                const bottomOfCard = (j === stack.length - 1) ? (yPos - cardH/2) : (yPos + cardH/2 - layout.ySpacing);
-                if (clickY > bottomOfCard && clickY < topOfCard) {
-                    return {gx: i, gy: 6 + j};
+            if (stack && stack.length > 0) {
+                for (let j = stack.length - 1; j >= 0; j--) {
+                    const yPos = layout.spreadStartY - j * layout.ySpacing;
+                    const topOfCard = yPos + cardH/2;
+                    const bottomOfCard = (j === stack.length - 1) ? (yPos - cardH/2) : (yPos + cardH/2 - layout.ySpacing);
+                    if (clickY > bottomOfCard && clickY < topOfCard) {
+                        return {gx: i, gy: 6 + j};
+                    }
+                }
+            } else {
+                const spreadTopY = layout.spreadStartY + cardH/2;
+                if (clickY < spreadTopY) {
+                    return { gx: i, gy: 6 };
                 }
             }
         }
@@ -476,11 +475,9 @@ function getCardAtIntersection(local) {
 function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
     const { textureProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-
     const backTexture = getCardTexture(gl, 'b1');
     const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
     drawTextured(gl, textureProgramInfo, backBuffers, backTexture, modelMatrix, view);
-
     if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
         const frontTexture = getCardTexture(gl, cardFace);
         const frontBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.frontIndices, vertexCount: card.frontVertexCount };
@@ -491,7 +488,6 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
 function drawSolitaire(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
         const canvasMatrix = getCanvasModelMatrix();
@@ -500,96 +496,86 @@ function drawSolitaire(gl, programs, buffers, view) {
         drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
     };
 
-    // Draw Piles
     if (deck.length > 0) drawCard('b1', layout.startX, layout.topRowY, 0);
     if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, 0.1 * layout.cardDepth);
 
-    // Draw Aces
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
         const xPos = layout.startX + (3 + i) * layout.xSpacing;
         if (acePile.length > 0) {
             drawCard(acePile[acePile.length - 1], xPos, layout.topRowY, acePile.length * layout.cardDepth);
         } else {
-            // Draw a placeholder for the ace piles
             drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, -0.1 * layout.cardDepth);
         }
     }
 
-    // Draw Spread
     for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < sprd[i].length; j++) {
-            const cardFace = sprd[i][j];
+        if (sprd[i].length === 0) {
             const xPos = layout.startX + i * layout.xSpacing;
-            const yPos = layout.spreadStartY - j * layout.ySpacing;
-            drawCard(cardFace, xPos, yPos, j * layout.cardDepth);
+            const yPos = layout.spreadStartY;
+            const placeholderMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.translate(placeholderMatrix, getCanvasModelMatrix(), [xPos, yPos, -0.01]);
+            glMatrix.mat4.scale(placeholderMatrix, placeholderMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+            const placeholderTexture = getPlaceholderTexture(gl);
+            const quadBuffers = { position: buffers.pieceBuffers.card.position, textureCoord: buffers.pieceBuffers.card.textureCoord, indices: buffers.pieceBuffers.card.frontIndices, vertexCount: buffers.pieceBuffers.card.frontVertexCount };
+            drawTextured(gl, programs.textureProgramInfo, quadBuffers, placeholderTexture, placeholderMatrix, view);
+        } else {
+            for (let j = 0; j < sprd[i].length; j++) {
+                const cardFace = sprd[i][j];
+                const xPos = layout.startX + i * layout.xSpacing;
+                const yPos = layout.spreadStartY - j * layout.ySpacing;
+                drawCard(cardFace, xPos, yPos, j * layout.cardDepth);
+            }
         }
     }
 
-    // Highlighting
     if (vrIntersection && !drag) {
         const coords = getCardAtIntersection(vrIntersection.local);
         if (coords) {
             let z_idx = 0;
             let xPos, yPos;
             let stackSize = 1;
-
-            if (coords.gy < 5) { // Top row
+            if (coords.gy < 5) {
                 yPos = layout.topRowY;
                 if (coords.gx === 0) { xPos = layout.startX; stackSize = deck.length; }
                 else if (coords.gx === 1) { xPos = layout.startX + layout.xSpacing; stackSize = pile.length; }
                 else { xPos = layout.startX + (3 + (coords.gx - 3)) * layout.xSpacing; stackSize = aces[coords.gx-3].length; }
                 z_idx = stackSize;
-            } else { // Spread
+            } else {
                 const cardIndex = coords.gy - 6;
                 xPos = layout.startX + coords.gx * layout.xSpacing;
                 yPos = layout.spreadStartY - cardIndex * layout.ySpacing;
                 z_idx = cardIndex;
             }
-
             const markerMatrix = glMatrix.mat4.create();
             glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, (z_idx + 0.1) * layout.cardDepth]);
             glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, layout.cardDepth]);
-            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Transparent yellow
+            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]);
         }
     }
 
-    // Draw Flowing (dragged) cards
     if (drag && flow.length > 0 && vrIntersection) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
             const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
-
-            // Position the card at the intersection point on the board plane, with an offset.
             const x = vrIntersection.local[0];
             let y = vrIntersection.local[1];
-            const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
-
-            // Add a cascade effect for the stack
+            const z = 0.18 + (i * layout.cardDepth * 5);
             y -= i * layout.ySpacing;
-
             glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
-
-            // Scale the card to the correct dimensions.
             glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
-
             drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
         }
     }
 }
 
-
-// --- VR/AR Bootstrap ---
-
 document.getElementById("btn-vr").onclick = () => {
-    // Clear the cache before starting a new VR session
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
     toggleVR(drawSolitaire, xx, yy, 7/5, draw, vrButtonHandler);
 };
 document.getElementById("btn-xr").onclick = () => {
-    // Clear the cache before starting a new AR session
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }

@@ -6,19 +6,19 @@ let arSession = null;
 
 // --- Public API ---
 
-function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
   if (vrSession) {
     vrSession.end();
   } else {
-    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
   }
 }
 
-function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     if (arSession) {
         arSession.end();
     } else {
-        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
     }
 }
 
@@ -48,7 +48,7 @@ let vrIntersection = null;
 
 // --- Core VR/XR Logic ---
 
-async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
   const vrButton = document.getElementById("btn-vr");
   try {
     vrSession = await navigator.xr.requestSession("immersive-vr", {
@@ -57,7 +57,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
     inVR = true;
     vrButton.textContent = "Stop VR";
     vrButton.disabled = false;
-    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
   } catch (error) {
     console.error("Failed to enter VR mode:", error);
     vrSession = null;
@@ -67,7 +67,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
   }
 }
 
-async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     const xrButton = document.getElementById('btn-xr');
     try {
         arSession = await navigator.xr.requestSession('immersive-ar', {
@@ -77,7 +77,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
         inAR = true;
         xrButton.textContent = 'Stop XR';
         xrButton.disabled = false;
-        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback);
     } catch (e) {
         console.error("Failed to start AR session:", e);
         arSession = null;
@@ -87,7 +87,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
     }
 }
 
-async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback) {
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { xrCompatible: true });
     gl.enable(gl.BLEND);
@@ -124,7 +124,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     // --- VR interaction state ---
     let primaryButtonPressedLastFrame = false;
     let bButtonPressedLastFrame = false;
-    let buttonStatesLastFrame = {}; // For all buttons on controllers
     let activeController = null;
     let lastActiveController = null;
     let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
@@ -136,23 +135,18 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         sessionActive = false;
         activeController = null;
         lastActiveController = null;
-
-        // Set inVR/inAR to false before the callback
+        if (onEndCallback) onEndCallback();
         if (event.session === vrSession) {
             inVR = false;
             vrSession = null;
+            const vrButton = document.getElementById("btn-vr");
+            if(vrButton) vrButton.textContent = "Start VR";
         } else if (event.session === arSession) {
             inAR = false;
             arSession = null;
+            const xrButton = document.getElementById('btn-xr');
+            if(xrButton) xrButton.textContent = 'Start XR';
         }
-
-        if (onEndCallback) onEndCallback();
-
-        // Update button text after callback
-        const vrButton = document.getElementById("btn-vr");
-        if(vrButton && !vrSession) vrButton.textContent = "Start VR";
-        const xrButton = document.getElementById('btn-xr');
-        if(xrButton && !arSession) xrButton.textContent = 'Start XR';
     }
     session.addEventListener('end', onSessionEnded);
 
@@ -212,10 +206,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         if (!activeController) {
             activeController = rightController || leftController || session.inputSources[0] || null;
         }
+
+        // Game-specific state like 'drag' should be handled by the game code.
+        // if (lastActiveController && activeController !== lastActiveController) drag = 'n';
         lastActiveController = activeController;
 
         // --- Handle controller inputs for movement, rotation, etc. ---
-        // This part remains for general navigation that should be common to all games.
         // Left controller: movement
         if (leftController && leftController.gamepad) {
             const thumbstickX = leftController.gamepad.axes[2];
@@ -240,35 +236,31 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             bButtonPressedLastFrame = bButton ? bButton.pressed : false;
         }
 
-        // --- Intersection Detection ---
-        // This needs to happen before button handling so the intersection data is available.
+        // Active controller: intersection and actions
         if (activeController && activeController.gripSpace) {
             const gripPose = frame.getPose(activeController.gripSpace, referenceSpace);
             if (gripPose) {
                 const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                 if (intersection) {
+                    // Pass the intersection details, including the gripPose for dragged object rendering
                     vrIntersection = { ...intersection, gripPose, controller: activeController };
                 }
             }
-        }
 
-        // --- Generic Button Handling ---
-        if (buttonHandler && session.inputSources) {
-            for (let i = 0; i < session.inputSources.length; i++) {
-                const source = session.inputSources[i];
-                if (source.gamepad && source.handedness) {
-                    const handedness = source.handedness;
-                    if (!buttonStatesLastFrame[handedness]) {
-                        buttonStatesLastFrame[handedness] = [];
-                    }
-                    source.gamepad.buttons.forEach((button, index) => {
-                        const wasPressed = buttonStatesLastFrame[handedness][index] || false;
-                        if (button.pressed !== wasPressed) {
-                            buttonHandler(index, button.pressed, vrIntersection, handedness);
+            if (activeController.gamepad) {
+                const primaryButton = activeController.gamepad.buttons[4];
+                if (primaryButton && primaryButton.pressed && !primaryButtonPressedLastFrame) {
+                    if (vrIntersection && typeof rotate === 'function') {
+                        let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
+                        let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
+
+                        if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(1) > 0) {
+                            rotate(gx, gy, grid[gx][gy].charAt(1));
+                            if(typeof sCook === 'function' && typeof prog === 'function') sCook("prog", prog());
                         }
-                    });
-                    buttonStatesLastFrame[handedness] = source.gamepad.buttons.map(b => b.pressed);
+                    }
                 }
+                primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
             }
         }
 
