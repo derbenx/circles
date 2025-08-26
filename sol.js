@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 27;
+let ver = 23;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -145,7 +145,6 @@ async function clku(evn, vrIntersectionLocal){
     evn.preventDefault();
     clearInterval(flower);
     clrcan(spr);
-    bgsk = undefined; // Reset background sketch flag
     if (done) return;
 
     let tx, ty;
@@ -227,9 +226,9 @@ async function clku(evn, vrIntersectionLocal){
     }
 
     drag=0;
+    // When drag is true, prevent auto-flip. When false (after drop), allow it.
+    draw(drag);
     flow=[];
-    autoFlipCards();
-    draw();
 
     if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
         done=1;
@@ -302,7 +301,7 @@ function get2DCardAtPoint(clickX, clickY) {
     return null;
 }
 
-function draw() {
+function draw(preventAutoFlip = false) {
  if (inVR || inAR) return; // Don't draw 2D if in VR/AR
  let xxx=xx+1;
  let tmpw=bw/xxx;
@@ -326,37 +325,15 @@ function draw() {
   for (let i=0;i<sprd[ii].length;i++) {
    let crd=sprd[ii][i];
    if (crd){
+    if (autoFlip && !preventAutoFlip && crd.startsWith('x') && i === sprd[ii].length - 1){
+     sprd[ii][i]=crd.substr(1,2);
+     crd=sprd[ii][i];
+    }
     let cardFace = crd.startsWith('x') ? 'b1' : crd;
     dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
    }
   }
  }
-}
-
-function autoFlipCards() {
-    if (!autoFlip) return;
-    for (let ii = 0; ii < 7; ii++) {
-        const stack = sprd[ii];
-        if (stack.length > 0) {
-            const lastCard = stack[stack.length - 1];
-            if (lastCard.startsWith('x')) {
-                stack[stack.length - 1] = lastCard.substr(1, 2);
-            }
-        }
-    }
-}
-
-function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
-    if (buttonIndex === 4) { // A/X buttons
-        if (isPressed) {
-            if (intersection) {
-                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
-            }
-        } else {
-            // On release, we don't necessarily need an intersection, the game logic handles the drop.
-            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
-        }
-    }
 }
 
 function youWin() {
@@ -414,7 +391,7 @@ const layout = {
     cardWidth: 0.2,
     // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
     // so the final rendered card appears correct.
-    get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
+    get cardHeight() { return (this.cardWidth * 1.5) / this.boardAspectRatio; },
     cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
@@ -486,7 +463,7 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
     }
 }
 
-function drawSolitaire(gl, programs, buffers, view) {
+function drawSolitaire(gl, programs, buffers, view, drawSolid) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
 
@@ -516,6 +493,23 @@ function drawSolitaire(gl, programs, buffers, view) {
 
     // Draw Spread
     for (let i = 0; i < 7; i++) {
+        // Draw "X" markers for empty spread columns
+        if (sprd[i].length === 0) {
+            const xPos = layout.startX + i * layout.xSpacing;
+            const yPos = layout.spreadStartY; // Position it where the first card would be
+            const zPos = -0.01; // Slightly behind the card plane
+
+            const redColor = [1.0, 0.0, 0.0, 0.5]; // Semi-transparent red
+
+            // Create a matrix for the marker
+            const markerMatrix = glMatrix.mat4.create();
+            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, zPos]);
+            glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth * 0.8, layout.cardHeight * 0.8, 0.001]);
+
+            // Draw a simple quad as the backing plane
+            drawSolid(gl, solidColorProgramInfo, buffers.pieceBuffers.card, markerMatrix, view, redColor);
+        }
+
         for (let j = 0; j < sprd[i].length; j++) {
             const cardFace = sprd[i][j];
             const xPos = layout.startX + i * layout.xSpacing;
@@ -553,23 +547,22 @@ function drawSolitaire(gl, programs, buffers, view) {
     }
 
     // Draw Flowing (dragged) cards
-    if (drag && flow.length > 0 && vrIntersection) {
+    if (drag && flow.length > 0 && vrIntersection && vrIntersection.gripPose) {
         for (let i = 0; i < flow.length; i++) {
             const cardFace = flow[i];
-            const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+            const cardModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
 
-            // Position the card at the intersection point on the board plane, with an offset.
-            const x = vrIntersection.local[0];
-            let y = vrIntersection.local[1];
-            const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
+            // Offset the card slightly in front of the controller and stack them
+            const offset = glMatrix.vec3.fromValues(0, 0, -0.05 - (i * layout.cardDepth * 2));
+            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, offset);
 
-            // Add a cascade effect for the stack
-            y -= i * layout.ySpacing;
+            // Orient the card to face the user
+            glMatrix.mat4.rotateX(cardModelMatrix, cardModelMatrix, -Math.PI / 2);
 
-            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
-
-            // Scale the card to the correct dimensions.
-            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+            // Scale the card to the correct dimensions, matching the size of the cards on the board
+            const worldCardWidth = layout.cardWidth * layout.boardAspectRatio;
+            const worldCardHeight = layout.cardHeight;
+            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [worldCardWidth, worldCardHeight, layout.cardDepth]);
 
             drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
         }
@@ -584,14 +577,14 @@ document.getElementById("btn-vr").onclick = () => {
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleVR(drawSolitaire, xx, yy, 7/5, draw, vrButtonHandler);
+    toggleVR(drawSolitaire, xx, yy, 7/5, draw);
 };
 document.getElementById("btn-xr").onclick = () => {
     // Clear the cache before starting a new AR session
     for (const key in cardTextureCache) {
         delete cardTextureCache[key];
     }
-    toggleAR(drawSolitaire, xx, yy, 7/5, draw, vrButtonHandler);
+    toggleAR(drawSolitaire, xx, yy, 7/5, draw);
 };
 
 (async () => {

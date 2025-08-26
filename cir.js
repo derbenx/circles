@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 24;
+let ver = 25;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -631,7 +631,7 @@ function getCircleAtIntersection(local) {
     return null;
 }
 
-function drawCircles(gl, programs, buffers, view) {
+function drawCircles(gl, programs, buffers, view, drawSolid) {
     const { solidColorProgramInfo } = programs;
     const { stick } = buffers.pieceBuffers; // grid lines use the stick buffer
 

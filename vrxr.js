@@ -1,4 +1,4 @@
-let vrxr_ver = 4;
+let vrxr_ver = 5;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -122,10 +122,10 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const textures = { alertTexture, pointerTexture };
 
     // --- VR interaction state ---
-    let primaryButtonPressedLastFrame = false;
     let bButtonPressedLastFrame = false;
     let activeController = null;
     let lastActiveController = null;
+    let lastButtonStates = {};
     let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
@@ -149,33 +149,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         }
     }
     session.addEventListener('end', onSessionEnded);
-
-
-    // --- Event Listeners ---
-    session.addEventListener('selectstart', (event) => {
-      activeController = event.inputSource;
-      if (vrAlertState.shown) {
-        if (vrAlertState.onDismiss) vrAlertState.onDismiss();
-        vrAlertState.shown = false;
-        ignoreNextSelectEnd = true;
-        return;
-      }
-      if (vrIntersection) {
-        // Pass the raw intersection coordinates; the game logic will be responsible for interpretation
-        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-      }
-    });
-
-    session.addEventListener('selectend', () => {
-      if (ignoreNextSelectEnd) {
-        ignoreNextSelectEnd = false;
-        return;
-      }
-      if (vrIntersection) {
-        // Pass the raw intersection coordinates; the game logic will be responsible for interpretation
-        clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-      }
-    });
 
     function onXRFrame(time, frame) {
         if (!sessionActive) return;
@@ -210,6 +183,25 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         // Game-specific state like 'drag' should be handled by the game code.
         // if (lastActiveController && activeController !== lastActiveController) drag = 'n';
         lastActiveController = activeController;
+
+        // --- New Generic Button Handler ---
+        if (activeController && activeController.gamepad && typeof vrButtonHandler === 'function') {
+            const handedness = activeController.handedness || 'unknown';
+            if (!lastButtonStates[handedness]) {
+                lastButtonStates[handedness] = [];
+            }
+
+            for (let i = 0; i < activeController.gamepad.buttons.length; i++) {
+                const button = activeController.gamepad.buttons[i];
+                const wasPressed = lastButtonStates[handedness][i] || false;
+
+                if (button.pressed !== wasPressed) {
+                    vrButtonHandler(i, button.pressed, vrIntersection, handedness);
+                }
+            }
+            // Store current button states for next frame
+            lastButtonStates[handedness] = activeController.gamepad.buttons.map(b => b.pressed);
+        }
 
         // --- Handle controller inputs for movement, rotation, etc. ---
         // Left controller: movement
@@ -247,21 +239,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 }
             }
 
-            if (activeController.gamepad) {
-                const primaryButton = activeController.gamepad.buttons[4];
-                if (primaryButton && primaryButton.pressed && !primaryButtonPressedLastFrame) {
-                    if (vrIntersection && typeof rotate === 'function') {
-                        let gx = Math.floor(((vrIntersection.local[0] + 1) / 2) * gameXx);
-                        let gy = Math.floor(((1 - vrIntersection.local[1]) / 2) * gameYy);
-
-                        if (grid[gx] && grid[gx][gy] && grid[gx][gy].charAt(1) > 0) {
-                            rotate(gx, gy, grid[gx][gy].charAt(1));
-                            if(typeof sCook === 'function' && typeof prog === 'function') sCook("prog", prog());
-                        }
-                    }
-                }
-                primaryButtonPressedLastFrame = primaryButton ? primaryButton.pressed : false;
-            }
         }
 
         // Update canvas model matrix based on controls
