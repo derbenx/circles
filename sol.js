@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 38;
+let ver = 39;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -793,14 +793,15 @@ function drawSolitaire(gl, programs, buffers, view) {
     if (drag && vrIntersection) {
         const flowCards = masterDeck.filter(c => c.pile === 'flow');
         if (flowCards.length > 0) {
+            const yOffset = ((flowCards.length - 1) * layout.ySpacing) / 2;
             flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card, i) => {
                 const cardFace = card.faceUp ? card.id : 'b1';
                 const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
                 // Position the card at the intersection point on the board plane, with an offset.
                 const x = vrIntersection.local[0];
-                let y = vrIntersection.local[1];
-                const z = 0.18 + (i * gCardDepth * 5); // Pull forward just below cursor and stack
+                let y = vrIntersection.local[1] + yOffset;
+                const z = 0.18 + (i * gCardDepth * 1.1); // Pull forward just below cursor and stack tightly
 
                 // Add a cascade effect for the stack
                 y -= i * layout.ySpacing;
