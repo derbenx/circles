@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 25;
+let ver = 26;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -228,9 +228,9 @@ async function clku(evn, vrIntersectionLocal){
     }
 
     drag=0;
-    // When drag is true, prevent auto-flip. When false (after drop), allow it.
-    draw(drag);
     flow=[];
+    autoFlipCards();
+    draw();
 
     if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
         done=1;
@@ -303,7 +303,7 @@ function get2DCardAtPoint(clickX, clickY) {
     return null;
 }
 
-function draw(preventAutoFlip = false) {
+function draw() {
  if (inVR || inAR) return; // Don't draw 2D if in VR/AR
  let xxx=xx+1;
  let tmpw=bw/xxx;
@@ -327,15 +327,24 @@ function draw(preventAutoFlip = false) {
   for (let i=0;i<sprd[ii].length;i++) {
    let crd=sprd[ii][i];
    if (crd){
-    if (autoFlip && !preventAutoFlip && crd.startsWith('x') && i === sprd[ii].length - 1){
-     sprd[ii][i]=crd.substr(1,2);
-     crd=sprd[ii][i];
-    }
     let cardFace = crd.startsWith('x') ? 'b1' : crd;
     dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
    }
   }
  }
+}
+
+function autoFlipCards() {
+    if (!autoFlip) return;
+    for (let ii = 0; ii < 7; ii++) {
+        const stack = sprd[ii];
+        if (stack.length > 0) {
+            const lastCard = stack[stack.length - 1];
+            if (lastCard.startsWith('x')) {
+                stack[stack.length - 1] = lastCard.substr(1, 2);
+            }
+        }
+    }
 }
 
 function youWin() {

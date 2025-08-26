@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 23;
+let ver = 24;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -250,6 +250,8 @@ function movr(evn){
    my=Math.floor(me.clientY-rect.top);
   }
  }
+ mx = Math.max(0, Math.min(mx, ww));
+ my = Math.max(0, Math.min(my, hh));
  if (drag=='n'){
   gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  } else { draw(); }
@@ -687,6 +689,10 @@ function drawCircles(gl, programs, buffers, view) {
 
             let x = vrIntersection.local[0];
             let y = vrIntersection.local[1];
+
+            // Clamp to board edges
+            x = Math.max(-1, Math.min(x, 1));
+            y = Math.max(-1, Math.min(y, 1));
 
             // Constrain visual drag position
             if (moveMarker === '3' || moveMarker === '4') { // Restricted movement
