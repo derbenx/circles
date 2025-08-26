@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 28;
+let ver = 29;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -515,6 +515,7 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
 function drawSolitaire(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
+    const backingZ = -0.1 * layout.cardDepth;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
@@ -524,6 +525,25 @@ function drawSolitaire(gl, programs, buffers, view) {
         drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
     };
 
+    // --- Draw all backings first ---
+    // Deck and Pile backings
+    drawCard('', layout.startX, layout.topRowY, backingZ);
+    drawCard('', layout.startX + layout.xSpacing, layout.topRowY, backingZ);
+
+    // Aces backings
+    for (let i = 0; i < 4; i++) {
+        const xPos = layout.startX + (3 + i) * layout.xSpacing;
+        drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, backingZ);
+    }
+
+    // Spread backings
+    for (let i = 0; i < 7; i++) {
+        const xPos = layout.startX + i * layout.xSpacing;
+        const yPos = layout.spreadStartY;
+        drawCard('', xPos, yPos, backingZ);
+    }
+
+    // --- Draw all active cards on top ---
     // Draw Piles
     if (deck.length > 0) drawCard('b1', layout.startX, layout.topRowY, 0);
     if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, 0.1 * layout.cardDepth);
@@ -531,12 +551,9 @@ function drawSolitaire(gl, programs, buffers, view) {
     // Draw Aces
     for (let i = 0; i < 4; i++) {
         const acePile = aces[i];
-        const xPos = layout.startX + (3 + i) * layout.xSpacing;
         if (acePile.length > 0) {
+            const xPos = layout.startX + (3 + i) * layout.xSpacing;
             drawCard(acePile[acePile.length - 1], xPos, layout.topRowY, acePile.length * layout.cardDepth);
-        } else {
-            // Draw a placeholder for the ace piles
-            drawCard(sc[i].toLowerCase(), xPos, layout.topRowY, -0.1 * layout.cardDepth);
         }
     }
 
