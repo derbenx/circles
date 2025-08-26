@@ -1,5 +1,5 @@
 //console.log('circJS');
-let ver = 22;
+let ver = 24;
 const col='grybvcplei';
 const nxc=0; // nextcloud or normal webserver?
 const scal=.95;
@@ -10,6 +10,7 @@ const spr=document.getElementById('spr');
 var dbtm,dbug,fo,rstim;
 var fc= new Date(); //for cookie?
 var done=0;
+var dragTimeout = null;
 var mx,my;// current pointer location
 var gx,gy;// grabbed square
 var fx,fy;// mouse grabbed coords
@@ -250,6 +251,8 @@ function movr(evn){
    my=Math.floor(me.clientY-rect.top);
   }
  }
+ mx = Math.max(0, Math.min(mx, ww));
+ my = Math.max(0, Math.min(my, hh));
  if (drag=='n'){
   gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  } else { draw(); }
@@ -679,14 +682,35 @@ function drawCircles(gl, programs, buffers, view) {
     }
 
     // Draw dragged piece
-    if (drag === 'y' && vrIntersection && vrIntersection.gripPose) {
+    if (drag === 'y' && vrIntersection) {
         const pieceData = grid[gx][gy];
         if (pieceData && pieceData.charAt(0) > 1) {
-            const pieceModelMatrix = glMatrix.mat4.clone(vrIntersection.gripPose.transform.matrix);
+            const pieceModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+            const moveMarker = pieceData.charAt(0);
 
-            // Offset the piece slightly in front of the controller
-            const offset = glMatrix.vec3.fromValues(0, 0, -0.1);
-            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, offset);
+            let x = vrIntersection.local[0];
+            let y = vrIntersection.local[1];
+
+            // Clamp to board edges
+            x = Math.max(-1, Math.min(x, 1));
+            y = Math.max(-1, Math.min(y, 1));
+
+            // Constrain visual drag position
+            if (moveMarker === '3' || moveMarker === '4') { // Restricted movement
+                const startXLocal = (gx + 0.5) / xx * 2.0 - 1.0;
+                const startYLocal = -((gy + 0.5) / yy * 2.0 - 1.0); // Negated to match rendering convention
+                if (moveMarker === '3') { // Vertical only
+                    x = startXLocal;
+                } else { // Horizontal only
+                    y = startYLocal;
+                }
+            }
+
+            const z = 0.1; // Pull forward
+            glMatrix.mat4.translate(pieceModelMatrix, pieceModelMatrix, [x, y, z]);
+
+            // Rotate to be flat on the board
+            glMatrix.mat4.rotate(pieceModelMatrix, pieceModelMatrix, Math.PI / 2, [1, 0, 0]);
 
             // Apply same scaling as on-board pieces
             const tileDim = 2.0 / yy;
@@ -699,8 +723,42 @@ function drawCircles(gl, programs, buffers, view) {
     }
 }
 
-document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw);
-document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw);
+function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
+    if (buttonIndex === 4) { // A/X buttons
+        if (isPressed) {
+            // Set a timeout to initiate a drag after 200ms
+            dragTimeout = setTimeout(() => {
+                if (intersection) {
+                    // This is the long-press action: start the drag
+                    clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
+                }
+                dragTimeout = null;
+            }, 200); // 200ms threshold for long press
+
+        } else { // Button released
+            // If the timeout is still pending, it was a short click
+            if (dragTimeout) {
+                clearTimeout(dragTimeout);
+                dragTimeout = null;
+
+                // This is the short-click action: rotate the piece
+                if (intersection) {
+                    const coords = getCircleAtIntersection(intersection.local);
+                    if (coords && grid[coords.gx][coords.gy] && grid[coords.gx][coords.gy].charAt(1) > 0) {
+                       rotate(coords.gx, coords.gy, grid[coords.gx][coords.gy].charAt(1));
+                       draw(1); // Redraw to show rotation
+                    }
+                }
+            }
+
+            // Always call clku on release to finalize the state (either drop or end turn)
+            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
+        }
+    }
+}
+
+document.getElementById("btn-vr").onclick = () => toggleVR(drawCircles, xx, yy, null, draw, vrButtonHandler);
+document.getElementById("btn-xr").onclick = () => toggleAR(drawCircles, xx, yy, null, draw, vrButtonHandler);
 
 (async () => {
     if (navigator.xr) {
