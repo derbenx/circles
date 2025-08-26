@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 24;
+let ver = 25;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -393,7 +393,7 @@ const layout = {
     cardWidth: 0.2,
     // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
     // so the final rendered card appears correct.
-    get cardHeight() { return this.cardWidth * 1.5; },
+    get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
     cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
