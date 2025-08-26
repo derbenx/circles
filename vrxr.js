@@ -271,30 +271,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             }
         }
 
-        // --- Handle A/X button presses as alternative select ---
-        for (const source of session.inputSources) {
-            if (source.gamepad && source.handedness) {
-                const axButton = source.gamepad.buttons[4];
-                const handedness = source.handedness;
-
-                if (axButton) {
-                    const wasPressed = axButtonPressedLastFrame[handedness] || false;
-                    if (axButton.pressed && !wasPressed) {
-                        // Rising edge: button just pressed
-                        if (vrIntersection) {
-                            clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-                        }
-                    } else if (!axButton.pressed && wasPressed) {
-                        // Falling edge: button just released
-                        if (vrIntersection) {
-                            clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-                        }
-                    }
-                    axButtonPressedLastFrame[handedness] = axButton.pressed;
-                }
-            }
-        }
-
         // Update canvas model matrix based on controls
         const aspectRatio = boardAspectRatio || (gameXx / gameYy);
         glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
