@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 31;
+let ver = 32;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -584,7 +584,7 @@ const layout = {
     // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
     // so the final rendered card appears correct.
     get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
-    cardDepth: 0.002,
+    cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
     get totalWidth() { return 7 * this.xSpacing; },
@@ -764,12 +764,12 @@ function drawSolitaire(gl, programs, buffers, view) {
         } else if (card.pile === 'deck') {
             x = layout.startX;
             y = layout.topRowY;
-            z = card.order * 0.0002; // Tight stack
+            z = card.order * (layout.cardDepth / 4); // Proportional stack
             drawCard(cardFace, x, y, z);
         } else if (card.pile === 'pile') {
             x = layout.startX + layout.xSpacing;
             y = layout.topRowY;
-            z = card.order * 0.0002; // Tight stack for discarded cards
+            z = card.order * (layout.cardDepth / 4); // Proportional stack
             drawCard(cardFace, x, y, z);
         }
         // Not drawing 'flow' cards for now, will be handled in the next step
