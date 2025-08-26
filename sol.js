@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 30;
+let ver = 31;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -13,6 +13,7 @@ var cs=5; // card grid length (unused?)
 var sprd=[]; // main card area
 var flow=[]; // dragged cards
 var aces=[[],[],[],[]]; // aces storage
+var masterDeck = []; // Central deck for 3D mode
 var flox=[];var floy=[];
 var flod=0;
 var flower;
@@ -40,73 +41,130 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
- document.getElementById('version-display').value = ver;
- game=document.body;
- bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
- bh=bw;
- can=document.getElementById('can');
- can.width=bw; can.height=bh;
- spr=document.getElementById('spr');
- spr.width=bw; spr.height=bh;
- shf(); // shuffles deck in cards.js
+    document.getElementById('version-display').value = ver;
+    game=document.body;
+    bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
+    bh=bw;
+    can=document.getElementById('can');
+    can.width=bw; can.height=bh;
+    spr=document.getElementById('spr');
+    spr.width=bw; spr.height=bh;
 
- // Deal cards
- for (ii=0;ii<7;ii++) {
-  var tmp=[];
-  for (i=0;i<=ii;i++) {
-   tc=dr(1)[0];
-   tmp[i]= ii==i ? tc : 'x'+tc;
-  }
-  sprd[ii]=tmp;
- }
+    // --- State Initialization ---
+    // Generate a shuffled deck of card IDs
+    const cardIds = [];
+    for (const suit of sc) {
+        for (const value of cc) {
+            cardIds.push(suit + value);
+        }
+    }
+    cardIds.sort(() => 0.5 - Math.random());
+    cardIds.sort(() => 0.5 - Math.random());
 
- draw();
+    // Create the master deck of card objects
+    masterDeck = cardIds.map((id, index) => ({
+        id: id,
+        key: id + index, // A unique key for potential React-style rendering
+        pile: 'deck',    // The pile the card belongs to
+        order: index,    // The card's order within its pile
+        faceUp: false,   // Whether the card is face up
+    }));
 
- spr.onmousedown = clkd;
- spr.onmouseup = clku;
- spr.onmousemove = movr;
- spr.addEventListener("touchstart", clkd, {passive: true});
- spr.addEventListener("touchend", clku, false);
- spr.addEventListener("touchmove", movr, {passive: true});
+    // Deal cards by updating their properties in masterDeck
+    let dealIndex = 0;
+    for (let i = 0; i < 7; i++) { // For each of the 7 tableau piles
+        for (let j = 0; j <= i; j++) { // For each card in that pile
+            const card = masterDeck[dealIndex++];
+            card.pile = 'sprd' + i;
+            card.order = j;
+            card.faceUp = (j === i); // Only the last card in each pile is face up
+        }
+    }
+
+    // Update legacy arrays for 2D mode compatibility
+    // This is a temporary measure during the refactor
+    deck = masterDeck.filter(c => c.pile === 'deck').map(c => c.id);
+    sprd = [];
+    for (let i = 0; i < 7; i++) {
+        const pileCards = masterDeck
+            .filter(c => c.pile === 'sprd' + i)
+            .sort((a, b) => a.order - b.order)
+            .map(c => c.faceUp ? c.id : 'x' + c.id);
+        sprd.push(pileCards);
+    }
+    pile = [];
+    aces = [[], [], [], []];
+    flow = [];
+
+    draw();
+
+    spr.onmousedown = clkd;
+    spr.onmouseup = clku;
+    spr.onmousemove = movr;
+    spr.addEventListener("touchstart", clkd, {passive: true});
+    spr.addEventListener("touchend", clku, false);
+    spr.addEventListener("touchmove", movr, {passive: true});
 }
 
 
 // --- Input Handlers ---
 
 function clkd(evn, vrIntersectionLocal){
+    if (masterDeck.filter(c=>c.pile === 'flow').length > 0 || done) return;
+
+    // --- VR/AR Path ---
+    if (vrIntersectionLocal) {
+        const hit = getCardAtIntersection(vrIntersectionLocal);
+
+        if (hit && hit.type === 'card') {
+            const clickedCard = hit.card;
+            let draggableStack = [];
+
+            if (clickedCard.pile.startsWith('sprd') && clickedCard.faceUp) {
+                const pileCards = masterDeck.filter(c => c.pile === clickedCard.pile).sort((a,b) => a.order - b.order);
+                draggableStack = pileCards.slice(clickedCard.order);
+            } else if (clickedCard.pile.startsWith('aces') || clickedCard.pile === 'pile') {
+                const pileCards = masterDeck.filter(c => c.pile === clickedCard.pile).sort((a,b) => a.order - b.order);
+                if (pileCards.length > 0 && clickedCard.id === pileCards[pileCards.length - 1].id) {
+                    draggableStack.push(clickedCard);
+                }
+            }
+
+            if (draggableStack.length > 0) {
+                draggableStack.forEach(card => {
+                    card.originalPile = card.pile;
+                    card.originalOrder = card.order;
+                    card.pile = 'flow';
+                });
+                drag = 1;
+                rebuildLegacyArrays(); // Keep 2D flow in sync
+            }
+        }
+        return; // End VR/AR path
+    }
+
+    // --- 2D Path (mouse/touch) ---
     if (flow.length || done) return;
     dragSource = null;
-
-    if (vrIntersectionLocal) {
-        const coords = getCardAtIntersection(vrIntersectionLocal);
-        if (coords) {
-            gx = coords.gx;
-            gy = coords.gy;
-        } else {
-            gx = -1; gy = -1;
-        }
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
     } else {
-        if (evn.changedTouches){
-            var rect = can.getBoundingClientRect();
-            mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-            my=Math.floor(evn.changedTouches[0].clientY-rect.top);
-        } else {
-            mx = evn.offsetX; my = evn.offsetY;
-        }
-        const coords = get2DCardAtPoint(mx, my);
-        if (coords) {
-            gx = coords.gx;
-            gy = coords.gy;
-        } else {
-            gx = -1; gy = -1;
-        }
-        fx=mx; fy=my;
+        mx = evn.offsetX; my = evn.offsetY;
     }
+    const coords = get2DCardAtPoint(mx, my);
+    if (coords) {
+        gx = coords.gx;
+        gy = coords.gy;
+    } else {
+        gx = -1; gy = -1;
+    }
+    fx=mx; fy=my;
 
     ffx = gx; ffy = gy;
 
-    // Card collection logic
-    if (gx !== -1) { // A card was actually clicked
+    if (gx !== -1) {
         let fromPile = (gy < 5 && gx === 1);
         let fromAces = (gy < 5 && gx >= 3 && gx < 7 && aces[gx - 3]);
         let fromSpread = (gy > 5 && gx < 7 && sprd[gx] && sprd[gx].length > 0);
@@ -141,6 +199,101 @@ function clkd(evn, vrIntersectionLocal){
 }
 
 async function clku(evn, vrIntersectionLocal){
+    // --- VR/AR Path ---
+    if (vrIntersectionLocal || masterDeck.filter(c=>c.pile==='flow').length > 0) {
+        evn.stopPropagation();
+        evn.preventDefault();
+        const flowCards = masterDeck.filter(c => c.pile === 'flow');
+        const hit = getCardAtIntersection(vrIntersectionLocal);
+
+        if (flowCards.length > 0) { // It's a drop
+            let validDrop = false;
+            let targetPileId = null;
+
+            if (hit) {
+                if (hit.type === 'card') {
+                    targetPileId = hit.card.pile;
+                } else if (hit.type === 'pile') {
+                    targetPileId = hit.pileId;
+                }
+            }
+
+            if (targetPileId) {
+                const cardToDrop = flowCards[0];
+                if (targetPileId.startsWith('aces')) {
+                    const acePileIndex = parseInt(targetPileId.substring(4));
+                    const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                    if (flowCards.length === 1) {
+                        if (crdval(cardToDrop.id, 0) === targetPileCards.length && cardToDrop.id[0].toLowerCase() === sc[acePileIndex].toLowerCase()) {
+                            validDrop = true;
+                        }
+                    }
+                } else if (targetPileId.startsWith('sprd')) {
+                    const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                    if (targetPileCards.length === 0) {
+                        if (crdval(cardToDrop.id, 0) === 12) { // King
+                            validDrop = true;
+                        }
+                    } else {
+                        const topCard = targetPileCards.sort((a,b)=>b.order-a.order)[0];
+                        if (crdcol(cardToDrop.id, topCard.id)[3] == false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
+                            validDrop = true;
+                        }
+                    }
+                }
+            }
+
+            if (validDrop) {
+                const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                let newOrder = targetPileCards.length;
+                flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach(card => {
+                    card.pile = targetPileId;
+                    card.order = newOrder++;
+                });
+            } else { // Invalid drop, return to original pile
+                flowCards.forEach(card => {
+                    card.pile = card.originalPile;
+                    card.order = card.originalOrder;
+                });
+            }
+
+        } else { // It's a click, not a drop
+             if (hit && (hit.type === 'pile' || hit.type === 'card') && (hit.pileId === 'deck' || (hit.card && hit.card.pile === 'deck'))) {
+                const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
+                if (deckCards.length > 0) {
+                    const pileCards = masterDeck.filter(c => c.pile === 'pile');
+                    const numToMove = Math.min(drw, deckCards.length);
+                    for (let i = 0; i < numToMove; i++) {
+                        const card = deckCards[i];
+                        card.pile = 'pile';
+                        card.order = pileCards.length + i;
+                        card.faceUp = true;
+                    }
+                } else { // Reset deck from pile
+                    masterDeck.filter(c => c.pile === 'pile').forEach(c => {
+                        c.pile = 'deck';
+                        c.faceUp = false;
+                    });
+                    // Re-order deck
+                    const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
+                    newDeckCards.forEach((c,i)=>c.order=i);
+                }
+            }
+        }
+
+        drag = 0;
+        autoFlipCards();
+        rebuildLegacyArrays();
+        draw();
+
+        if (masterDeck.filter(c=>c.pile.startsWith('aces')).length === 52){
+            done=1;
+            youWin();
+        }
+        return;
+    }
+
+    // --- 2D Path ---
     evn.stopPropagation();
     evn.preventDefault();
     clearInterval(flower);
@@ -149,31 +302,20 @@ async function clku(evn, vrIntersectionLocal){
     if (done) return;
 
     let tx, ty;
-    if (vrIntersectionLocal) {
-        const coords = getCardAtIntersection(vrIntersectionLocal);
-        if(coords) {
-            tx = coords.gx;
-            ty = coords.gy;
-        } else {
-            tx = -1; ty = -1;
-        }
+    if (evn.changedTouches){
+        var rect = can.getBoundingClientRect();
+        mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
+        my=Math.floor(evn.changedTouches[0].clientY-rect.top);
     } else {
-        if (evn.changedTouches){
-            var rect = can.getBoundingClientRect();
-            mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
-            my=Math.floor(evn.changedTouches[0].clientY-rect.top);
-        } else {
-            mx = evn.offsetX; my = evn.offsetY;
-        }
-        const coords = get2DCardAtPoint(mx, my);
-        if (coords) {
-            tx = coords.gx;
-            ty = coords.gy;
-        } else {
-            // Fallback for clicking on empty areas (like deck)
-            tx = Math.floor((mx / bw) * xx);
-            ty = Math.floor((my / bh) * yy);
-        }
+        mx = evn.offsetX; my = evn.offsetY;
+    }
+    const coords = get2DCardAtPoint(mx, my);
+    if (coords) {
+        tx = coords.gx;
+        ty = coords.gy;
+    } else {
+        tx = Math.floor((mx / bw) * xx);
+        ty = Math.floor((my / bh) * yy);
     }
 
     if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
@@ -361,12 +503,13 @@ function draw() {
 
 function autoFlipCards() {
     if (!autoFlip) return;
-    for (let ii = 0; ii < 7; ii++) {
-        const stack = sprd[ii];
-        if (stack.length > 0) {
-            const lastCard = stack[stack.length - 1];
-            if (lastCard.startsWith('x')) {
-                stack[stack.length - 1] = lastCard.substr(1, 2);
+    for (let i = 0; i < 7; i++) {
+        const pileId = 'sprd' + i;
+        const pileCards = masterDeck.filter(c => c.pile === pileId);
+        if (pileCards.length > 0) {
+            const topCard = pileCards.sort((a,b)=>b.order-a.order)[0];
+            if (!topCard.faceUp) {
+                topCard.faceUp = true;
             }
         }
     }
@@ -454,47 +597,105 @@ const layout = {
 function getCardAtIntersection(local) {
     if (!local) return null;
 
-    // Intersection point `local` is in the unscaled local space of the board, i.e., [-1, 1] for both X and Y.
     const clickX = local[0];
     const clickY = local[1];
-
     const cardW = layout.cardWidth;
     const cardH = layout.cardHeight;
 
-    // Check top row by iterating through positions
-    const topY = layout.topRowY;
-    if (clickY > topY - cardH/2 && clickY < topY + cardH/2) {
-        // Deck
-        let deckX = layout.startX;
-        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2) return {gx: 0, gy: 1};
-        // Pile
-        let pileX = layout.startX + layout.xSpacing;
-        if (clickX > pileX - cardW/2 && clickX < pileX + cardW/2) return {gx: 1, gy: 1};
-        // Aces
-        for (let i = 0; i < 4; i++) {
-            let aceX = layout.startX + (3 + i) * layout.xSpacing;
-            if (clickX > aceX - cardW/2 && clickX < aceX + cardW/2) return {gx: 3 + i, gy: 1};
-        }
-    }
+    // Create a list of all cards, sorted by visibility (top cards first)
+    // A simple heuristic: check tableau piles from top card down, then top row.
+    // A full z-sort is possible but might be overkill if layout is fixed.
+    const tableauCards = masterDeck.filter(c => c.pile.startsWith('sprd')).sort((a,b) => b.order - a.order);
+    const topRowCards = masterDeck.filter(c => !c.pile.startsWith('sprd')).sort((a,b) => b.order - a.order);
+    const sortedCards = [...tableauCards, ...topRowCards];
 
-    // Check spread
-    for (let i = 0; i < 7; i++) {
-        const stack = sprd[i];
-        if (!stack || stack.length === 0) continue;
-        const xPos = layout.startX + i * layout.xSpacing;
-        if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2) {
-            for (let j = stack.length - 1; j >= 0; j--) {
-                const yPos = layout.spreadStartY - j * layout.ySpacing;
-                // The clickable area for a card in a spread is only the exposed part
-                const topOfCard = yPos + cardH/2;
-                const bottomOfCard = (j === stack.length - 1) ? (yPos - cardH/2) : (yPos + cardH/2 - layout.ySpacing);
+
+    for (const card of sortedCards) {
+        let x, y;
+        let pileIndex;
+
+        // Calculate card's 3D position
+        if (card.pile.startsWith('sprd')) {
+            pileIndex = parseInt(card.pile.substring(4));
+            x = layout.startX + pileIndex * layout.xSpacing;
+            y = layout.spreadStartY - card.order * layout.ySpacing;
+        } else if (card.pile.startsWith('aces')) {
+            pileIndex = parseInt(card.pile.substring(4));
+            x = layout.startX + (3 + pileIndex) * layout.xSpacing;
+            y = layout.topRowY;
+        } else if (card.pile === 'pile') {
+            x = layout.startX + layout.xSpacing;
+            y = layout.topRowY;
+        } else if (card.pile === 'deck') {
+            x = layout.startX;
+            y = layout.topRowY;
+        } else {
+            continue; // Card is in a flow pile or somewhere else not on the board.
+        }
+
+        // Bounding box check
+        const x1 = x - cardW / 2;
+        const x2 = x + cardW / 2;
+        const y1 = y - cardH / 2;
+        const y2 = y + cardH / 2;
+
+        if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
+            // For spread piles, check the exposed area, as cards overlap.
+            if (card.pile.startsWith('sprd')) {
+                const cardsInPile = masterDeck.filter(c => c.pile === card.pile);
+                const isTopCardInStack = card.order === cardsInPile.length - 1;
+                const topOfCard = y + cardH / 2;
+                const bottomOfCard = isTopCardInStack ? (y - cardH / 2) : (y + cardH / 2 - layout.ySpacing);
                 if (clickY > bottomOfCard && clickY < topOfCard) {
-                    return {gx: i, gy: 6 + j};
+                    return { type: 'card', card: card };
                 }
+            } else { // For top-row piles, no overlap logic needed.
+                 return { type: 'card', card: card };
             }
         }
     }
+
+    // If no card was hit, check for empty pile locations (for dropping)
+    // Aces
+    for (let i = 0; i < 4; i++) {
+        const pileId = 'aces' + i;
+        if (masterDeck.filter(c => c.pile === pileId).length === 0) {
+            const xPos = layout.startX + (3 + i) * layout.xSpacing;
+            const yPos = layout.topRowY;
+            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > yPos - cardH/2 && clickY < yPos + cardH/2) {
+                return { type: 'pile', pileId: pileId };
+            }
+        }
+    }
+    // Spread
+    for (let i = 0; i < 7; i++) {
+        const pileId = 'sprd' + i;
+        if (masterDeck.filter(c => c.pile === pileId).length === 0) {
+            const xPos = layout.startX + i * layout.xSpacing;
+            const yPos = layout.spreadStartY;
+            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > yPos - cardH/2 && clickY < yPos + cardH/2) {
+                return { type: 'pile', pileId: pileId };
+            }
+        }
+    }
+
     return null;
+}
+
+function rebuildLegacyArrays() {
+    deck = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => a.order - b.order).map(c => c.id);
+    sprd = [];
+    for (let i = 0; i < 7; i++) {
+        const pileCards = masterDeck.filter(c => c.pile === 'sprd' + i).sort((a, b) => a.order - b.order).map(c => c.faceUp ? c.id : 'x' + c.id);
+        sprd.push(pileCards);
+    }
+    aces = [];
+    for (let i = 0; i < 4; i++) {
+        const pileCards = masterDeck.filter(c => c.pile === 'aces' + i).sort((a, b) => a.order - b.order).map(c => c.id);
+        aces.push(pileCards);
+    }
+    pile = masterDeck.filter(c => c.pile === 'pile').sort((a, b) => a.order - b.order).map(c => c.id);
+    flow = masterDeck.filter(c => c.pile === 'flow').sort((a, b) => a.order - b.order).map(c => c.id);
 }
 
 function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
@@ -543,80 +744,94 @@ function drawSolitaire(gl, programs, buffers, view) {
         drawCard('', xPos, yPos, backingZ);
     }
 
-    // --- Draw all active cards on top ---
-    // Draw Piles
-    for (let i = 0; i < deck.length; i++) {
-        drawCard('b1', layout.startX, layout.topRowY, i * 0.0002);
-    }
-    if (pile.length > 0) drawCard(pile[pile.length - 1], layout.startX + layout.xSpacing, layout.topRowY, 0.1 * layout.cardDepth);
+    // --- Draw all active cards by iterating through masterDeck ---
+    masterDeck.forEach(card => {
+        let x, y, z;
+        const cardFace = card.faceUp ? card.id : 'b1';
 
-    // Draw Aces
-    for (let i = 0; i < 4; i++) {
-        const acePile = aces[i];
-        if (acePile.length > 0) {
-            const xPos = layout.startX + (3 + i) * layout.xSpacing;
-            drawCard(acePile[acePile.length - 1], xPos, layout.topRowY, acePile.length * layout.cardDepth);
+        if (card.pile.startsWith('sprd')) {
+            const pileIndex = parseInt(card.pile.substring(4));
+            x = layout.startX + pileIndex * layout.xSpacing;
+            y = layout.spreadStartY - card.order * layout.ySpacing;
+            z = card.order * layout.cardDepth;
+            drawCard(cardFace, x, y, z);
+        } else if (card.pile.startsWith('aces')) {
+            const pileIndex = parseInt(card.pile.substring(4));
+            x = layout.startX + (3 + pileIndex) * layout.xSpacing;
+            y = layout.topRowY;
+            z = card.order * layout.cardDepth;
+            drawCard(cardFace, x, y, z);
+        } else if (card.pile === 'deck') {
+            x = layout.startX;
+            y = layout.topRowY;
+            z = card.order * 0.0002; // Tight stack
+            drawCard(cardFace, x, y, z);
+        } else if (card.pile === 'pile') {
+            x = layout.startX + layout.xSpacing;
+            y = layout.topRowY;
+            z = card.order * 0.0002; // Tight stack for discarded cards
+            drawCard(cardFace, x, y, z);
         }
-    }
-
-    // Draw Spread
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < sprd[i].length; j++) {
-            const cardFace = sprd[i][j];
-            const xPos = layout.startX + i * layout.xSpacing;
-            const yPos = layout.spreadStartY - j * layout.ySpacing;
-            drawCard(cardFace, xPos, yPos, j * layout.cardDepth);
-        }
-    }
-
-    // Highlighting
-    if (vrIntersection && !drag) {
-        const coords = getCardAtIntersection(vrIntersection.local);
-        if (coords) {
-            let z_idx = 0;
-            let xPos, yPos;
-            let stackSize = 1;
-
-            if (coords.gy < 5) { // Top row
-                yPos = layout.topRowY;
-                if (coords.gx === 0) { xPos = layout.startX; stackSize = deck.length; }
-                else if (coords.gx === 1) { xPos = layout.startX + layout.xSpacing; stackSize = pile.length; }
-                else { xPos = layout.startX + (3 + (coords.gx - 3)) * layout.xSpacing; stackSize = aces[coords.gx-3].length; }
-                z_idx = stackSize;
-            } else { // Spread
-                const cardIndex = coords.gy - 6;
-                xPos = layout.startX + coords.gx * layout.xSpacing;
-                yPos = layout.spreadStartY - cardIndex * layout.ySpacing;
-                z_idx = cardIndex;
-            }
-
-            const markerMatrix = glMatrix.mat4.create();
-            glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [xPos, yPos, (z_idx + 0.1) * layout.cardDepth]);
-            glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, layout.cardDepth]);
-            drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Transparent yellow
-        }
-    }
+        // Not drawing 'flow' cards for now, will be handled in the next step
+    });
 
     // Draw Flowing (dragged) cards
-    if (drag && flow.length > 0 && vrIntersection) {
-        for (let i = 0; i < flow.length; i++) {
-            const cardFace = flow[i];
-            const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+    if (drag && vrIntersection) {
+        const flowCards = masterDeck.filter(c => c.pile === 'flow');
+        if (flowCards.length > 0) {
+            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card, i) => {
+                const cardFace = card.faceUp ? card.id : 'b1';
+                const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
-            // Position the card at the intersection point on the board plane, with an offset.
-            const x = vrIntersection.local[0];
-            let y = vrIntersection.local[1];
-            const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
+                // Position the card at the intersection point on the board plane, with an offset.
+                const x = vrIntersection.local[0];
+                let y = vrIntersection.local[1];
+                const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
 
-            // Add a cascade effect for the stack
-            y -= i * layout.ySpacing;
+                // Add a cascade effect for the stack
+                y -= i * layout.ySpacing;
 
-            glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
+                glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
+                glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+                drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+            });
+        }
+    }
+    // Highlighting
+    if (vrIntersection && !drag) {
+        const hit = getCardAtIntersection(vrIntersection.local);
+        if (hit && hit.type === 'card') {
+            const cardToHighlight = hit.card;
+            let x, y, z;
+            let pileIndex;
 
-            // Scale the card to the correct dimensions.
-            glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+            // Calculate card's 3D position
+            if (cardToHighlight.pile.startsWith('sprd')) {
+                pileIndex = parseInt(cardToHighlight.pile.substring(4));
+                x = layout.startX + pileIndex * layout.xSpacing;
+                y = layout.spreadStartY - cardToHighlight.order * layout.ySpacing;
+                z = cardToHighlight.order * layout.cardDepth;
+            } else if (cardToHighlight.pile.startsWith('aces')) {
+                pileIndex = parseInt(cardToHighlight.pile.substring(4));
+                x = layout.startX + (3 + pileIndex) * layout.xSpacing;
+                y = layout.topRowY;
+                z = cardToHighlight.order * layout.cardDepth;
+            } else if (cardToHighlight.pile === 'pile') {
+                x = layout.startX + layout.xSpacing;
+                y = layout.topRowY;
+                z = cardToHighlight.order * 0.0002;
+            } else if (cardToHighlight.pile === 'deck') {
+                x = layout.startX;
+                y = layout.topRowY;
+                z = cardToHighlight.order * 0.0002;
+            }
 
-            drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+            if (x !== undefined) {
+                const markerMatrix = glMatrix.mat4.create();
+                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + layout.cardDepth]);
+                glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, layout.cardDepth]);
+                drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Transparent yellow
+            }
         }
     }
 }
