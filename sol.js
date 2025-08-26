@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 27;
+let ver = 28;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -305,34 +305,58 @@ function get2DCardAtPoint(clickX, clickY) {
 }
 
 function draw() {
- if (inVR || inAR) return; // Don't draw 2D if in VR/AR
- let xxx=xx+1;
- let tmpw=bw/xxx;
- clrcan(can);
+    if (inVR || inAR) return; // Don't draw 2D if in VR/AR
+    let xxx=xx+1;
+    let tmpw=bw/xxx;
+    clrcan(can);
 
- // Top row
- for (let ii=0;ii<7;ii++) {
-  if (ii!=2) {
-   let tc='';
-   if (ii==0) tc=deck.length>0 ? 'b1' : '';
-   else if (ii==1) tc=pile.length>0 ? pile[pile.length-1] : '';
-   else if (ii>2) {
-       let acePile = aces[ii-3];
-       tc=acePile.length ? acePile[acePile.length-1] : sc[ii-3].toLowerCase();
-   }
-   dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),tc,tmpw,co1,co2);
-  }
- }
- // Card spread
- for (let ii=0;ii<7;ii++) {
-  for (let i=0;i<sprd[ii].length;i++) {
-   let crd=sprd[ii][i];
-   if (crd){
-    let cardFace = crd.startsWith('x') ? 'b1' : crd;
-    dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
-   }
-  }
- }
+    // --- Draw all backings ("the wall") ---
+
+    // Top row backings
+    for (let ii=0;ii<7;ii++) {
+        if (ii!=2) {
+            // For deck and pile, draw empty outline.
+            let tc = '';
+            // For aces, draw suit icon if empty.
+            if (ii > 2 && aces[ii-3].length === 0) {
+                tc = sc[ii-3].toLowerCase();
+            }
+            dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),tc,tmpw,co1,co2);
+        }
+    }
+
+    // Card spread backings
+    for (let ii=0;ii<7;ii++) {
+        dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*6,'',tmpw,co1,co2);
+    }
+
+    // --- Draw all active cards on top of the backings ---
+
+    // Deck card (back)
+    if (deck.length > 0) {
+        dcd(can,(0*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),'b1',tmpw,co1,co2);
+    }
+    // Pile card (top card)
+    if (pile.length > 0) {
+        dcd(can,(1*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),pile[pile.length-1],tmpw,co1,co2);
+    }
+    // Aces cards
+    for (let i = 0; i < 4; i++) {
+        if (aces[i].length > 0) {
+            dcd(can,((i+3)*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),aces[i][aces[i].length-1],tmpw,co1,co2);
+        }
+    }
+
+    // Card spread cards
+    for (let ii=0;ii<7;ii++) {
+        for (let i=0;i<sprd[ii].length;i++) {
+            let crd=sprd[ii][i];
+            if (crd){
+                let cardFace = crd.startsWith('x') ? 'b1' : crd;
+                dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
+            }
+        }
+    }
 }
 
 function autoFlipCards() {
