@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 33;
+let ver = 34;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -20,6 +20,7 @@ var flower;
 var bgsk;
 var dragSource = null; // To track where cards came from
 var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
+var gCardDepth = 0.005; // Global card thickness for 3D
 
 // --- Initialization ---
 start();
@@ -584,7 +585,6 @@ const layout = {
     // cardHeight is defined relative to cardWidth, but must be adjusted by the board's aspect ratio
     // so the final rendered card appears correct.
     get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
-    cardDepth: 0.005,
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
     get totalWidth() { return 7 * this.xSpacing; },
@@ -716,13 +716,13 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
 function drawSolitaire(gl, programs, buffers, view) {
     const { solidColorProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
-    const backingZ = -layout.cardDepth * 2;
+    const backingZ = -gCardDepth * 2;
 
     const drawCard = (cardFace, x, y, z) => {
         const cardModelMatrix = glMatrix.mat4.create();
         const canvasMatrix = getCanvasModelMatrix();
         glMatrix.mat4.translate(cardModelMatrix, canvasMatrix, [x, y, z]);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
         drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
     };
 
@@ -744,35 +744,36 @@ function drawSolitaire(gl, programs, buffers, view) {
         drawCard('', xPos, yPos, backingZ);
     }
 
-    // --- Draw all active cards by iterating through masterDeck ---
-    masterDeck.forEach(card => {
-        let x, y, z;
-        const cardFace = card.faceUp ? card.id : 'b1';
+    // --- Draw all active cards with pile-specific logic ---
+    const pileTypes = ['deck', 'pile', ...Array.from({length: 4}, (_, i) => 'aces' + i), ...Array.from({length: 7}, (_, i) => 'sprd' + i)];
 
-        if (card.pile.startsWith('sprd')) {
-            const pileIndex = parseInt(card.pile.substring(4));
-            x = layout.startX + pileIndex * layout.xSpacing;
-            y = layout.spreadStartY - card.order * layout.ySpacing;
-            z = card.order * layout.cardDepth;
+    pileTypes.forEach(pileId => {
+        const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b) => a.order - b.order);
+        pileCards.forEach((card, indexInPile) => {
+            const cardFace = card.faceUp ? card.id : 'b1';
+            let x, y, z;
+
+            if (pileId.startsWith('sprd')) {
+                const pileIndex = parseInt(pileId.substring(4));
+                x = layout.startX + pileIndex * layout.xSpacing;
+                y = layout.spreadStartY - indexInPile * layout.ySpacing;
+                z = indexInPile * gCardDepth;
+            } else if (pileId.startsWith('aces')) {
+                const pileIndex = parseInt(pileId.substring(4));
+                x = layout.startX + (3 + pileIndex) * layout.xSpacing;
+                y = layout.topRowY;
+                z = indexInPile * gCardDepth;
+            } else if (pileId === 'deck') {
+                x = layout.startX;
+                y = layout.topRowY;
+                z = indexInPile * gCardDepth;
+            } else if (pileId === 'pile') {
+                x = layout.startX + layout.xSpacing;
+                y = layout.topRowY;
+                z = indexInPile * gCardDepth;
+            }
             drawCard(cardFace, x, y, z);
-        } else if (card.pile.startsWith('aces')) {
-            const pileIndex = parseInt(card.pile.substring(4));
-            x = layout.startX + (3 + pileIndex) * layout.xSpacing;
-            y = layout.topRowY;
-            z = card.order * layout.cardDepth;
-            drawCard(cardFace, x, y, z);
-        } else if (card.pile === 'deck') {
-            x = layout.startX;
-            y = layout.topRowY;
-            z = card.order * layout.cardDepth; // Stack cards by their thickness
-            drawCard(cardFace, x, y, z);
-        } else if (card.pile === 'pile') {
-            x = layout.startX + layout.xSpacing;
-            y = layout.topRowY;
-            z = card.order * layout.cardDepth; // Stack cards by their thickness
-            drawCard(cardFace, x, y, z);
-        }
-        // Not drawing 'flow' cards for now, will be handled in the next step
+        });
     });
 
     // Draw Flowing (dragged) cards
@@ -786,13 +787,13 @@ function drawSolitaire(gl, programs, buffers, view) {
                 // Position the card at the intersection point on the board plane, with an offset.
                 const x = vrIntersection.local[0];
                 let y = vrIntersection.local[1];
-                const z = 0.18 + (i * layout.cardDepth * 5); // Pull forward just below cursor and stack
+                const z = 0.18 + (i * gCardDepth * 5); // Pull forward just below cursor and stack
 
                 // Add a cascade effect for the stack
                 y -= i * layout.ySpacing;
 
                 glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
-                glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, layout.cardDepth]);
+                glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
                 drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
             });
         }
@@ -810,26 +811,26 @@ function drawSolitaire(gl, programs, buffers, view) {
                 pileIndex = parseInt(cardToHighlight.pile.substring(4));
                 x = layout.startX + pileIndex * layout.xSpacing;
                 y = layout.spreadStartY - cardToHighlight.order * layout.ySpacing;
-                z = cardToHighlight.order * layout.cardDepth;
+                z = cardToHighlight.order * gCardDepth;
             } else if (cardToHighlight.pile.startsWith('aces')) {
                 pileIndex = parseInt(cardToHighlight.pile.substring(4));
                 x = layout.startX + (3 + pileIndex) * layout.xSpacing;
                 y = layout.topRowY;
-                z = cardToHighlight.order * layout.cardDepth;
+                z = cardToHighlight.order * gCardDepth;
             } else if (cardToHighlight.pile === 'pile') {
                 x = layout.startX + layout.xSpacing;
                 y = layout.topRowY;
-                z = cardToHighlight.order * 0.0002;
+                z = cardToHighlight.order * gCardDepth;
             } else if (cardToHighlight.pile === 'deck') {
                 x = layout.startX;
                 y = layout.topRowY;
-                z = cardToHighlight.order * 0.0002;
+                z = cardToHighlight.order * gCardDepth;
             }
 
             if (x !== undefined) {
                 const markerMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + layout.cardDepth]);
-                glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, layout.cardDepth]);
+                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + gCardDepth]);
+                glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, gCardDepth]);
                 drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]); // Transparent yellow
             }
         }
