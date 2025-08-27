@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 48;
+let ver = 49;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -319,7 +319,6 @@ async function clku(evn, vrIntersectionLocal){
     // --- 2D Path ---
     evn.stopPropagation();
     evn.preventDefault();
-    if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
     clearInterval(flower);
     clrcan(spr);
     bgsk = undefined; // Reset background sketch flag
