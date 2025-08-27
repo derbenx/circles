@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 46;
+let ver = 47;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -242,7 +242,7 @@ function clkd(evn, vrIntersectionLocal){
 
 async function clku(evn, vrIntersectionLocal){
     // --- VR/AR Path ---
-    if (vrIntersectionLocal || masterDeck.filter(c=>c.pile==='flow').length > 0) {
+    if (inVR || inAR) {
         evn.stopPropagation();
         evn.preventDefault();
         const flowCards = masterDeck.filter(c => c.pile === 'flow');
