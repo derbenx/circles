@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 50;
+let ver = 52;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -241,7 +241,9 @@ async function clku(evn, vrIntersectionLocal){
             }
 
             if (fre === 0) {
-                validDrop = true;
+                if (targetPileId && (targetPileId.startsWith('aces') || targetPileId.startsWith('sprd'))) {
+                    validDrop = true;
+                }
             } else if (targetPileId) {
                 const cardToDrop = flowCards[0]; // This is now the correct top card of the stack
                 if (targetPileId.startsWith('aces')) {
@@ -341,27 +343,56 @@ async function clku(evn, vrIntersectionLocal){
         let targetPileId = null;
 
         // --- Determine Target Pile ---
-        let tx, ty;
+        let targetPileId = null; // Initialize targetPileId
         const coords = get2DCardAtPoint(mx, my);
-        if (coords) {
-            tx = coords.gx;
-            ty = coords.gy;
-        } else {
-            // Fallback for empty areas, using a simple grid calculation
-            tx = Math.floor((mx / bw) * (xx + 1));
-            ty = Math.floor((my / bh) * yy);
-        }
 
-        // Map tx, ty grid coordinates to a targetPileId string
-        if (ty < 5 && tx >= 3 && tx < 7) {
-            targetPileId = 'aces' + (tx - 3);
-        } else if (ty > 5 && tx < 7) {
-            targetPileId = 'sprd' + tx;
+        if (coords) {
+            // A card was hit, derive pile from it
+            let tx = coords.gx;
+            let ty = coords.gy;
+            if (ty < 5) { // Top row (aces)
+                if (tx >= 3) targetPileId = 'aces' + (tx - 3);
+            } else { // Spread
+                targetPileId = 'sprd' + tx;
+            }
+        } else {
+            // No card hit, check for empty pile locations
+            let xxx = xx + 1;
+            let tmpw = bw / xxx;
+            let cardHeight = tmpw * 1.5;
+            let ySpacing = (bw/yy);
+
+            // Check aces piles for empty drop
+            for (let i = 0; i < 4; i++) {
+                let x1 = ((i + 3) * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
+                let y1 = ySpacing;
+                if (mx >= x1 && mx <= x1 + tmpw && my >= y1 && my <= y1 + cardHeight) {
+                    if (masterDeck.filter(c => c.pile === 'aces' + i).length === 0) {
+                        targetPileId = 'aces' + i;
+                        break;
+                    }
+                }
+            }
+            // Check spread piles for empty drop
+            if (!targetPileId) {
+                for (let i = 0; i < 7; i++) {
+                    let x1 = (i * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
+                    let y1 = ySpacing * 6;
+                     if (mx >= x1 && mx <= x1 + tmpw && my >= y1 && my <= y1 + cardHeight) {
+                        if (masterDeck.filter(c => c.pile === 'sprd' + i).length === 0) {
+                            targetPileId = 'sprd' + i;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         // --- Validate and Perform Drop ---
         if (fre === 0) {
-            validDrop = true;
+            if (targetPileId && (targetPileId.startsWith('aces') || targetPileId.startsWith('sprd'))) {
+                validDrop = true;
+            }
         } else if (targetPileId) {
             const cardToDrop = flowCards.sort((a,b)=>a.originalOrder-b.originalOrder)[0];
             const targetPileCards = masterDeck.filter(c => c.pile === targetPileId).sort((a,b)=>a.order-b.order);
