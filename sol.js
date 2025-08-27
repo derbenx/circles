@@ -632,6 +632,7 @@ function youWin() {
 // ... from getCardTexture onwards.
 // I will just append the rest of the file content from my memory.
 // ...
+const cardTextureCache = {};
 function getCardTexture(gl, cardFace) {
     // Use a cache to avoid recreating textures
     if (cardTextureCache[cardFace]) {
