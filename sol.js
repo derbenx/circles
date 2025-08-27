@@ -90,37 +90,6 @@ function start(){
     spr=document.getElementById('spr');
     spr.width=bw; spr.height=bh;
 
-    // --- State Initialization ---
-    // Generate a shuffled deck of card IDs
-    const cardIds = [];
-    for (const suit of sc) {
-        for (const value of cc) {
-            cardIds.push(suit + value);
-        }
-    }
-    cardIds.sort(() => 0.5 - Math.random());
-    cardIds.sort(() => 0.5 - Math.random());
-
-    // Create the master deck of card objects
-    masterDeck = cardIds.map((id, index) => ({
-        id: id,
-        key: id + index, // A unique key for potential React-style rendering
-        pile: 'deck',    // The pile the card belongs to
-        order: index,    // The card's order within its pile
-        faceUp: false,   // Whether the card is face up
-    }));
-
-    // Deal cards by updating their properties in masterDeck
-    let dealIndex = 0;
-    for (let i = 0; i < 7; i++) { // For each of the 7 tableau piles
-        for (let j = 0; j <= i; j++) { // For each card in that pile
-            const card = masterDeck[dealIndex++];
-            card.pile = 'sprd' + i;
-            card.order = j;
-            card.faceUp = (j === i); // Only the last card in each pile is face up
-        }
-    }
-
     rebuildLegacyArrays();
 
     draw();
