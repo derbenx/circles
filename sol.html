@@ -20,13 +20,7 @@
 <table id='tabl'>
 <tr><td><b>Choice</b></td><td><b>Input</b></td><td><b>Meaning</b></td></tr>
 <tr><td>Drawn cards:</td><td>
- <select id='soldrw'>
-  <option value="1">1</option>
-  <option value="2">2</option>
-  <option value="3">3</option>
-  <option value="4">4</option>
-  <option value="5">5</option>
- </select>
+ <input type="range" id="soldrw" min="1" max="5" value="1"> <span id="soldrw-val">1</span>
 </td><td>How many cards are drawn</td></tr>
 <tr><td>Colour 1:</td><td>
  <select id="co1">
@@ -55,16 +49,10 @@
  </select>
 </td><td>Card back colour 2</td></tr>
 <tr><td>Auto-flip card:</td><td>
- <select id='solauto'>
-  <option value="1" selected>yes</option>
-  <option value="0">no</option>
- </select>
+ <input type="checkbox" id="solauto" checked>
 </td><td>Automatically flip face-down cards.</td></tr>
 <tr><td>Free play:</td><td>
- <select id="solfre">
-  <option value="0">yes</option>
-  <option value="1" selected>no</option>
- </select>
+ <input type="checkbox" id="solfre">
 </td><td>Place cards as you like.</td></tr>
 </table><br>
 <!-- </form> -->

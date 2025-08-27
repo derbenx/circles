@@ -27,9 +27,16 @@ var dragTargetVec = null, dragCurrentVec = null;
 // --- Initialization ---
 start();
 
-document.getElementById("soldrw").onchange = () => { drw=document.getElementById("soldrw").value*1; };
-document.getElementById("solfre").onchange = () => { fre=document.getElementById("solfre").value*1; };
-document.getElementById("solauto").onchange = () => { autoFlip=document.getElementById("solauto").value*1; };
+document.getElementById("soldrw").oninput = () => {
+    drw = document.getElementById("soldrw").value * 1;
+    document.getElementById("soldrw-val").textContent = drw;
+};
+document.getElementById("solfre").onchange = () => {
+    fre = document.getElementById("solfre").checked ? 0 : 1;
+};
+document.getElementById("solauto").onchange = () => {
+    autoFlip = document.getElementById("solauto").checked ? 1 : 0;
+};
 document.getElementById("co1").onchange = () => { co1=document.getElementById("co1").value; draw(); };
 document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
 
@@ -301,6 +308,8 @@ async function clku(evn, vrIntersectionLocal){
     }
 
     // --- 2D Path ---
+    evn.stopPropagation();
+    evn.preventDefault();
     clearInterval(flower);
     clrcan(spr);
     bgsk = undefined;
