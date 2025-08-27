@@ -714,7 +714,7 @@ function createAlertCanvas(message = "You Won!") {
     ctx.fillStyle = "white";
     ctx.font = "40px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(message.split('').reverse().join(''), canvas.width / 2, canvas.height / 2);
+    ctx.fillText(message, canvas.width / 2, canvas.height / 2);
     return canvas;
 }
 
