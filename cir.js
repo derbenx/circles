@@ -92,6 +92,7 @@ function newg(){
  document.getElementById('version-display').value = ver;
  document.getElementById("circhelp").style.display='none';
  document.getElementById("circsetup").style.display='none';
+ document.getElementById("wrp").style.display = "block";
  var elem = document.getElementById("spr").style.display='block';
  done=0;
  tmp=gCook("prog");
@@ -150,30 +151,38 @@ function dbstart(data){
  scale();main();
 }
 
-function butt(x){
- s=document.getElementById('wxh');
- m=document.getElementById('mov');
- r=document.getElementById('rot');
- c=document.getElementById('clr');
- p=document.getElementById('pct');
- f=document.getElementById('pnt');
- t=document.getElementById('rat');
-    s.value=lvl[x].substr(0,2);
-    m.value=lvl[x].substr(2,1);
-    r.value=lvl[x].substr(3,1);
-    c.value=lvl[x].substr(4,1);
-    f.value=lvl[x].substr(5,1);
-    p.value=lvl[x].substr(6,2);
-    t.checked= (lvl[x].substr(8,1) == 1);
+function updateAllSliderDisplays() {
+    inputs.forEach(id => {
+        const slider = document.getElementById(id);
+        const display = document.getElementById(`${id}-val`);
+        if (display) {
+            display.textContent = slider.value;
+        }
+    });
+    const ratCheckbox = document.getElementById('rat');
+    const ratLabel = document.getElementById('rat-label');
+    ratLabel.textContent = ratCheckbox.checked ? "Ratio: Screen" : "Ratio: Square";
+}
 
-    // Manually trigger events to update UI
-    s.dispatchEvent(new Event('input'));
-    m.dispatchEvent(new Event('input'));
-    r.dispatchEvent(new Event('input'));
-    c.dispatchEvent(new Event('input'));
-    f.dispatchEvent(new Event('input'));
-    p.dispatchEvent(new Event('input'));
-    t.dispatchEvent(new Event('change'));
+function butt(x){
+    const s = document.getElementById('wxh');
+    const m = document.getElementById('mov');
+    const r = document.getElementById('rot');
+    const c = document.getElementById('clr');
+    const p = document.getElementById('pct');
+    const f = document.getElementById('pnt');
+    const t = document.getElementById('rat');
+
+    s.value = parseInt(lvl[x].trim().substr(0,2));
+    m.value = lvl[x].trim().substr(2,1);
+    r.value = lvl[x].trim().substr(3,1);
+    c.value = lvl[x].trim().substr(4,1);
+    f.value = lvl[x].trim().substr(5,1);
+    p.value = lvl[x].trim().substr(6,2);
+    t.checked = (lvl[x].trim().substr(8,1) == 1);
+
+    updateAllSliderDisplays();
+    ttf();
 }
 
 function debug(t){
