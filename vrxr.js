@@ -372,8 +372,7 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
     }
     const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
     glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
-    glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
-    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
+    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [-1.0, 0.5, 1.0]);
     drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view);
 }
 
@@ -710,7 +709,7 @@ function createAlertCanvas(message = "You Won!") {
     const ctx = canvas.getContext("2d");
     canvas.width = 512;
     canvas.height = 256;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "white";
     ctx.font = "40px sans-serif";
