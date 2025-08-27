@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 44;
+let ver = 45;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -122,7 +122,7 @@ function animateDrag() {
     let tmpw=bw/(xx+1);
     clrcan(spr);
     for (let i=0;i<flow.length;i++){
-        dcd(spr, dragCurrentX-(tmpw/2), dragCurrentY+((bw/yy)*i)-(tmpw/2), flow[i], tmpw, co1, co2);
+        dcd(spr, dragCurrentX-(tmpw/2), dragCurrentY+((bw/yy)*i), flow[i], tmpw, co1, co2);
     }
 
     dragAnimationId = requestAnimationFrame(animateDrag);
@@ -413,6 +413,7 @@ async function clku(evn, vrIntersectionLocal){
     drag=0;
     flow=[];
     autoFlipCards();
+    rebuildLegacyArrays();
     draw();
 
     if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
