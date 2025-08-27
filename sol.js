@@ -34,18 +34,8 @@ document.getElementById("co1").onchange = () => { co1=document.getElementById("c
 document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
 
 document.getElementById("soltogsetup").onclick = function(){
-    var soltog = document.getElementById("solsetup");
-    var sprCanvas = document.getElementById('spr');
-    var canCanvas = document.getElementById('can');
-    if (soltog.style.display !== "none") {
-        soltog.style.display = "none";
-        sprCanvas.style.display = "block";
-        canCanvas.style.display = "block";
-    } else {
-        soltog.style.display = "block";
-        sprCanvas.style.display = "none";
-        canCanvas.style.display = "none";
-    }
+ var soltog=document.getElementById("solsetup");
+ soltog.style.display = (soltog.style.display !== "none") ? "none" : "block";
 };
 document.getElementById("solstart").onclick = function(){
  done=0;
@@ -311,8 +301,6 @@ async function clku(evn, vrIntersectionLocal){
     }
 
     // --- 2D Path ---
-    evn.stopPropagation();
-    evn.preventDefault();
     clearInterval(flower);
     clrcan(spr);
     bgsk = undefined;
