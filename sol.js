@@ -36,12 +36,15 @@ document.getElementById("co2").onchange = () => { co2=document.getElementById("c
 document.getElementById("soltogsetup").onclick = function(){
     var soltog = document.getElementById("solsetup");
     var sprCanvas = document.getElementById('spr');
+    var canCanvas = document.getElementById('can');
     if (soltog.style.display !== "none") {
         soltog.style.display = "none";
         sprCanvas.style.display = "block";
+        canCanvas.style.display = "block";
     } else {
         soltog.style.display = "block";
         sprCanvas.style.display = "none";
+        canCanvas.style.display = "none";
     }
 };
 document.getElementById("solstart").onclick = function(){
