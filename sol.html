@@ -22,31 +22,29 @@
 <tr><td>Drawn cards:</td><td>
  <input type="range" id="soldrw" min="1" max="5" value="1"> <span id="soldrw-val">1</span>
 </td><td>How many cards are drawn</td></tr>
+<style>
+    .color-swatch { width: 20px; height: 20px; border: 1px solid black; display: inline-block; vertical-align: middle; }
+    .rgb-sliders td { padding: 0 5px; }
+</style>
 <tr><td>Colour 1:</td><td>
- <select id="co1">
-  <option value="red">red</option>
-  <option value="orange">orange</option>
-  <option value="yellow">yellow</option>
-  <option value="green">green</option>
-  <option value="blue">blue</option>
-  <option value="violet">violet</option>
-  <option value="lime" selected>lime</option>
-  <option value="cyan">cyan</option>
-  <option value="pink">pink</option>
- </select>
+    <div style="display: flex; align-items: center;">
+        <div id="co1_swatch" class="color-swatch"></div>
+        <table class="rgb-sliders">
+            <tr><td>R</td><td><input type="range" id="co1_r" min="0" max="255" value="0"></td></tr>
+            <tr><td>G</td><td><input type="range" id="co1_g" min="0" max="255" value="255"></td></tr>
+            <tr><td>B</td><td><input type="range" id="co1_b" min="0" max="255" value="0"></td></tr>
+        </table>
+    </div>
 </td><td>Card back colour 1</td></tr>
 <tr><td>Colour 2:</td><td>
- <select id="co2">
-  <option value="red">red</option>
-  <option value="orange">orange</option>
-  <option value="yellow">yellow</option>
-  <option value="green" selected>green</option>
-  <option value="blue">blue</option>
-  <option value="violet">violet</option>
-  <option value="lime">lime</option>
-  <option value="cyan">cyan</option>
-  <option value="pink">pink</option>
- </select>
+    <div style="display: flex; align-items: center;">
+        <div id="co2_swatch" class="color-swatch"></div>
+        <table class="rgb-sliders">
+            <tr><td>R</td><td><input type="range" id="co2_r" min="0" max="255" value="0"></td></tr>
+            <tr><td>G</td><td><input type="range" id="co2_g" min="0" max="255" value="128"></td></tr>
+            <tr><td>B</td><td><input type="range" id="co2_b" min="0" max="255" value="0"></td></tr>
+        </table>
+    </div>
 </td><td>Card back colour 2</td></tr>
 <tr><td>Auto-flip card:</td><td>
  <input type="checkbox" id="solauto" checked>

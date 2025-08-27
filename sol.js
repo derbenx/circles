@@ -19,7 +19,7 @@ var flod=0;
 var flower;
 var bgsk;
 var dragSource = null; // To track where cards came from
-var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
+var co1='rgb(0,255,0)',co2='rgb(0,128,0)',drw=1,fre=1,autoFlip=1;
 var gCardDepth = 0.005; // Global card thickness for 3D
 var dragVecHistory = []; // History for 3D snake effect
 var dragTargetVec = null, dragCurrentVec = null;
@@ -37,12 +37,46 @@ document.getElementById("solfre").onchange = () => {
 document.getElementById("solauto").onchange = () => {
     autoFlip = document.getElementById("solauto").checked ? 1 : 0;
 };
-document.getElementById("co1").onchange = () => { co1=document.getElementById("co1").value; draw(); };
-document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
+
+function updateColor(num) {
+    const r = document.getElementById(`co${num}_r`).value;
+    const g = document.getElementById(`co${num}_g`).value;
+    const b = document.getElementById(`co${num}_b`).value;
+    const rgbString = `rgb(${r},${g},${b})`;
+
+    if (num === 1) {
+        co1 = rgbString;
+    } else {
+        co2 = rgbString;
+    }
+
+    document.getElementById(`co${num}_swatch`).style.backgroundColor = rgbString;
+    if (!(inVR || inAR)) {
+        draw();
+    }
+}
+
+document.getElementById('co1_r').oninput = () => updateColor(1);
+document.getElementById('co1_g').oninput = () => updateColor(1);
+document.getElementById('co1_b').oninput = () => updateColor(1);
+document.getElementById('co2_r').oninput = () => updateColor(2);
+document.getElementById('co2_g').oninput = () => updateColor(2);
+document.getElementById('co2_b').oninput = () => updateColor(2);
+
 
 document.getElementById("soltogsetup").onclick = function(){
- var soltog=document.getElementById("solsetup");
- soltog.style.display = (soltog.style.display !== "none") ? "none" : "block";
+    var soltog = document.getElementById("solsetup");
+    var sprCanvas = document.getElementById('spr');
+    var canCanvas = document.getElementById('can');
+    if (soltog.style.display !== "none") {
+        soltog.style.display = "none";
+        sprCanvas.style.display = "block";
+        canCanvas.style.display = "block";
+    } else {
+        soltog.style.display = "block";
+        sprCanvas.style.display = "none";
+        canCanvas.style.display = "none";
+    }
 };
 document.getElementById("solstart").onclick = function(){
  done=0;
@@ -94,6 +128,10 @@ function start(){
     rebuildLegacyArrays();
 
     draw();
+
+    // Initialize color swatches
+    updateColor(1);
+    updateColor(2);
 
     spr.onmousedown = clkd;
     spr.onmouseup = clku;
