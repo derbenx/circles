@@ -100,7 +100,7 @@ function dcd(canv,x,y,c='',s=200,co1='lime',co2='green'){
    ctx.beginPath();
    ctx.rect(x+rad,y+rad,w-rad*2,h-rad*2);
    ctx.strokeStyle = 'black';
-   var grd = ctx.createLinearGradient(x+rad,y+rad,x+w-rad,y+rad);
+   var grd = ctx.createLinearGradient(x+rad,y+rad,x+rad,y+h-rad);
    grd.addColorStop(0, co1);
    grd.addColorStop(1, co2);
    ctx.fillStyle = grd;

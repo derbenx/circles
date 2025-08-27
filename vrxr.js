@@ -803,7 +803,7 @@ function createCuboid(width, height, depth) {
         // Front face (maps to the whole texture)
         0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
         // Back face (maps to the whole texture, for the card back)
-        0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
+        0.0,  1.0, 0.0,  0.0, 1.0,  0.0, 1.0,  1.0,
         // Top, Bottom, Right, Left faces (map to a single white pixel for the edge)
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
