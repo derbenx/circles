@@ -85,6 +85,10 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
+    // Ensure canvases are visible when a new game starts.
+    document.getElementById('can').style.display = 'block';
+    document.getElementById('spr').style.display = 'block';
+
     document.getElementById('version-display').value = ver;
     game=document.body;
     bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;

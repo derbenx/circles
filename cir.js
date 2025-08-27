@@ -173,13 +173,13 @@ function butt(x){
     const f = document.getElementById('pnt');
     const t = document.getElementById('rat');
 
-    s.value = parseInt(lvl[x].trim().substr(0,2));
-    m.value = lvl[x].trim().substr(2,1);
-    r.value = lvl[x].trim().substr(3,1);
-    c.value = lvl[x].trim().substr(4,1);
-    f.value = lvl[x].trim().substr(5,1);
-    p.value = lvl[x].trim().substr(6,2);
-    t.checked = (lvl[x].trim().substr(8,1) == 1);
+    s.value = lvl[x].substr(0,2).trim();
+    m.value = lvl[x].substr(2,1).trim();
+    r.value = lvl[x].substr(3,1).trim();
+    c.value = lvl[x].substr(4,1).trim();
+    f.value = lvl[x].substr(5,1).trim();
+    p.value = lvl[x].substr(6,2).trim();
+    t.checked = (lvl[x].substr(8,1).trim() == '1');
 
     updateAllSliderDisplays();
     ttf();
