@@ -23,7 +23,6 @@ var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
 var gCardDepth = 0.005; // Global card thickness for 3D
 var dragVecHistory = []; // History for 3D snake effect
 var dragTargetVec = null, dragCurrentVec = null;
-var isSettingsPanelOpen = false;
 
 // --- Initialization ---
 start();
@@ -35,14 +34,15 @@ document.getElementById("co1").onchange = () => { co1=document.getElementById("c
 document.getElementById("co2").onchange = () => { co2=document.getElementById("co2").value; draw(); };
 
 document.getElementById("soltogsetup").onclick = function(){
- var soltog=document.getElementById("solsetup");
- if (soltog.style.display !== "none") {
-  soltog.style.display = "none";
-  isSettingsPanelOpen = false;
- } else {
-  soltog.style.display = "block";
-  isSettingsPanelOpen = true;
- }
+    var soltog = document.getElementById("solsetup");
+    var sprCanvas = document.getElementById('spr');
+    if (soltog.style.display !== "none") {
+        soltog.style.display = "none";
+        sprCanvas.style.display = "block";
+    } else {
+        soltog.style.display = "block";
+        sprCanvas.style.display = "none";
+    }
 };
 document.getElementById("solstart").onclick = function(){
  done=0;
@@ -208,10 +208,8 @@ function clkd(evn, vrIntersectionLocal){
 async function clku(evn, vrIntersectionLocal){
     // --- VR/AR Path ---
     if (inVR || inAR) {
-        if (!isSettingsPanelOpen) {
-            evn.stopPropagation();
-            evn.preventDefault();
-        }
+        evn.stopPropagation();
+        evn.preventDefault();
         const flowCards = masterDeck.filter(c => c.pile === 'flow');
         const hit = getCardAtIntersection(vrIntersectionLocal);
 
