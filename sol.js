@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 47;
+let ver = 48;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -21,7 +21,7 @@ var bgsk;
 var dragSource = null; // To track where cards came from
 var co1='lime',co2='green',drw=1,fre=1,autoFlip=1;
 var gCardDepth = 0.005; // Global card thickness for 3D
-var dragTargetX, dragTargetY, dragCurrentX, dragCurrentY, dragAnimationId;
+var dragVecHistory = []; // History for 3D snake effect
 var dragTargetVec = null, dragCurrentVec = null;
 
 // --- Initialization ---
@@ -112,22 +112,6 @@ function start(){
 
 // --- Input Handlers ---
 
-function animateDrag() {
-    if (!drag) return; // Stop if drag has ended
-
-    dragCurrentX += (dragTargetX - dragCurrentX) * 0.2;
-    dragCurrentY += (dragTargetY - dragCurrentY) * 0.2;
-
-    // Redraw the sprite canvas
-    let tmpw=bw/(xx+1);
-    clrcan(spr);
-    for (let i=0;i<flow.length;i++){
-        dcd(spr, dragCurrentX-(tmpw/2), dragCurrentY+((bw/yy)*i), flow[i], tmpw, co1, co2);
-    }
-
-    dragAnimationId = requestAnimationFrame(animateDrag);
-}
-
 function clkd(evn, vrIntersectionLocal){
     if (masterDeck.filter(c=>c.pile === 'flow').length > 0 || done) return;
 
@@ -158,6 +142,7 @@ function clkd(evn, vrIntersectionLocal){
                 drag = 1;
                 dragTargetVec = [...vrIntersectionLocal];
                 dragCurrentVec = [...vrIntersectionLocal];
+                dragVecHistory = []; // Initialize history for 3D snake effect
                 rebuildLegacyArrays(); // Keep 2D flow in sync
             }
         }
@@ -165,6 +150,7 @@ function clkd(evn, vrIntersectionLocal){
     }
 
     // --- 2D Path (mouse/touch) ---
+    flox=[]; floy=[]; // Reset history for new drag
     // The check `if (masterDeck.filter(c=>c.pile === 'flow').length > 0 || done) return;` at the top of clkd handles this path too.
     dragSource = null; // This is now obsolete, but clear it to be safe.
     if (evn.changedTouches){
@@ -228,13 +214,6 @@ function clkd(evn, vrIntersectionLocal){
 
     if (masterDeck.filter(c=>c.pile === 'flow').length > 0) {
         drag = 1;
-        if (!vrIntersectionLocal) { // This will be true for 2D path
-            dragTargetX = mx; dragTargetY = my;
-            dragCurrentX = mx; dragCurrentY = my;
-            if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
-            dragAnimationId = requestAnimationFrame(animateDrag);
-            movr(evn);
-        }
     } else {
         gx=-1; gy=-1;
     }
@@ -325,7 +304,7 @@ async function clku(evn, vrIntersectionLocal){
         drag = 0;
         dragTargetVec = null;
         dragCurrentVec = null;
-        if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
+        dragVecHistory = []; // Reset 3D history
         autoFlipCards();
         rebuildLegacyArrays();
         draw();
@@ -471,7 +450,7 @@ async function clku(evn, vrIntersectionLocal){
 }
 
 function movr(evn){
-    if (done || fx==-1 || !drag) return; // Only run for 2D mouse-drag
+    if (done || !drag) return;
 
     if (evn.changedTouches){
         var rect = can.getBoundingClientRect();
@@ -482,15 +461,58 @@ function movr(evn){
         my=evn.offsetY;
     }
 
-    // This function is now only for 2D animation of the sprite canvas
-    if (flow.length) {
-        if (!bgsk) { // Redraw background once at start of drag
-            clrcan(can);
-            draw(1);
-            bgsk=1;
+    let tmpw = bw / (xx + 1);
+
+    if (flow.length) { // 'flow' is the legacy array, which is fine here since it's for drawing
+        // Add current mouse position to the history, but only if it has moved
+        if (flox.length === 0 || flox[0] !== mx - (tmpw/2) || floy[0] !== my) {
+            flox.unshift(mx - (tmpw / 2));
+            floy.unshift(my);
         }
-        dragTargetX = mx;
-        dragTargetY = my;
+
+        // Trim the history to be just a bit longer than the number of cards
+        while (flox.length > flow.length + 5) {
+            flox.pop();
+            floy.pop();
+        }
+
+        // Settle the trail with an interval
+        clearInterval(flower);
+        flower = setInterval(() => {
+            if (!drag) { // Stop if drag has ended
+                clearInterval(flower);
+                return;
+            }
+            // "Settle" the trail by removing the last position history point
+            if (flox.length > flow.length) {
+                flox.pop();
+                floy.pop();
+                // Redraw the cards with the new history
+                clrcan(spr);
+                for (let i=0; i<flow.length; i++) {
+                    if (flox[i] !== undefined) { // Make sure history is long enough
+                        dcd(spr, flox[i], floy[i] + ((bw/yy)*i), flow[i], tmpw, co1, co2);
+                    }
+                }
+            } else {
+                clearInterval(flower); // Trail has settled
+            }
+        }, 60);
+    }
+
+    // Redraw background once at start of drag
+    if (!bgsk) {
+        clrcan(can);
+        draw();
+        bgsk=1;
+    }
+
+    // Redraw the sprite canvas on every mouse move
+    clrcan(spr);
+    for (let i=0; i<flow.length; i++) {
+        if (flox[i] !== undefined) {
+            dcd(spr, flox[i], floy[i] + ((bw/yy)*i), flow[i], tmpw, co1, co2);
+        }
     }
 }
 
@@ -873,28 +895,40 @@ function drawSolitaire(gl, programs, buffers, view) {
             // Interpolate current towards target
             dragCurrentVec[0] += (dragTargetVec[0] - dragCurrentVec[0]) * 0.2;
             dragCurrentVec[1] += (dragTargetVec[1] - dragCurrentVec[1]) * 0.2;
+            // Add current interpolated position to history
+            dragVecHistory.unshift([...dragCurrentVec]);
         }
 
         const flowCards = masterDeck.filter(c => c.pile === 'flow');
+
+        // Trim history to prevent it from growing indefinitely
+        while (dragVecHistory.length > flowCards.length * 3 + 5) { // Keep enough history for spacing + buffer
+            dragVecHistory.pop();
+        }
+
         if (flowCards.length > 0) {
-            // The yOffset aligns the top edge of the top card with the controller pointer.
-            const yOffset = -layout.cardHeight / 2;
+            const yOffset = -layout.cardHeight / 2; // Aligns the top edge of the top card with the controller pointer.
             flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card, i) => {
-                const cardFace = card.faceUp ? card.id : 'b1';
-                const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+                const historyIndex = Math.min(i * 3, dragVecHistory.length - 1); // Space cards out in the trail
+                const historyVec = dragVecHistory[historyIndex];
 
-                // Position the card at the smoothed intersection point on the board plane, with an offset.
-                const x = dragCurrentVec[0];
-                // Start with the controller's position, add the offset to align the top edge...
-                let y = dragCurrentVec[1] + yOffset;
-                const z = 0.18 + (i * gCardDepth * 1.1); // Pull forward just below cursor and stack tightly
+                if (historyVec) {
+                    const cardFace = card.faceUp ? card.id : 'b1';
+                    const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
 
-                // ...then subtract the cascade for each subsequent card.
-                y -= i * layout.ySpacing;
+                    // Get base position from history
+                    const x = historyVec[0];
+                    const y = historyVec[1];
+                    const z = 0.18; // Base z-offset to be in front of the board
 
-                glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, y, z]);
-                glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
-                drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+                    // Apply grab point offset and stacking offset
+                    const finalY = y + yOffset - (i * layout.ySpacing);
+                    const finalZ = z + (i * gCardDepth * 1.1);
+
+                    glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, finalY, finalZ]);
+                    glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
+                    drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+                }
             });
         }
     }
