@@ -38,14 +38,14 @@
  3+: tag colors 0=null ryvb
 -->
 <table id='circtab'>
-<tr><td><b>Choice</b></td><td><b>Input</b></td><td><b>Range</b></td><td><b>Meaning</b></td></tr>
-<tr><td>Size:</td><td><input id='wxh' type='input' name='wxh' maxlength='2' size='2' value='4'></td><td>3-15</td><td>Width</td></tr>
-<tr><td>Movement:</td><td><input id='mov' type='input' name='mov' maxlength='2' size='1' value='2'></td><td>2-4</td><td>Movement complexity</td></tr>
-<tr><td>Rotation:</td><td><input id='rot' type='input' name='rot' maxlength='1' size='1' value='1'></td><td>0-3</td><td>Rotation complexity.</td></tr>
-<tr><td>Colours:</td><td><input id='clr' type='input' name='clr' maxlength='1' size='1' value='5'></td><td>2-9</td><td>Colours used.</td></tr>
-<tr><td>Percent:</td><td><input id='pct' type='input' name='pct' maxlength='2' size='2' value='55'></td><td>20-80%</td><td>Filled tile space percentage.</td></tr>
-<tr><td>Fixed:</td><td><input id='pnt' type='input' name='pnt' maxlength='1' size='1' value='1'></td><td>0-9</td><td>Will randomly place up to set number of fixed tiles.</td></tr>
-<tr><td>Ratio:</td><td colspan="2"><select name="rat" id='rat'><option value="0">Square</option><option value="1">Screen</option></select></td><td>Square will be same number of squares on every device<br>Screen will grow with available screen size.</td></tr>
+<tr><td><b>Choice</b></td><td><b>Input</b></td><td><b>Value</b></td><td><b>Meaning</b></td></tr>
+<tr><td>Size:</td><td><input id='wxh' type='range' min='3' max='15' value='4'></td><td><span id='wxh-val'>4</span></td><td>Width</td></tr>
+<tr><td>Movement:</td><td><input id='mov' type='range' min='2' max='4' value='2'></td><td><span id='mov-val'>2</span></td><td>Movement complexity</td></tr>
+<tr><td>Rotation:</td><td><input id='rot' type='range' min='0' max='3' value='1'></td><td><span id='rot-val'>1</span></td><td>Rotation complexity.</td></tr>
+<tr><td>Colours:</td><td><input id='clr' type='range' min='2' max='9' value='5'></td><td><span id='clr-val'>5</span></td><td>Colours used.</td></tr>
+<tr><td>Percent:</td><td><input id='pct' type='range' min='20' max='80' step='5' value='55'></td><td><span id='pct-val'>55</span>%</td><td>Filled tile space percentage.</td></tr>
+<tr><td>Fixed:</td><td><input id='pnt' type='range' min='0' max='9' value='1'></td><td><span id='pnt-val'>1</span></td><td>Will randomly place up to set number of fixed tiles.</td></tr>
+<tr><td id="rat-label">Ratio: Square</td><td colspan="2"><input type="checkbox" id="rat"></td><td>Square will be same number of squares on every device<br>Screen will grow with available screen size.</td></tr>
 <tr><td>Estimate:</td><td colspan="2" id='ttf'>seconds</td><td>Approximate time to finish. Results may vary.</td></tr>
 </table><br><!--<input id='start' type='button' value='Start New Game'> --> 
 After changing these options, press <button id='circstart2'>-New Game-</button>!<p>

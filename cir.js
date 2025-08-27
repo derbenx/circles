@@ -19,8 +19,22 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
-document.getElementById("wxh").onchange = function(){ ttf(); }
-document.getElementById("rat").onchange = function(){ ttf(); }
+const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
+inputs.forEach(id => {
+    const slider = document.getElementById(id);
+    const display = document.getElementById(`${id}-val`);
+    slider.oninput = () => {
+        display.textContent = slider.value;
+        ttf();
+    };
+});
+
+document.getElementById("rat").onchange = function(){
+    const label = document.getElementById('rat-label');
+    label.textContent = this.checked ? "Ratio: Screen" : "Ratio: Square";
+    ttf();
+}
+
 document.getElementById("sgcirc").onclick = function(){ sav('save original game to play from start?') }
 document.getElementById("spcirc").onclick = function(){ sav('save your progress to play later?',1) }
 document.getElementById("ldcirc").onclick = function(){ openFileDialog('.dbs',loadr) }
@@ -29,9 +43,15 @@ document.getElementById("circstart2").onclick = function(){ wipe(); }
 window.addEventListener('resize', function(event) { rstim=setTimeout(scale,150); }, true);
 
 document.getElementById("circtogsetup").onclick = function(){
- var cirtog=document.getElementById("circsetup");
- if (cirtog.style.display !== "none") { cirtog.style.display = "none"; }
- else {  cirtog.style.display = "block"; }
+    const cirtog = document.getElementById("circsetup");
+    const wrpDiv = document.getElementById("wrp");
+    if (cirtog.style.display !== "none") {
+        cirtog.style.display = "none";
+        wrpDiv.style.display = "block";
+    } else {
+        cirtog.style.display = "block";
+        wrpDiv.style.display = "none";
+    }
 }
 document.getElementById("circtoghelp").onclick = function(){
  var cirtog=document.getElementById("circhelp");
@@ -46,7 +66,7 @@ newg();
 function ttf(){ // time to finish
  sz=document.getElementById("wxh").value;
  pc=document.getElementById("pct").value;
- sc=document.getElementById("rat").selectedIndex;
+ sc=document.getElementById("rat").checked ? 1 : 0;
  tmp=((pc/10)+sz**4)*(sc+1);
  var hs = Math.floor(tmp / 60 / 60);
  var ms = Math.floor(tmp / 60) - (hs * 60);
@@ -92,7 +112,7 @@ function newg(){
   }
   scale();main();
  } else {
-  var rat = document.getElementById("rat").value * 1;
+  var rat = document.getElementById("rat").checked ? 1 : 0;
   var ts = document.getElementById("wxh").value * 1;
   var tx = window.innerWidth;
   var ty = window.innerHeight;
@@ -138,14 +158,22 @@ function butt(x){
  p=document.getElementById('pct');
  f=document.getElementById('pnt');
  t=document.getElementById('rat');
- s.value=lvl[x].substr(0,2);
- m.value=lvl[x].substr(2,1);
- r.value=lvl[x].substr(3,1);
- c.value=lvl[x].substr(4,1);
- f.value=lvl[x].substr(5,1);
- p.value=lvl[x].substr(6,2);
- t.selectedIndex=lvl[x].substr(8,1);
- ttf();
+    s.value=lvl[x].substr(0,2);
+    m.value=lvl[x].substr(2,1);
+    r.value=lvl[x].substr(3,1);
+    c.value=lvl[x].substr(4,1);
+    f.value=lvl[x].substr(5,1);
+    p.value=lvl[x].substr(6,2);
+    t.checked= (lvl[x].substr(8,1) == 1);
+
+    // Manually trigger events to update UI
+    s.dispatchEvent(new Event('input'));
+    m.dispatchEvent(new Event('input'));
+    r.dispatchEvent(new Event('input'));
+    c.dispatchEvent(new Event('input'));
+    f.dispatchEvent(new Event('input'));
+    p.dispatchEvent(new Event('input'));
+    t.dispatchEvent(new Event('change'));
 }
 
 function debug(t){
