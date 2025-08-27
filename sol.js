@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 49;
+let ver = 50;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -240,7 +240,9 @@ async function clku(evn, vrIntersectionLocal){
                 }
             }
 
-            if (targetPileId) {
+            if (fre === 0) {
+                validDrop = true;
+            } else if (targetPileId) {
                 const cardToDrop = flowCards[0]; // This is now the correct top card of the stack
                 if (targetPileId.startsWith('aces')) {
                     const acePileIndex = parseInt(targetPileId.substring(4));
@@ -358,7 +360,9 @@ async function clku(evn, vrIntersectionLocal){
         }
 
         // --- Validate and Perform Drop ---
-        if (targetPileId) {
+        if (fre === 0) {
+            validDrop = true;
+        } else if (targetPileId) {
             const cardToDrop = flowCards.sort((a,b)=>a.originalOrder-b.originalOrder)[0];
             const targetPileCards = masterDeck.filter(c => c.pile === targetPileId).sort((a,b)=>a.order-b.order);
 
