@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 45;
+let ver = 46;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -165,8 +165,8 @@ function clkd(evn, vrIntersectionLocal){
     }
 
     // --- 2D Path (mouse/touch) ---
-    if (flow.length || done) return;
-    dragSource = null;
+    // The check `if (masterDeck.filter(c=>c.pile === 'flow').length > 0 || done) return;` at the top of clkd handles this path too.
+    dragSource = null; // This is now obsolete, but clear it to be safe.
     if (evn.changedTouches){
         var rect = can.getBoundingClientRect();
         mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
@@ -183,37 +183,52 @@ function clkd(evn, vrIntersectionLocal){
     }
     fx=mx; fy=my;
 
-    ffx = gx; ffy = gy;
-
     if (gx !== -1) {
-        let fromPile = (gy < 5 && gx === 1);
-        let fromAces = (gy < 5 && gx >= 3 && gx < 7 && aces[gx - 3]);
-        let fromSpread = (gy > 5 && gx < 7 && sprd[gx] && sprd[gx].length > 0);
+        let pileId = null;
+        let cardOrder = -1;
 
-        if (fromPile) {
-            if (pile.length > 0) { flow.push(pile.pop()); dragSource = { pile: 'pile' }; }
-        } else if (fromAces) {
-            if (aces[gx - 3].length > 0) { flow.push(aces[gx - 3].pop()); dragSource = { pile: 'aces', x: gx - 3 }; }
-        } else if (fromSpread) {
-            let stack = sprd[gx];
-            let cardIndex = gy - 6;
-            let firstFaceUpIndex = stack.findIndex(c => !c.startsWith('x'));
-            if (firstFaceUpIndex === -1) firstFaceUpIndex = stack.length;
+        // Determine pileId and cardOrder from grid coordinates
+        if (gy < 5) { // Top row
+            if (gx === 1) pileId = 'pile';
+            else if (gx >= 3) pileId = 'aces' + (gx - 3);
+        } else { // Spread piles
+            pileId = 'sprd' + gx;
+            cardOrder = gy - 6;
+        }
 
-            if (cardIndex >= firstFaceUpIndex) {
-                let startIndex = cardIndex;
-                if (startIndex < stack.length) {
-                    let numToDrag = stack.length - startIndex;
-                    flow.push(...stack.splice(startIndex, numToDrag));
-                    dragSource = { pile: 'spread', x: gx };
+        if (pileId) {
+            const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b) => a.order - b.order);
+            let draggableStack = [];
+
+            if (pileId.startsWith('sprd')) {
+                if (cardOrder < pileCards.length) {
+                    const clickedCard = pileCards[cardOrder];
+                    if (clickedCard && clickedCard.faceUp) {
+                        draggableStack = pileCards.slice(cardOrder);
+                    }
                 }
+            } else if (pileId.startsWith('aces') || pileId === 'pile') {
+                if (pileCards.length > 0) {
+                    // Only the top card can be dragged from these piles
+                    const topCard = pileCards[pileCards.length - 1];
+                    draggableStack.push(topCard);
+                }
+            }
+
+            if (draggableStack.length > 0) {
+                draggableStack.forEach(card => {
+                    card.originalPile = card.pile;
+                    card.originalOrder = card.order;
+                    card.pile = 'flow';
+                });
+                rebuildLegacyArrays(); // Sync masterDeck 'flow' pile to legacy 'flow' array for animation
             }
         }
     }
 
-    if (flow.length > 0) {
+    if (masterDeck.filter(c=>c.pile === 'flow').length > 0) {
         drag = 1;
-        if (!vrIntersectionLocal) {
+        if (!vrIntersectionLocal) { // This will be true for 2D path
             dragTargetX = mx; dragTargetY = my;
             dragCurrentX = mx; dragCurrentY = my;
             if (dragAnimationId) cancelAnimationFrame(dragAnimationId);
@@ -331,7 +346,6 @@ async function clku(evn, vrIntersectionLocal){
     bgsk = undefined; // Reset background sketch flag
     if (done) return;
 
-    let tx, ty;
     if (evn.changedTouches){
         var rect = can.getBoundingClientRect();
         mx=Math.floor(evn.changedTouches[0].clientX-rect.left);
@@ -339,84 +353,118 @@ async function clku(evn, vrIntersectionLocal){
     } else {
         mx = evn.offsetX; my = evn.offsetY;
     }
-    const coords = get2DCardAtPoint(mx, my);
-    if (coords) {
-        tx = coords.gx;
-        ty = coords.gy;
-    } else {
-        tx = Math.floor((mx / bw) * xx);
-        ty = Math.floor((my / bh) * yy);
-    }
 
-    if (flow.length<1 && tx==0 && ty>=1 && ty<=4){ // Click on deck
-        const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
-        if (deckCards.length > 0) {
-            const pileCards = masterDeck.filter(c => c.pile === 'pile');
-            const numToMove = Math.min(drw, deckCards.length);
-            for (let i = 0; i < numToMove; i++) {
-                const card = deckCards[i];
-                card.pile = 'pile';
-                card.order = pileCards.length + i;
-                card.faceUp = true;
-            }
-        } else { // Reset deck from pile
-            masterDeck.filter(c => c.pile === 'pile').forEach(c => {
-                c.pile = 'deck';
-                c.faceUp = false;
-            });
-            // Re-order deck
-            const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
-            newDeckCards.forEach((c,i)=>c.order=i);
-        }
-        rebuildLegacyArrays(); // Sync back to legacy arrays for 2D view
-    } else if (drag){ // Dropping dragged cards
+    const flowCards = masterDeck.filter(c => c.pile === 'flow');
+
+    if (flowCards.length > 0) { // This is a drop
         let validDrop = false;
-        if (ty < 5 && tx >= 3 && tx < 7) { // Drop on Aces pile
-            if (flow.length === 1) {
-                if ( (flow[0][0] == sc[tx-3]) && (crdval(flow[0],0) == aces[tx-3].length) ) {
-                    aces[tx-3].push(flow[0]);
-                    validDrop = true;
+        let targetPileId = null;
+
+        // --- Determine Target Pile ---
+        let tx, ty;
+        const coords = get2DCardAtPoint(mx, my);
+        if (coords) {
+            tx = coords.gx;
+            ty = coords.gy;
+        } else {
+            // Fallback for empty areas, using a simple grid calculation
+            tx = Math.floor((mx / bw) * (xx + 1));
+            ty = Math.floor((my / bh) * yy);
+        }
+
+        // Map tx, ty grid coordinates to a targetPileId string
+        if (ty < 5 && tx >= 3 && tx < 7) {
+            targetPileId = 'aces' + (tx - 3);
+        } else if (ty > 5 && tx < 7) {
+            targetPileId = 'sprd' + tx;
+        }
+
+        // --- Validate and Perform Drop ---
+        if (targetPileId) {
+            const cardToDrop = flowCards.sort((a,b)=>a.originalOrder-b.originalOrder)[0];
+            const targetPileCards = masterDeck.filter(c => c.pile === targetPileId).sort((a,b)=>a.order-b.order);
+
+            if (targetPileId.startsWith('aces')) {
+                if (flowCards.length === 1) {
+                    if (crdval(cardToDrop.id, 0) === targetPileCards.length && cardToDrop.id[0].toLowerCase() === sc[parseInt(targetPileId.substring(4))].toLowerCase()) {
+                        validDrop = true;
+                    }
                 }
-            }
-        } else if (ty > 5 && tx < 7 && sprd[tx]) { // Drop on main spread
-            if (sprd[tx].length === 0) { // Case 1: Dropping on an empty pile
-                sprd[tx].push(...flow);
-                validDrop = true;
-            } else { // Case 2: Dropping on an existing pile
-                if (crdcol(flow[0], sprd[tx][sprd[tx].length - 1])[3] == false) { // color check
-                    if (crdval(flow[0], 0) == crdval(sprd[tx][sprd[tx].length - 1], 0) - 1) { // sequence check
-                        sprd[tx].push(...flow);
+            } else if (targetPileId.startsWith('sprd')) {
+                if (targetPileCards.length === 0) {
+                    if (crdval(cardToDrop.id, 0) === 11) { // King on empty
+                        validDrop = true;
+                    }
+                } else {
+                    const topCard = targetPileCards[targetPileCards.length - 1];
+                    if (topCard.faceUp && crdcol(cardToDrop.id, topCard.id)[3] == false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
                         validDrop = true;
                     }
                 }
             }
         }
 
-        if (!validDrop && dragSource) {
-            if (dragSource.pile === 'pile') pile.push(...flow);
-            else if (dragSource.pile === 'aces') aces[dragSource.x].push(...flow);
-            else if (dragSource.pile === 'spread') sprd[dragSource.x].push(...flow);
+        if (validDrop) {
+            const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+            let newOrder = targetPileCards.length;
+            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach(card => {
+                card.pile = targetPileId;
+                card.order = newOrder++;
+            });
+        } else { // Invalid drop, return to original pile
+            flowCards.forEach(card => {
+                card.pile = card.originalPile;
+                card.order = card.originalOrder;
+            });
         }
-    } else if (flow.length < 1 && !autoFlip) { // Manual flip logic
-        if (ty > 5 && tx < 7 && sprd[tx] && sprd[tx].length > 0) {
-            let stack = sprd[tx];
-            let cardIndex = ty - 6;
-            if (cardIndex === stack.length - 1) { // Can only flip the last card
-                let card = stack[cardIndex];
-                if (card.startsWith('x')) {
-                    stack[cardIndex] = card.substr(1, 2);
+
+    } else { // Not a drop, handle other clicks
+        const coords = get2DCardAtPoint(mx, my);
+        let tx = coords ? coords.gx : Math.floor((mx / bw) * (xx+1));
+        let ty = coords ? coords.gy : Math.floor((my / bh) * yy);
+
+        if (tx==0 && ty>=1 && ty<=4){ // Click on deck
+            const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
+            if (deckCards.length > 0) {
+                const pileCards = masterDeck.filter(c => c.pile === 'pile');
+                const numToMove = Math.min(drw, deckCards.length);
+                for (let i = 0; i < numToMove; i++) {
+                    const card = deckCards[i];
+                    card.pile = 'pile';
+                    card.order = pileCards.length + i;
+                    card.faceUp = true;
+                }
+            } else { // Reset deck from pile
+                masterDeck.filter(c => c.pile === 'pile').forEach(c => {
+                    c.pile = 'deck';
+                    c.faceUp = false;
+                });
+                // Re-order deck
+                const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
+                newDeckCards.forEach((c,i)=>c.order=i);
+            }
+        } else if (!autoFlip) { // Manual flip logic
+             if (coords && coords.gy > 5) {
+                const pileId = 'sprd' + coords.gx;
+                const cardOrder = coords.gy - 6;
+                const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b)=>a.order-b.order);
+                if (cardOrder === pileCards.length - 1) {
+                    const card = pileCards[cardOrder];
+                    if (!card.faceUp) {
+                        card.faceUp = true;
+                    }
                 }
             }
         }
     }
 
+    // --- Cleanup ---
     drag=0;
-    flow=[];
     autoFlipCards();
     rebuildLegacyArrays();
     draw();
 
-    if (aces[0].length>12 && aces[1].length>12 && aces[2].length>12 && aces[3].length>12){
+    if (masterDeck.filter(c=>c.pile.startsWith('aces')).length === 52){
         done=1;
         youWin();
     }
