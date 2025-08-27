@@ -1,5 +1,5 @@
 // Solitaire Game Logic
-let ver = 52;
+let ver = 54;
 var game,can,spr,bw,bh;
 var done=0;
 var mx,my;
@@ -343,7 +343,6 @@ async function clku(evn, vrIntersectionLocal){
         let targetPileId = null;
 
         // --- Determine Target Pile ---
-        let targetPileId = null; // Initialize targetPileId
         const coords = get2DCardAtPoint(mx, my);
 
         if (coords) {
@@ -359,28 +358,25 @@ async function clku(evn, vrIntersectionLocal){
             // No card hit, check for empty pile locations
             let xxx = xx + 1;
             let tmpw = bw / xxx;
-            let cardHeight = tmpw * 1.5;
             let ySpacing = (bw/yy);
 
-            // Check aces piles for empty drop
-            for (let i = 0; i < 4; i++) {
-                let x1 = ((i + 3) * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
-                let y1 = ySpacing;
-                if (mx >= x1 && mx <= x1 + tmpw && my >= y1 && my <= y1 + cardHeight) {
-                    if (masterDeck.filter(c => c.pile === 'aces' + i).length === 0) {
-                        targetPileId = 'aces' + i;
-                        break;
-                    }
-                }
-            }
-            // Check spread piles for empty drop
-            if (!targetPileId) {
+            // Check if the drop is in the general area of the top or spread rows
+            if (my > ySpacing * 5) { // In the spread area
                 for (let i = 0; i < 7; i++) {
                     let x1 = (i * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
-                    let y1 = ySpacing * 6;
-                     if (mx >= x1 && mx <= x1 + tmpw && my >= y1 && my <= y1 + cardHeight) {
+                    if (mx >= x1 && mx <= x1 + tmpw) { // Check only horizontal bounds
                         if (masterDeck.filter(c => c.pile === 'sprd' + i).length === 0) {
                             targetPileId = 'sprd' + i;
+                            break;
+                        }
+                    }
+                }
+            } else { // In the top row area
+                 for (let i = 0; i < 4; i++) {
+                    let x1 = ((i + 3) * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
+                    if (mx >= x1 && mx <= x1 + tmpw) { // Check only horizontal bounds
+                        if (masterDeck.filter(c => c.pile === 'aces' + i).length === 0) {
+                            targetPileId = 'aces' + i;
                             break;
                         }
                     }
