@@ -1072,3 +1072,19 @@ function createSphere(radius, latitudeBands, longitudeBands) {
         vertexCount: indices.length
     };
 }
+
+function sCook(cname, cvalue, exdays=999) {
+  try {
+    localStorage.setItem(cname, cvalue);
+  } catch (e) {
+    console.error("Failed to save to localStorage", e);
+  }
+}
+function gCook(cname) {
+  try {
+    return localStorage.getItem(cname) || "";
+  } catch (e) {
+    console.error("Failed to read from localStorage", e);
+    return "";
+  }
+}

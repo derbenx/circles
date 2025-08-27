@@ -502,25 +502,6 @@ function sav(msg='Click Ok to save this game.',sav=0){
  return;
 }
 
-function sCook(cname, cvalue, exdays=999) {
- if (cvalue.length>4096){ console.log('Cannot save huge levels in cookies!'); return; }
-  const d = new Date();
-  d.setTime(d.getTime() + (exdays*24*60*60*1000));
-  let expires = "expires="+ d.toUTCString();
-  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-}
-function gCook(cname) {
-  let name = cname + "=";
-  let decodedCookie = decodeURIComponent(document.cookie);
-  let ca = decodedCookie.split(';');
-  for(let i = 0; i <ca.length; i++) {
-    let c = ca[i];
-    while (c.charAt(0) == ' ') { c = c.substring(1); }
-    if (c.indexOf(name) == 0) { return c.substring(name.length, c.length); }
-  }
-  return "";
-}
-
 function loadr(event){
  file=this.files[0];
  const reader = new FileReader();

@@ -38,12 +38,49 @@ document.getElementById("soltogsetup").onclick = function(){
  soltog.style.display = (soltog.style.display !== "none") ? "none" : "block";
 };
 document.getElementById("solstart").onclick = function(){
+ sCook('sol_prog', '');
  done=0;
  aces=[[],[],[],[]];
  start();
 };
 
 function start(){
+    const savedGame = gCook('sol_prog');
+    if (savedGame) {
+        masterDeck = JSON.parse(savedGame);
+    } else {
+        // --- State Initialization ---
+        // Generate a shuffled deck of card IDs
+        const cardIds = [];
+        for (const suit of sc) {
+            for (const value of cc) {
+                cardIds.push(suit + value);
+            }
+        }
+        cardIds.sort(() => 0.5 - Math.random());
+        cardIds.sort(() => 0.5 - Math.random());
+
+        // Create the master deck of card objects
+        masterDeck = cardIds.map((id, index) => ({
+            id: id,
+            key: id + index, // A unique key for potential React-style rendering
+            pile: 'deck',    // The pile the card belongs to
+            order: index,    // The card's order within its pile
+            faceUp: false,   // Whether the card is face up
+        }));
+
+        // Deal cards by updating their properties in masterDeck
+        let dealIndex = 0;
+        for (let i = 0; i < 7; i++) { // For each of the 7 tableau piles
+            for (let j = 0; j <= i; j++) { // For each card in that pile
+                const card = masterDeck[dealIndex++];
+                card.pile = 'sprd' + i;
+                card.order = j;
+                card.faceUp = (j === i); // Only the last card in each pile is face up
+            }
+        }
+    }
+
     document.getElementById('version-display').value = ver;
     game=document.body;
     bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
@@ -441,6 +478,8 @@ async function clku(evn, vrIntersectionLocal){
     autoFlipCards();
     rebuildLegacyArrays();
     draw();
+
+    sCook('sol_prog', JSON.stringify(masterDeck));
 
     if (masterDeck.filter(c=>c.pile.startsWith('aces')).length === 52){
         done=1;
