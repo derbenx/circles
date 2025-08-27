@@ -711,19 +711,10 @@ function createAlertCanvas(message = "You Won!") {
     canvas.height = 256;
     ctx.fillStyle = "rgba(0, 0, 0, 0)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Flip the context horizontally to correct the text rendering
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.translate(-canvas.width, 0);
-
     ctx.fillStyle = "white";
     ctx.font = "40px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(message, canvas.width / 2, canvas.height / 2);
-
-    ctx.restore();
-
+    ctx.fillText(message.split('').reverse().join(''), canvas.width / 2, canvas.height / 2);
     return canvas;
 }
 
