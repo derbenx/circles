@@ -19,6 +19,8 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
+loadCirclesSettings();
+
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
 inputs.forEach(id => {
     const slider = document.getElementById(id);
@@ -26,6 +28,7 @@ inputs.forEach(id => {
     slider.oninput = () => {
         display.textContent = slider.value;
         ttf();
+        saveCirclesSettings();
     };
 });
 
@@ -33,6 +36,7 @@ document.getElementById("rat").onchange = function(){
     const label = document.getElementById('rat-label');
     label.textContent = this.checked ? "Ratio: Screen" : "Ratio: Square";
     ttf();
+    saveCirclesSettings();
 }
 
 document.getElementById("sgcirc").onclick = function(){ sav('save original game to play from start?') }
@@ -149,6 +153,34 @@ function dbstart(data){
  }
  sCook('orig',outt);
  scale();main();
+}
+
+function saveCirclesSettings() {
+    const settings = {
+        wxh: document.getElementById('wxh').value,
+        mov: document.getElementById('mov').value,
+        rot: document.getElementById('rot').value,
+        clr: document.getElementById('clr').value,
+        pct: document.getElementById('pct').value,
+        pnt: document.getElementById('pnt').value,
+        rat: document.getElementById('rat').checked,
+    };
+    localStorage.setItem('circlesSettings', JSON.stringify(settings));
+}
+
+function loadCirclesSettings() {
+    const settings = JSON.parse(localStorage.getItem('circlesSettings'));
+    if (settings) {
+        document.getElementById('wxh').value = settings.wxh;
+        document.getElementById('mov').value = settings.mov;
+        document.getElementById('rot').value = settings.rot;
+        document.getElementById('clr').value = settings.clr;
+        document.getElementById('pct').value = settings.pct;
+        document.getElementById('pnt').value = settings.pnt;
+        document.getElementById('rat').checked = settings.rat;
+        updateAllSliderDisplays();
+        ttf();
+    }
 }
 
 function updateAllSliderDisplays() {

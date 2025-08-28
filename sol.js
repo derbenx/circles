@@ -30,13 +30,60 @@ start();
 document.getElementById("soldrw").oninput = () => {
     drw = document.getElementById("soldrw").value * 1;
     document.getElementById("soldrw-val").textContent = drw;
+    saveSolitaireSettings();
 };
 document.getElementById("solfre").onchange = () => {
     fre = document.getElementById("solfre").checked ? 0 : 1;
+    saveSolitaireSettings();
 };
 document.getElementById("solauto").onchange = () => {
     autoFlip = document.getElementById("solauto").checked ? 1 : 0;
+    saveSolitaireSettings();
 };
+
+function saveSolitaireSettings() {
+    const settings = {
+        drw: drw,
+        co1: co1,
+        co2: co2,
+        autoFlip: autoFlip,
+        fre: fre,
+        co1_r: document.getElementById('co1_r').value,
+        co1_g: document.getElementById('co1_g').value,
+        co1_b: document.getElementById('co1_b').value,
+        co2_r: document.getElementById('co2_r').value,
+        co2_g: document.getElementById('co2_g').value,
+        co2_b: document.getElementById('co2_b').value,
+    };
+    localStorage.setItem('solitaireSettings', JSON.stringify(settings));
+}
+
+function loadSolitaireSettings() {
+    const settings = JSON.parse(localStorage.getItem('solitaireSettings'));
+    if (settings) {
+        drw = settings.drw;
+        co1 = settings.co1;
+        co2 = settings.co2;
+        autoFlip = settings.autoFlip;
+        fre = settings.fre;
+
+        document.getElementById('soldrw').value = drw;
+        document.getElementById('solauto').checked = (autoFlip == 1);
+        document.getElementById('solfre').checked = (fre == 0);
+
+        document.getElementById('co1_r').value = settings.co1_r;
+        document.getElementById('co1_g').value = settings.co1_g;
+        document.getElementById('co1_b').value = settings.co1_b;
+        document.getElementById('co2_r').value = settings.co2_r;
+        document.getElementById('co2_g').value = settings.co2_g;
+        document.getElementById('co2_b').value = settings.co2_b;
+
+        // Update UI displays
+        document.getElementById("soldrw-val").textContent = drw;
+        updateColor(1);
+        updateColor(2);
+    }
+}
 
 function updateColor(num) {
     const r = document.getElementById(`co${num}_r`).value;
@@ -54,6 +101,7 @@ function updateColor(num) {
     if (!(inVR || inAR)) {
         draw();
     }
+    saveSolitaireSettings();
 }
 
 document.getElementById('co1_r').oninput = () => updateColor(1);
@@ -85,6 +133,7 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
+    loadSolitaireSettings();
     // Ensure canvases are visible when a new game starts.
     document.getElementById('can').style.display = 'block';
     document.getElementById('spr').style.display = 'block';
