@@ -19,9 +19,9 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
-loadCirclesSettings();
-
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
+
+loadCirclesSettings();
 inputs.forEach(id => {
     const slider = document.getElementById(id);
     const display = document.getElementById(`${id}-val`);
