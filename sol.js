@@ -126,10 +126,25 @@ document.getElementById("soltogsetup").onclick = function(){
         canCanvas.style.display = "none";
     }
 };
+
+function saveGameState() {
+    localStorage.setItem('solitaireGameState', JSON.stringify(masterDeck));
+}
+
+function loadGameState() {
+    const savedState = localStorage.getItem('solitaireGameState');
+    if (savedState) {
+        masterDeck = JSON.parse(savedState);
+        return true;
+    }
+    return false;
+}
+
 document.getElementById("solstart").onclick = function(){
- done=0;
- aces=[[],[],[],[]];
- start();
+    localStorage.removeItem('solitaireGameState');
+    done=0;
+    aces=[[],[],[],[]];
+    start();
 };
 
 function start(){
@@ -148,31 +163,35 @@ function start(){
     // Load any saved settings
     loadSolitaireSettings();
 
-    // Create game data
-    const cardIds = [];
-    for (const suit of sc) {
-        for (const value of cc) {
-            cardIds.push(suit + value);
+    // Load game state or create a new game
+    if (!loadGameState()) {
+        // Create game data if no save found
+        const cardIds = [];
+        for (const suit of sc) {
+            for (const value of cc) {
+                cardIds.push(suit + value);
+            }
+        }
+        cardIds.sort(() => 0.5 - Math.random());
+        cardIds.sort(() => 0.5 - Math.random());
+        masterDeck = cardIds.map((id, index) => ({
+            id: id,
+            key: id + index,
+            pile: 'deck',
+            order: index,
+            faceUp: false,
+        }));
+        let dealIndex = 0;
+        for (let i = 0; i < 7; i++) {
+            for (let j = 0; j <= i; j++) {
+                const card = masterDeck[dealIndex++];
+                card.pile = 'sprd' + i;
+                card.order = j;
+                card.faceUp = (j === i);
+            }
         }
     }
-    cardIds.sort(() => 0.5 - Math.random());
-    cardIds.sort(() => 0.5 - Math.random());
-    masterDeck = cardIds.map((id, index) => ({
-        id: id,
-        key: id + index,
-        pile: 'deck',
-        order: index,
-        faceUp: false,
-    }));
-    let dealIndex = 0;
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j <= i; j++) {
-            const card = masterDeck[dealIndex++];
-            card.pile = 'sprd' + i;
-            card.order = j;
-            card.faceUp = (j === i);
-        }
-    }
+
     rebuildLegacyArrays();
 
     // Initial draw
@@ -383,6 +402,7 @@ async function clku(evn, vrIntersectionLocal){
         autoFlipCards();
         rebuildLegacyArrays();
         draw();
+        saveGameState(); // Save after VR move
 
         if (masterDeck.filter(c=>c.pile.startsWith('aces')).length === 52){
             done=1;
@@ -532,6 +552,7 @@ async function clku(evn, vrIntersectionLocal){
     autoFlipCards();
     rebuildLegacyArrays();
     draw();
+    saveGameState(); // Save after 2D move
 
     if (masterDeck.filter(c=>c.pile.startsWith('aces')).length === 52){
         done=1;

@@ -19,6 +19,8 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
+loadCirclesSettings();
+
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
 inputs.forEach(id => {
     const slider = document.getElementById(id);
@@ -86,35 +88,32 @@ function ttf(){ // time to finish
 }
 
 function wipe(){
- sCook("prog","");
+ localStorage.removeItem('circlesGameState');
+ sCook("prog",""); // Clear old cookie just in case
  newg();
 }
 
 function newg(){
- loadCirclesSettings();
  document.getElementById('version-display').value = ver;
  document.getElementById("circhelp").style.display='none';
  document.getElementById("circsetup").style.display='none';
  document.getElementById("wrp").style.display = "block";
  var elem = document.getElementById("spr").style.display='block';
  done=0;
- tmp=gCook("prog");
- if (tmp) {
-  tmp=tmp.split('!');
-  var szxy=tmp[tmp.length-1].split('=')[0].split('x');
-  xx=(szxy[0]*1)+1;
-  yy=(szxy[1]*1)+1;
-  z=1;
-  grid = new Array(xx).fill(null).map(()=>new Array(yy).fill(null));
-  for (var x=0;x<xx;x++){
-   for (var y=0;y<yy;y++){
-    var temp=tmp[z].split('=');
-    var xy=temp[0].split('x');
-    grid[xy[0]][xy[1]]=temp[1];
-    z++;
-   }
-  }
-  scale();main();
+
+ // Load settings first
+ loadCirclesSettings();
+
+ // Try to load game state, otherwise create new game
+ const savedGame = localStorage.getItem('circlesGameState');
+ if (savedGame) {
+    const gameState = JSON.parse(savedGame);
+    xx = gameState.xx;
+    yy = gameState.yy;
+    grid = gameState.grid;
+    outt = gameState.outt; // Keep original puzzle data
+    scale();
+    main();
  } else {
   var rat = document.getElementById("rat").checked ? 1 : 0;
   var ts = document.getElementById("wxh").value * 1;
@@ -180,6 +179,16 @@ function loadCirclesSettings() {
         updateAllSliderDisplays();
         ttf();
     }
+}
+
+function saveGameState() {
+    const gameState = {
+        grid: grid,
+        xx: xx,
+        yy: yy,
+        outt: outt // Persist original puzzle data
+    };
+    localStorage.setItem('circlesGameState', JSON.stringify(gameState));
 }
 
 function updateAllSliderDisplays() {
@@ -272,7 +281,7 @@ function clku(evn, vrIntersectionLocal){
   }
  drag='n';
  }
- sCook("prog",prog());
+ saveGameState();
  sCook("c",col);
  draw(1);
  stx = spr.getContext('2d');
@@ -371,7 +380,7 @@ function scale(){
  }
  xxx=ww/xx;yyy=hh/yy;
  sz=xxx<yyy ? xxx*0.48 : yyy*0.48;
- var sc=document.getElementById("rat").selectedIndex;
+ var sc=document.getElementById("rat").checked ? 1 : 0;
  spr.width=ww; spr.height=hh;
  can.width=ww; can.height=hh;
  wrp.style.height=(hh+5)+'px';
