@@ -223,6 +223,7 @@ function butt(x){
 
     updateAllSliderDisplays();
     ttf();
+    saveCirclesSettings();
 }
 
 function debug(t){
