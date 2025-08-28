@@ -78,10 +78,10 @@ function loadSolitaireSettings() {
         document.getElementById('co2_g').value = settings.co2_g;
         document.getElementById('co2_b').value = settings.co2_b;
 
-        // Update UI displays
+        // Update UI displays without drawing
         document.getElementById("soldrw-val").textContent = drw;
-        updateColor(1);
-        updateColor(2);
+        document.getElementById('co1_swatch').style.backgroundColor = co1;
+        document.getElementById('co2_swatch').style.backgroundColor = co2;
     }
 }
 
@@ -133,10 +133,9 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
-    // Ensure canvases are visible when a new game starts.
+    // Setup DOM elements and vars
     document.getElementById('can').style.display = 'block';
     document.getElementById('spr').style.display = 'block';
-
     document.getElementById('version-display').value = ver;
     game=document.body;
     bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
@@ -146,8 +145,10 @@ function start(){
     spr=document.getElementById('spr');
     spr.width=bw; spr.height=bh;
 
-    // --- State Initialization ---
-    // Generate a shuffled deck of card IDs
+    // Load any saved settings
+    loadSolitaireSettings();
+
+    // Create game data
     const cardIds = [];
     for (const suit of sc) {
         for (const value of cc) {
@@ -156,36 +157,28 @@ function start(){
     }
     cardIds.sort(() => 0.5 - Math.random());
     cardIds.sort(() => 0.5 - Math.random());
-
-    // Create the master deck of card objects
     masterDeck = cardIds.map((id, index) => ({
         id: id,
-        key: id + index, // A unique key for potential React-style rendering
-        pile: 'deck',    // The pile the card belongs to
-        order: index,    // The card's order within its pile
-        faceUp: false,   // Whether the card is face up
+        key: id + index,
+        pile: 'deck',
+        order: index,
+        faceUp: false,
     }));
-
-    // Deal cards by updating their properties in masterDeck
     let dealIndex = 0;
-    for (let i = 0; i < 7; i++) { // For each of the 7 tableau piles
-        for (let j = 0; j <= i; j++) { // For each card in that pile
+    for (let i = 0; i < 7; i++) {
+        for (let j = 0; j <= i; j++) {
             const card = masterDeck[dealIndex++];
             card.pile = 'sprd' + i;
             card.order = j;
-            card.faceUp = (j === i); // Only the last card in each pile is face up
+            card.faceUp = (j === i);
         }
     }
-
-    loadSolitaireSettings();
     rebuildLegacyArrays();
 
+    // Initial draw
     draw();
 
-    // Initialize color swatches
-    updateColor(1);
-    updateColor(2);
-
+    // Set up event listeners
     spr.onmousedown = clkd;
     spr.onmouseup = clku;
     spr.onmousemove = movr;
