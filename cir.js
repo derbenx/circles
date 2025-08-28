@@ -19,8 +19,6 @@ var drag='n'; //draggable
 var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
-loadCirclesSettings();
-
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
 inputs.forEach(id => {
     const slider = document.getElementById(id);
@@ -93,6 +91,7 @@ function wipe(){
 }
 
 function newg(){
+ loadCirclesSettings();
  document.getElementById('version-display').value = ver;
  document.getElementById("circhelp").style.display='none';
  document.getElementById("circsetup").style.display='none';

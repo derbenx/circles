@@ -133,7 +133,6 @@ document.getElementById("solstart").onclick = function(){
 };
 
 function start(){
-    loadSolitaireSettings();
     // Ensure canvases are visible when a new game starts.
     document.getElementById('can').style.display = 'block';
     document.getElementById('spr').style.display = 'block';
@@ -178,6 +177,7 @@ function start(){
         }
     }
 
+    loadSolitaireSettings();
     rebuildLegacyArrays();
 
     draw();
