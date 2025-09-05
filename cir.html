@@ -1,0 +1,66 @@
+<html><head>
+<!-- <meta http-equiv="refresh" content="20;url=." /> -->
+<link rel="stylesheet" href="cir.css">
+</head>
+<!-- body -->
+<div id="hdr"><center><b>Circles v3D &nbsp&nbsp&nbsp by DerBen</b>&nbsp&nbsp&nbsp
+<button id='circstart'>-New Game-</button>
+<button id='circtogsetup'>-Settings Toggle-</button>
+<button id='circtoghelp'>-Help Toggle-</button>
+<button id='btn-vr'>Start VR</button>
+<button id='btn-xr'>Start XR</button>
+<!-- &nbsp; Version: <input type="text" id="version-display" size="2" readonly> -->
+</center></div>
+<div id="circhelp" style="display:none">
+<center>
+<br>Circles is a game where you attempt to match all the coloured half circles by moving the big circles around.<br> The computer will generate and shuffle a new puzzle, all you have to do is put it together like a jigsaw puzzle.
+<p>Drag pieces with a plus or line.
+<br>Click pieces with a circle or curve.<p>
+<p><br>Need help? Take a look at these:<br>
+ <a target="_blank" href='https://youtu.be/CwkhMN1WqD0'><b>(-Tutorial Video 2-)</b></a><br>
+ <a target="_blank" href='https://youtu.be/A7OeoaReGKU '><b>(-Tutorial Video 1-)</b></a><br>
+ <br>Works best on Chrome and Firefox.
+<p><br><p></center></div>
+<div id="circsetup" style="display:none"><center>
+<h3>Choose a level preset:</h3>
+<button id='v1'>Simple</button>
+<button id='v2'>Easy</button>
+<button id='v3'>Medium</button>
+<button id='v4'>Hard</button>
+<button id='v5'>Difficult</button>
+<button id='v6'>Bored</button>
+<button id='v7'>Expert</button>
+<button id='v8'>Insane</button>
+<h3>Or choose your options:</h3>
+<!--
+ 1 drag: 0=blank 1=fixed 2=move:+ 3=UD:- 4=LR:|
+ 2 click: 0=nothing 1=rotate:O 2=flipH:U 3=flipV:C
+ 3+: tag colors 0=null ryvb
+-->
+<table id='circtab'>
+<tr><td><b>Choice</b></td><td><b>Input</b></td><td><b>Value</b></td><td><b>Meaning</b></td></tr>
+<tr><td>Size:</td><td><input id='wxh' type='range' min='3' max='15' value='4'></td><td><span id='wxh-val'>4</span></td><td>Width</td></tr>
+<tr><td>Movement:</td><td><input id='mov' type='range' min='2' max='4' value='2'></td><td><span id='mov-val'>2</span></td><td>Movement complexity</td></tr>
+<tr><td>Rotation:</td><td><input id='rot' type='range' min='0' max='3' value='1'></td><td><span id='rot-val'>1</span></td><td>Rotation complexity.</td></tr>
+<tr><td>Colours:</td><td><input id='clr' type='range' min='2' max='9' value='5'></td><td><span id='clr-val'>5</span></td><td>Colours used.</td></tr>
+<tr><td>Percent:</td><td><input id='pct' type='range' min='20' max='80' step='5' value='55'></td><td><span id='pct-val'>55</span>%</td><td>Filled tile space percentage.</td></tr>
+<tr><td>Fixed:</td><td><input id='pnt' type='range' min='0' max='9' value='1'></td><td><span id='pnt-val'>1</span></td><td>Will randomly place up to set number of fixed tiles.</td></tr>
+<tr><td id="rat-label">Ratio: Square</td><td colspan="2"><input type="checkbox" id="rat"></td><td>Square will be same number of squares on every device<br>Screen will grow with available screen size.</td></tr>
+<tr><td>Estimate:</td><td colspan="2" id='ttf'>seconds</td><td>Approximate time to finish. Results may vary.</td></tr>
+</table><br><!--<input id='start' type='button' value='Start New Game'> --> 
+After changing these options, press <button id='circstart2'>-New Game-</button>!<p>
+<button id='ldcirc'>-Load Game-</button>
+<button id='sgcirc'>-Save Game-</button>
+<button id='spcirc'>-Save Progress-</button>
+
+<input id='ww' type='hidden' name='ww' value='0'><input id='hh' type='hidden' name='hh' value='0'>
+</center><p>
+</div><p><center>
+<div id="wrp"><canvas id='can'></canvas><canvas id='spr'></canvas></div>
+</center>
+<script src='gl-matrix.min.js'></script>
+<script src='vrxr.js'></script>
+<script src='cirgen.js'></script>
+<script src='cir.js'></script>
+<div id='btg'><button onclick='window.location="index.html"'>back</button></div>
+</html>

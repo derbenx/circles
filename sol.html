@@ -1,0 +1,64 @@
+<html><head>
+<!-- <meta http-equiv="refresh" content="20;url=." /> -->
+<link rel="stylesheet" href="sol.css">
+<script src='cards.js'></script>
+</head><body>
+
+<div id="app-content">
+<center><b>Solitaire v3D &nbsp&nbsp&nbsp by DerBen</b>&nbsp&nbsp&nbsp
+<button id='solstart'>-New Game-</button>
+<button id='soltogsetup'>-Settings Toggle-</button>
+<button id='btn-vr'>Start VR</button>
+<button id='btn-xr'>Start XR</button>
+<!-- &nbsp; Version: <input type="text" id="version-display" size="2" readonly> -->
+</center>
+<div id="solsetup" style="display:none">
+<center>
+<h3>Classic solitaire</h3>
+<h3>choose your options:</h3>
+<!-- <form action='game.php' method='post'> -->
+<table id='tabl'>
+<tr><td><b>Choice</b></td><td><b>Input</b></td><td><b>Meaning</b></td></tr>
+<tr><td>Drawn cards:</td><td>
+ <input type="range" id="soldrw" min="1" max="5" value="1"> <span id="soldrw-val">1</span>
+</td><td>How many cards are drawn</td></tr>
+<style>
+    .color-swatch { width: 20px; height: 20px; border: 1px solid black; display: inline-block; vertical-align: middle; }
+    .rgb-sliders td { padding: 0 5px; }
+</style>
+<tr><td>Colour 1:</td><td>
+    <div style="display: flex; align-items: center;">
+        <div id="co1_swatch" class="color-swatch"></div>
+        <table class="rgb-sliders">
+            <tr><td>R</td><td><input type="range" id="co1_r" min="0" max="255" value="0"></td></tr>
+            <tr><td>G</td><td><input type="range" id="co1_g" min="0" max="255" value="255"></td></tr>
+            <tr><td>B</td><td><input type="range" id="co1_b" min="0" max="255" value="0"></td></tr>
+        </table>
+    </div>
+</td><td>Card back colour 1</td></tr>
+<tr><td>Colour 2:</td><td>
+    <div style="display: flex; align-items: center;">
+        <div id="co2_swatch" class="color-swatch"></div>
+        <table class="rgb-sliders">
+            <tr><td>R</td><td><input type="range" id="co2_r" min="0" max="255" value="0"></td></tr>
+            <tr><td>G</td><td><input type="range" id="co2_g" min="0" max="255" value="128"></td></tr>
+            <tr><td>B</td><td><input type="range" id="co2_b" min="0" max="255" value="0"></td></tr>
+        </table>
+    </div>
+</td><td>Card back colour 2</td></tr>
+<tr><td>Auto-flip card:</td><td>
+ <input type="checkbox" id="solauto" checked>
+</td><td>Automatically flip face-down cards.</td></tr>
+<tr><td>Free play:</td><td>
+ <input type="checkbox" id="solfre">
+</td><td>Place cards as you like.</td></tr>
+</table><br>
+<!-- </form> -->
+</center></div><p>
+<div id="game"><canvas id='can'></canvas><canvas id='spr'></canvas></div>
+</div>
+<script src='gl-matrix.min.js'></script>
+<script src='vrxr.js'></script>
+<script src='sol.js'></script>
+<div id='btg'><button onclick='window.location="index.html"'>back</button></div>
+</body></html>

@@ -1,0 +1,148 @@
+<html><head>
+<link rel="manifest" href="manifest.json" />
+<!--<link rel="stylesheet" href="css.css">-->
+<style>
+body { background:black; color:grey; overflow-y: hidden }
+h1 { color:green; text-align:center; }
+td,#hdr { border: solid 1px green; text-align:center; background:black; }
+table,#hdr {width:50% }
+img { width:25% }
+#debug { position:fixed;top:0px;left:0px; }
+#wrp{  margin:auto; width:100%; overflow:hidden; overscroll-behavior: none; }
+#can, #spr { display: block; margin: auto; }
+#can { border: 1px solid green; position: fixed; top:0px; z-index:-99; }
+#spr {  border: 1px solid green;  transform: translate(0, -100%); }
+#dbug{top:0;position:fixed;left:50;background:#ccc;border:1px solid red;padding:5px;font:50px bold;}
+#circtab td{padding:5px;}
+#btg { position:fixed; top:0px; }
+</style>
+</head>
+<center><p><br></p><div id="hdr">
+<h2>DBGames</h2>
+These games are procedurally generated content, which means endless fun.
+<p>
+</div>
+<table><tr>
+<td onclick="play(1)"><img src="favicon/cir.png"><br><button>Circles</button></td>
+<td onclick="play(2)"><img src="favicon/sol.png"><br><button>Solitare</button></td>
+<tr></table>
+</center>
+<script>
+ if (typeof navigator.serviceWorker !== 'undefined') {
+  navigator.serviceWorker.register('sw.js')
+ }
+ function play(n){
+  if (n==1){ window.location="cir.html"; }
+  if (n==2){ window.location="sol.html"; }
+ }
+</script>
+
+<canvas id="can">No canvas</canvas>
+<style>
+body{padding:0;margin:0;overflow:hidden;background:black;}
+</style><script>
+var fps=30,step=10,lines=100,chc=lines/6,lw=3;
+var rb=["201","001","010","110","120","100"]; rbi=0;
+var mx,my,iii,nm=0,iii=999;
+var cd=[],rgb=[],cvs=[];
+var can=document.getElementById("can");
+var ctx=can.getContext("2d");
+ctx.lineWidth=lw;
+for (let i=0;i<lines;i++){
+  nm+=Math.round(255/lines);
+  cvs.push(nm);
+  rgb.push([ 0,0,0 ]);
+}
+window.onresize = function(event) { init(); };
+init();
+setInterval(frame,1000/fps);
+
+function init(){
+ can.width=window.innerWidth; can.height=window.innerHeight;
+ mx=can.width; my=can.height;
+}
+
+function rand(lo,hi=1,st=0){
+ if (lo=="t"){out=Math.round(Math.random()) ? -1:1;}else{out=(Math.round(Math.random()*(hi-lo)))+lo;}
+ return st ? String(out):out;
+}
+
+function x(x){
+  out=[0,0,0];
+  for (let z=0;z<3;z++){
+   if (x[z]=="0") { out[z]=0 }
+   else if (x[z]=="1") { out[z]=cvs[lines-1] }
+   else if (x[z]=="2") { out[z]=cvs[lines-1]/2 }
+  }
+  return out;
+}
+
+function frame(){
+ iii++;
+ if (iii>chc){
+  iii=0;
+  rbi++;
+  rbi= rbi>rb.length-1 ? 0 : rbi;
+  
+  tmp=[ rb[rbi][0],rb[rbi][1],rb[rbi][2]] ;
+  tmp=x(tmp);
+ } else {
+  tmp=[rgb[lines-1][0],rgb[lines-1][1],rgb[lines-1][2]];
+ }
+ rgb.shift(); 
+ rgb.push(tmp);
+ 
+ ctx.fillStyle="#000000";
+ ctx.fillRect(0,0,mx,my);
+ for (let i=0;i<lines;i++){
+ 
+ if (i<lines-1){
+  for (let it=0;it<3;it++){
+   if (rgb[i][it]==0) { rgb[i][it]=0 }
+   else if (rgb[i][it]<cvs[i+1]) { rgb[i][it]=cvs[i]/2 }
+   else { rgb[i][it]=cvs[i] }
+  }
+ }
+ 
+  if (cd[i]==undefined && i>0){
+   cd.push([cd[i-1][0]+step,cd[i-1][1]+step,cd[i-1][2]+step,cd[i-1][3]+step]);
+  }
+  if (cd[i]==undefined && i==0){
+   cd.push([rand(9,mx-9),rand(9,my-9),rand(9,mx-9),rand(9,my-9)]);
+   vt=[rand("t"),rand("t"),rand("t"),rand("t")];
+  }
+  if (i==0){
+   if (cd[i][0]>5 && cd[i][0]<mx-5){
+    vt[0]=rand(0,200)!=1 ? vt[0] : vt[0]*-1;
+   }
+   if (cd[i][1]>5 && cd[i][1]<my-5){
+    vt[1]=rand(0,200)!=1 ? vt[1] : vt[1]*-1;
+   }
+   if (cd[i][2]>5 && cd[i][2]<mx-5){
+    vt[2]=rand(0,200)!=1 ? vt[2] : vt[2]*-1;
+   }
+   if (cd[i][3]>5 && cd[i][3]<my-5){
+    vt[3]=rand(0,200)!=1 ? vt[3] : vt[3]*-1;
+   }
+   if(cd[i][0]>mx){ vt[0]=-1; }
+   if(cd[i][0]<0) { vt[0]=1; }
+   if(cd[i][1]>my){ vt[1]=-1; }
+   if(cd[i][1]<0) { vt[1]=1; }
+   if(cd[i][2]>mx){ vt[2]=-1; }
+   if(cd[i][2]<0) { vt[2]=1; }
+   if(cd[i][3]>my){ vt[3]=-1; }
+   if(cd[i][3]<0) { vt[3]=1; }
+   cd.unshift([cd[i][0]+vt[0]*step,cd[i][1]+vt[1]*step,cd[i][2]+vt[2]*step,cd[i][3]+vt[3]*step]);
+   cd.pop();
+  }
+  if (cd[lines-i]!=undefined){
+   r=rgb[i][0]; g=rgb[i][1]; b=rgb[i][2];
+   ctx.strokeStyle="rgba("+r+","+g+","+b+",200)";
+   ctx.beginPath(); ctx.moveTo(cd[lines-i][0],cd[lines-i][1]);
+   ctx.lineTo(cd[lines-i][2],cd[lines-i][3]); ctx.stroke();
+  }
+ }
+}
+</script>
+
+</html>
