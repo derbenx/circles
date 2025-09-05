@@ -127,7 +127,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let buttonStatesLastFrame = {}; // For all buttons on controllers
     let activeController = null;
     let lastActiveController = null;
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
+    // VR Y position: 1.0 is floor level. Raise by logical board height (1.0) for comfortable viewing.
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 2.0, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
