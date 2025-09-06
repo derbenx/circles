@@ -539,7 +539,6 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     const w = width / 2;
     const h = height / 2;
     const d = depth / 2;
-    const edge_uv = 0.5; // Use center of texture for solid white edge
 
     const vertices = [];
     const normals = [];
@@ -591,29 +590,6 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
         }
     }
 
-    // Create edge faces (with dedicated vertices)
-    for (let i = 0; i < faceShape.length; i++) {
-        const i_next = (i + 1) % faceShape.length;
-
-        const [x1, y1] = faceShape[i];
-        const [x2, y2] = faceShape[i_next];
-
-        // Simplified normal calculation
-        const nx = x1 > 0 ? (x1 - (w-radius)) : (x1 - (-w+radius));
-        const ny = y1 > 0 ? (y1 - (h-radius)) : (y1 - (-h+radius));
-        const len = Math.sqrt(nx*nx + ny*ny);
-
-        const normal = [nx/len, ny/len, 0];
-
-        const v1f = addVertex(x1, y1, d, ...normal, edge_uv, edge_uv);
-        const v2f = addVertex(x2, y2, d, ...normal, edge_uv, edge_uv);
-        const v1b = addVertex(x1, y1, -d, ...normal, edge_uv, edge_uv);
-        const v2b = addVertex(x2, y2, -d, ...normal, edge_uv, edge_uv);
-
-        indices.push(v1f, v1b, v2f);
-        indices.push(v1b, v2b, v2f);
-    }
-
     return {
         vertices: new Float32Array(vertices),
         normals: new Float32Array(normals),
@@ -624,7 +600,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1.0, 1.0, 0.02, 0.025, 4);
+    const card = createRoundedCuboid(1.0, 1.5, 0.02, 0.1, 4);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
