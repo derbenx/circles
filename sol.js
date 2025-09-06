@@ -891,28 +891,24 @@ function rebuildLegacyArrays() {
 }
 
 function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
-    const { textureProgramInfo } = programs;
-    const cardBuffers = buffers.pieceBuffers.card;
+    const { textureProgramInfo, solidColorProgramInfo } = programs;
+    const { cardBody, cardEdge } = buffers.pieceBuffers;
 
+    // Draw the edge as a solid color
+    drawSolid(gl, solidColorProgramInfo, cardEdge, modelMatrix, view, [1.0, 1.0, 1.0, 1.0]);
+
+    // Draw the faces
     if (cardFace === 'b1' || cardFace.startsWith('x')) {
-        // Face down card, draw the back on both sides
         const backTexture = getCardTexture(gl, 'b1');
-        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatrix, view);
+        drawTextured(gl, textureProgramInfo, cardBody, backTexture, modelMatrix, view);
     } else {
-        // Face up card, draw front and back with culling
         const frontTexture = getCardTexture(gl, cardFace);
         const backTexture = getCardTexture(gl, 'b1');
-
         gl.enable(gl.CULL_FACE);
-
-        // Draw back
         gl.cullFace(gl.FRONT);
-        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatrix, view);
-
-        // Draw front
+        drawTextured(gl, textureProgramInfo, cardBody, backTexture, modelMatrix, view);
         gl.cullFace(gl.BACK);
-        drawTextured(gl, textureProgramInfo, cardBuffers, frontTexture, modelMatrix, view);
-
+        drawTextured(gl, textureProgramInfo, cardBody, frontTexture, modelMatrix, view);
         gl.disable(gl.CULL_FACE);
     }
 }
