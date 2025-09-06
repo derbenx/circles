@@ -539,7 +539,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     const w = width / 2;
     const h = height / 2;
     const d = depth / 2;
-    const corner_tex_uv = 0.01;
+    const corner_tex_uv = 0.5;
 
     const vertices = [];
     const normals = [];
