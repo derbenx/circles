@@ -535,6 +535,118 @@ function initGenericBuffers(gl) {
     return { quad: quadBuffers, cone: coneBuffers };
 }
 
+function createRoundedCuboid(width, height, depth, radius, segments) {
+    const w = width / 2;
+    const h = height / 2;
+    const d = depth / 2;
+
+    const vertices = [];
+    const normals = [];
+    const uvs = [];
+    const indices = [];
+
+    // Create a single face's vertices
+    const faceShape = [];
+    const cornerPoints = [
+        [w - radius, h - radius],  // Top-right
+        [-w + radius, h - radius], // Top-left
+        [-w + radius, -h + radius], // Bottom-left
+        [w - radius, -h + radius]   // Bottom-right
+    ];
+
+    for (let i = 0; i < 4; i++) {
+        const [cx, cy] = cornerPoints[i];
+        const startAngle = i * Math.PI / 2;
+        for (let j = 0; j <= segments; j++) {
+            const angle = startAngle + (j / segments) * (Math.PI / 2);
+            const x = cx + radius * Math.cos(angle);
+            const y = cy + radius * Math.sin(angle);
+            if (j < segments) { // Avoid duplicating vertices at the seam
+                faceShape.push([x, y]);
+            }
+        }
+    }
+
+    // Create front and back faces
+    for (let zSign = -1; zSign <= 1; zSign += 2) {
+        const baseIndex = vertices.length / 3;
+        for (const [x, y] of faceShape) {
+            vertices.push(x, y, d * zSign);
+            normals.push(0, 0, zSign);
+            uvs.push(x / width + 0.5, y / height + 0.5);
+        }
+
+        // Triangulate the face using a simple fan from the first vertex
+        for (let i = 1; i < faceShape.length - 1; i++) {
+            if (zSign === 1) {
+                indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
+            } else {
+                indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
+            }
+        }
+    }
+
+    // Create edge faces
+    const frontBase = 0;
+    const backBase = faceShape.length;
+    for (let i = 0; i < faceShape.length; i++) {
+        const i_next = (i + 1) % faceShape.length;
+
+        const f1 = frontBase + i;
+        const f2 = frontBase + i_next;
+        const b1 = backBase + i;
+        const b2 = backBase + i_next;
+
+        indices.push(f1, b1, f2);
+        indices.push(b1, b2, f2);
+    }
+
+    // Fix normals for the edges
+    for (let i = 0; i < faceShape.length; i++) {
+        const [x, y] = faceShape[i];
+        let nx = 0, ny = 0;
+
+        // Top edge
+        if (Math.abs(y - (h - radius)) < 0.001 && x > -w + radius && x < w - radius) ny = 1;
+        // Bottom edge
+        else if (Math.abs(y - (-h + radius)) < 0.001 && x > -w + radius && x < w - radius) ny = -1;
+        // Right edge
+        else if (Math.abs(x - (w - radius)) < 0.001 && y > -h + radius && y < h - radius) nx = 1;
+        // Left edge
+        else if (Math.abs(x - (-w + radius)) < 0.001 && y > -h + radius && y < h - radius) nx = -1;
+        else { // Corner
+            let cx, cy;
+            if (x > 0 && y > 0) [cx, cy] = cornerPoints[0];
+            else if (x < 0 && y > 0) [cx, cy] = cornerPoints[1];
+            else if (x < 0 && y < 0) [cx, cy] = cornerPoints[2];
+            else [cx, cy] = cornerPoints[3];
+            const dx = x - cx;
+            const dy = y - cy;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            nx = dx / len;
+            ny = dy / len;
+        }
+
+        const frontIndex = frontBase + i;
+        const backIndex = backBase + i;
+
+        normals[frontIndex * 3] = nx;
+        normals[frontIndex * 3 + 1] = ny;
+        normals[frontIndex * 3 + 2] = 0;
+
+        normals[backIndex * 3] = nx;
+        normals[backIndex * 3 + 1] = ny;
+        normals[backIndex * 3 + 2] = 0;
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        uvs: new Float32Array(uvs),
+        indices: new Uint16Array(indices)
+    };
+}
+
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
     const card = createRoundedCuboid(1, 1.5, 0.01, 0.1, 5);
