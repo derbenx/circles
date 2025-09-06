@@ -46,6 +46,440 @@ let canvasModelMatrix = null;
 let vrIntersection = null;
 
 
+// --- Geometry Creation ---
+
+function createCardBody(width, height, depth, radius, segments) {
+    const w = width / 2;
+    const h = height / 2;
+    const d = depth / 2;
+
+    const vertices = [];
+    const normals = [];
+    const uvs = [];
+    const indices = [];
+
+    // Generate the 2D shape of a face
+    const faceShape = [];
+    const cornerPoints = [
+        [w - radius, h - radius],  // Top-right
+        [-w + radius, h - radius], // Top-left
+        [-w + radius, -h + radius], // Bottom-left
+        [w - radius, -h + radius]   // Bottom-right
+    ];
+
+    for (let i = 0; i < 4; i++) {
+        const [cx, cy] = cornerPoints[i];
+        const startAngle = i * Math.PI / 2;
+        for (let j = 0; j <= segments; j++) {
+            const angle = startAngle + (j / segments) * (Math.PI / 2);
+            faceShape.push([
+                cx + radius * Math.cos(angle),
+                cy + radius * Math.sin(angle)
+            ]);
+        }
+    }
+
+    // Create front and back faces
+    for (let zSign of [-1, 1]) {
+        const baseIndex = vertices.length / 3;
+        faceShape.forEach(([x, y]) => {
+            vertices.push(x, y, d * zSign);
+            normals.push(0, 0, zSign);
+            uvs.push(0.5 + x / width, 0.5 - y / height);
+        });
+        // Triangulate face using a simple fan
+        for (let i = 1; i < faceShape.length - 1; i++) {
+            if (zSign === 1) { // Front face
+                indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
+            } else { // Back face
+                indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
+            }
+        }
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        uvs: new Float32Array(uvs),
+        indices: new Uint16Array(indices)
+    };
+}
+
+function createCardEdge(width, height, depth, radius, segments) {
+    const w = width / 2;
+    const h = height / 2;
+    const d = depth / 2;
+
+    const vertices = [];
+    const normals = [];
+    const indices = [];
+
+    // Re-generate the same 2D face shape as the card body
+    const faceShape = [];
+    const cornerPoints = [
+        [w - radius, h - radius],  // Top-right
+        [-w + radius, h - radius], // Top-left
+        [-w + radius, -h + radius], // Bottom-left
+        [w - radius, -h + radius]   // Bottom-right
+    ];
+     const normalShape = [];
+
+    for (let i = 0; i < 4; i++) {
+        const [cx, cy] = cornerPoints[i];
+        const startAngle = i * Math.PI / 2;
+        for (let j = 0; j <= segments; j++) {
+            const angle = startAngle + (j / segments) * (Math.PI / 2);
+            faceShape.push([
+                cx + radius * Math.cos(angle),
+                cy + radius * Math.sin(angle)
+            ]);
+            normalShape.push([
+                Math.cos(angle),
+                Math.sin(angle)
+            ]);
+        }
+    }
+
+
+    // Create the edge by connecting the front and back outlines
+    const baseIndex = 0;
+    for (let i = 0; i < faceShape.length; i++) {
+        const [x, y] = faceShape[i];
+        const [nx, ny] = normalShape[i];
+
+        // Front vertex
+        vertices.push(x, y, d);
+        normals.push(nx, ny, 0);
+
+        // Back vertex
+        vertices.push(x, y, -d);
+        normals.push(nx, ny, 0);
+    }
+
+    // Create indices for the edge strip
+    for (let i = 0; i < faceShape.length; i++) {
+        const next_i = (i + 1) % faceShape.length;
+        const i0 = baseIndex + i * 2;
+        const i1 = i0 + 1;
+        const i2 = baseIndex + next_i * 2;
+        const i3 = i2 + 1;
+
+        indices.push(i0, i2, i1);
+        indices.push(i1, i2, i3);
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        indices: new Uint16Array(indices)
+    };
+}
+
+function createCuboid(width, height, depth) {
+    const w = width / 2, h = height / 2, d = depth / 2;
+    const vertices = new Float32Array([
+        // Front face (0-3)
+        -w, -h,  d,  w, -h,  d,  w,  h,  d, -w,  h,  d,
+        // Back face (4-7)
+        -w, -h, -d, -w,  h, -d,  w,  h, -d,  w, -h, -d,
+        // Top face (8-11)
+        -w,  h,  d,  w,  h,  d,  w,  h, -d, -w,  h, -d,
+        // Bottom face (12-15)
+        -w, -h,  d, -w, -h, -d,  w, -h, -d,  w, -h,  d,
+        // Right face (16-19)
+         w, -h,  d,  w, -h, -d,  w,  h, -d,  w,  h,  d,
+        // Left face (20-23)
+        -w, -h, -d, -w, -h,  d, -w,  h,  d, -w,  h, -d,
+    ]);
+    const normals = new Float32Array([
+        // Front
+        0,0,1, 0,0,1, 0,0,1, 0,0,1,
+        // Back
+        0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
+        // Top
+        0,1,0, 0,1,0, 0,1,0, 0,1,0,
+        // Bottom
+        0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
+        // Right
+        1,0,0, 1,0,0, 1,0,0, 1,0,0,
+        // Left
+        -1,0,0, -1,0,0, -1,0,0, -1,0,0,
+    ]);
+    const textureCoordinates = new Float32Array([
+        // Front face (maps to the whole texture)
+        0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
+        // Back face (maps to the whole texture, for the card back)
+        0.0,  1.0, 0.0,  0.0, 1.0,  0.0, 1.0,  1.0,
+        // Top, Bottom, Right, Left faces (map to a single white pixel for the edge)
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Right
+        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Left
+    ]);
+
+    // Indices for the front face
+    const frontIndices = new Uint16Array([
+        0,  1,  2,      0,  2,  3,
+    ]);
+
+    // Indices for the back and edge faces
+    const backIndices = new Uint16Array([
+        4,  5,  6,      4,  6,  7,    // back
+        8,  9,  10,     8,  10, 11,   // top
+        12, 13, 14,     12, 14, 15,   // bottom
+        16, 17, 18,     16, 18, 19,   // right
+        20, 21, 22,     20, 22, 23,   // left
+    ]);
+
+    return { vertices, normals, textureCoordinates, frontIndices, backIndices };
+}
+
+function createCylinder(radius, height, segments) {
+    const vertices = [];
+    const indices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+    // Top cap
+    vertices.push(0, halfHeight, 0);
+    normals.push(0, 1, 0);
+    for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * 2 * Math.PI;
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        vertices.push(x, halfHeight, z);
+        normals.push(0, 1, 0);
+    }
+    for (let i = 0; i < segments; i++) {
+        indices.push(0, i + 1, ((i + 1) % segments) + 1);
+    }
+    // Bottom cap
+    const bottomCenterIndex = vertices.length / 3;
+    vertices.push(0, -halfHeight, 0);
+    normals.push(0, -1, 0);
+    for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * 2 * Math.PI;
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        vertices.push(x, -halfHeight, z);
+        normals.push(0, -1, 0);
+    }
+    for (let i = 0; i < segments; i++) {
+        indices.push(bottomCenterIndex, bottomCenterIndex + ((i + 1) % segments) + 1, bottomCenterIndex + i + 1);
+    }
+    // Sides
+    const sideStartIndex = vertices.length / 3;
+    for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * 2 * Math.PI;
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        vertices.push(x, halfHeight, z);
+        normals.push(x / radius, 0, z / radius);
+        vertices.push(x, -halfHeight, z);
+        normals.push(x / radius, 0, z / radius);
+    }
+    for (let i = 0; i < segments; i++) {
+        const topLeft = sideStartIndex + i * 2;
+        const bottomLeft = topLeft + 1;
+        const topRight = sideStartIndex + ((i + 1) % segments) * 2;
+        const bottomRight = topRight + 1;
+        indices.push(topLeft, topRight, bottomLeft);
+        indices.push(topRight, bottomRight, bottomLeft);
+    }
+    return { vertices, indices, normals };
+}
+
+function createHalfCylinder(radius, height, segments) {
+    const vertices = [];
+    const normals = [];
+    const halfHeight = height/2;
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * Math.PI - Math.PI/2;
+        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+        const nx1 = Math.cos(ang1), nz1 = Math.sin(ang1);
+        const nx2 = Math.cos(ang2), nz2 = Math.sin(ang2);
+        vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(nx1,0,nz1, nx2,0,nz2, nx1,0,nz1);
+        vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(nx2,0,nz2, nx2,0,nz2, nx1,0,nz1);
+    }
+    vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeight, radius);
+    normals.push(-1,0,0, -1,0,0, -1,0,0);
+    vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeight, radius);
+    normals.push(-1,0,0, -1,0,0, -1,0,0);
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * Math.PI - Math.PI/2;
+        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+        vertices.push(0, halfHeight, 0,  x1, halfHeight, z1,  x2, halfHeight, z2);
+        normals.push(0,1,0, 0,1,0, 0,1,0);
+        vertices.push(0, -halfHeight, 0,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
+    }
+    return { vertices, normals };
+}
+
+function createRing(outerRadius, innerRadius, height, segments) {
+    const vertices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+        // Top face
+        vertices.push(o_x1, halfHeight, o_z1,  o_x2, halfHeight, o_z2,  i_x1, halfHeight, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1,  o_x2, halfHeight, o_z2,  i_x2, halfHeight, i_z2);
+        for(let j=0; j<6; j++) normals.push(0,1,0);
+        // Bottom face
+        vertices.push(o_x1, -halfHeight, o_z1,  i_x1, -halfHeight, i_z1,  o_x2, -halfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, -halfHeight, i_z2,  o_x2, -halfHeight, o_z2);
+        for(let j=0; j<6; j++) normals.push(0,-1,0);
+        // Outer face
+        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
+        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
+        vertices.push(o_x1, halfHeight, o_z1,  o_x1, -halfHeight, o_z1,  o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1,  o_x2, -halfHeight, o_z2,  o_x2, halfHeight, o_z2);
+        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
+        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
+        // Inner face
+        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
+        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
+        vertices.push(i_x1, halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x1, -halfHeight, i_z1);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x2, -halfHeight, i_z2);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx1,0,i_nz1);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
+    }
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createArc(outerRadius, innerRadius, height, segments, startAngle, endAngle) {
+    const vertices = [];
+    const normals = [];
+    const halfHeight = height / 2;
+    const angleRange = endAngle - startAngle;
+    for (let i = 0; i < segments; i++) {
+        const ang1 = startAngle + (i / segments) * angleRange;
+        const ang2 = startAngle + ((i + 1) / segments) * angleRange;
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+        // Top face
+        vertices.push(o_x1, halfHeight, o_z1, o_x2, halfHeight, o_z2, i_x1, halfHeight, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1, o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2);
+        for(let j=0; j<6; j++) normals.push(0,1,0);
+        // Bottom face
+        vertices.push(o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1, o_x2, -halfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+        for(let j=0; j<6; j++) normals.push(0,-1,0);
+        // Outer face
+        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
+        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
+        vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1, o_x2, -halfHeight, o_z2, o_x2, halfHeight, o_z2);
+        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
+        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
+        // Inner face
+        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
+        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
+        vertices.push(i_x1, halfHeight, i_z1, i_x1, -halfHeight, i_z1, i_x2, halfHeight, i_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, i_x2, halfHeight, i_z2);
+        normals.push(i_nx1,0,i_nz1, i_nx1,0,i_nz1, i_nx2,0,i_nz2);
+        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
+    }
+    const ang1 = startAngle;
+    const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
+    const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+    const cap1Normal = [Math.sin(ang1), 0, -Math.cos(ang1)];
+    vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHeight, i_z1);
+    vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1);
+    for(let j=0; j<6; j++) normals.push(...cap1Normal);
+    const ang2 = endAngle;
+    const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
+    const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+    const cap2Normal = [-Math.sin(endAngle), 0, Math.cos(endAngle)];
+    vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, o_z2, o_x2, -halfHeight, o_z2);
+    vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+    for(let j=0; j<6; j++) normals.push(...cap2Normal);
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createCone(radius, height, segments) {
+    const vertices = [];
+    const normals = [];
+    const tip = [0, height / 2, 0];
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+        const p1 = [x1, -height/2, z1];
+        const p2 = [x2, -height/2, z2];
+        vertices.push(...tip, ...p1, ...p2);
+        const n1 = [x1 * height, radius, z1 * height];
+        const n2 = [x2 * height, radius, z2 * height];
+        const len1 = Math.sqrt(n1[0]*n1[0] + n1[1]*n1[1] + n1[2]*n1[2]);
+        const len2 = Math.sqrt(n2[0]*n2[0] + n2[1]*n2[1] + n2[2]*n2[2]);
+        const normal1 = [n1[0]/len1, n1[1]/len1, n1[2]/len1];
+        const normal2 = [n2[0]/len2, n2[1]/len2, n2[2]/len2];
+        const tipNormal = [(normal1[0]+normal2[0])/2, (normal1[1]+normal2[1])/2, (normal1[2]+normal2[2])/2];
+        const tipNormalLen = Math.sqrt(tipNormal[0]*tipNormal[0] + tipNormal[1]*tipNormal[1] + tipNormal[2]*tipNormal[2]);
+        normals.push(tipNormal[0]/tipNormalLen, tipNormal[1]/tipNormalLen, tipNormal[2]/tipNormalLen);
+        normals.push(...normal1);
+        normals.push(...normal2);
+    }
+    for (let i = 0; i < segments; i++) {
+        const ang1 = (i / segments) * 2 * Math.PI;
+        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
+        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
+        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
+        vertices.push(0, -height/2, 0, x2, -height/2, z2, x1, -height/2, z1);
+        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
+    }
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createSphere(radius, latitudeBands, longitudeBands) {
+    const vertices = [];
+    const normals = [];
+    const indices = [];
+    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
+        const theta = latNumber * Math.PI / latitudeBands;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+            const phi = longNumber * 2 * Math.PI / longitudeBands;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+            const x = cosPhi * sinTheta;
+            const y = cosTheta;
+            const z = sinPhi * sinTheta;
+            normals.push(x, y, z);
+            vertices.push(radius * x, radius * y, radius * z);
+        }
+    }
+    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
+        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
+            const first = (latNumber * (longitudeBands + 1)) + longNumber;
+            const second = first + longitudeBands + 1;
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
+    }
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        indices: new Uint16Array(indices),
+        vertexCount: indices.length
+    };
+}
+
 // --- Core VR/XR Logic ---
 
 async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
@@ -845,311 +1279,4 @@ function intersectPlane(transform, quadModelMatrix) {
         }
     }
     return null;
-}
-
-// --- Geometry Creation ---
-
-function createCuboid(width, height, depth) {
-    const w = width / 2, h = height / 2, d = depth / 2;
-    const vertices = new Float32Array([
-        // Front face (0-3)
-        -w, -h,  d,  w, -h,  d,  w,  h,  d, -w,  h,  d,
-        // Back face (4-7)
-        -w, -h, -d, -w,  h, -d,  w,  h, -d,  w, -h, -d,
-        // Top face (8-11)
-        -w,  h,  d,  w,  h,  d,  w,  h, -d, -w,  h, -d,
-        // Bottom face (12-15)
-        -w, -h,  d, -w, -h, -d,  w, -h, -d,  w, -h,  d,
-        // Right face (16-19)
-         w, -h,  d,  w, -h, -d,  w,  h, -d,  w,  h,  d,
-        // Left face (20-23)
-        -w, -h, -d, -w, -h,  d, -w,  h,  d, -w,  h, -d,
-    ]);
-    const normals = new Float32Array([
-        // Front
-        0,0,1, 0,0,1, 0,0,1, 0,0,1,
-        // Back
-        0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
-        // Top
-        0,1,0, 0,1,0, 0,1,0, 0,1,0,
-        // Bottom
-        0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
-        // Right
-        1,0,0, 1,0,0, 1,0,0, 1,0,0,
-        // Left
-        -1,0,0, -1,0,0, -1,0,0, -1,0,0,
-    ]);
-    const textureCoordinates = new Float32Array([
-        // Front face (maps to the whole texture)
-        0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
-        // Back face (maps to the whole texture, for the card back)
-        0.0,  1.0, 0.0,  0.0, 1.0,  0.0, 1.0,  1.0,
-        // Top, Bottom, Right, Left faces (map to a single white pixel for the edge)
-        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
-        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
-        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Right
-        0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Left
-    ]);
-
-    // Indices for the front face
-    const frontIndices = new Uint16Array([
-        0,  1,  2,      0,  2,  3,
-    ]);
-
-    // Indices for the back and edge faces
-    const backIndices = new Uint16Array([
-        4,  5,  6,      4,  6,  7,    // back
-        8,  9,  10,     8,  10, 11,   // top
-        12, 13, 14,     12, 14, 15,   // bottom
-        16, 17, 18,     16, 18, 19,   // right
-        20, 21, 22,     20, 22, 23,   // left
-    ]);
-
-    return { vertices, normals, textureCoordinates, frontIndices, backIndices };
-}
-
-function createCylinder(radius, height, segments) {
-    const vertices = [];
-    const indices = [];
-    const normals = [];
-    const halfHeight = height / 2;
-    // Top cap
-    vertices.push(0, halfHeight, 0);
-    normals.push(0, 1, 0);
-    for (let i = 0; i < segments; i++) {
-        const angle = (i / segments) * 2 * Math.PI;
-        const x = radius * Math.cos(angle);
-        const z = radius * Math.sin(angle);
-        vertices.push(x, halfHeight, z);
-        normals.push(0, 1, 0);
-    }
-    for (let i = 0; i < segments; i++) {
-        indices.push(0, i + 1, ((i + 1) % segments) + 1);
-    }
-    // Bottom cap
-    const bottomCenterIndex = vertices.length / 3;
-    vertices.push(0, -halfHeight, 0);
-    normals.push(0, -1, 0);
-    for (let i = 0; i < segments; i++) {
-        const angle = (i / segments) * 2 * Math.PI;
-        const x = radius * Math.cos(angle);
-        const z = radius * Math.sin(angle);
-        vertices.push(x, -halfHeight, z);
-        normals.push(0, -1, 0);
-    }
-    for (let i = 0; i < segments; i++) {
-        indices.push(bottomCenterIndex, bottomCenterIndex + ((i + 1) % segments) + 1, bottomCenterIndex + i + 1);
-    }
-    // Sides
-    const sideStartIndex = vertices.length / 3;
-    for (let i = 0; i < segments; i++) {
-        const angle = (i / segments) * 2 * Math.PI;
-        const x = radius * Math.cos(angle);
-        const z = radius * Math.sin(angle);
-        vertices.push(x, halfHeight, z);
-        normals.push(x / radius, 0, z / radius);
-        vertices.push(x, -halfHeight, z);
-        normals.push(x / radius, 0, z / radius);
-    }
-    for (let i = 0; i < segments; i++) {
-        const topLeft = sideStartIndex + i * 2;
-        const bottomLeft = topLeft + 1;
-        const topRight = sideStartIndex + ((i + 1) % segments) * 2;
-        const bottomRight = topRight + 1;
-        indices.push(topLeft, topRight, bottomLeft);
-        indices.push(topRight, bottomRight, bottomLeft);
-    }
-    return { vertices, indices, normals };
-}
-
-function createHalfCylinder(radius, height, segments) {
-    const vertices = [];
-    const normals = [];
-    const halfHeight = height/2;
-    for (let i = 0; i < segments; i++) {
-        const ang1 = (i / segments) * Math.PI - Math.PI/2;
-        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
-        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
-        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-        const nx1 = Math.cos(ang1), nz1 = Math.sin(ang1);
-        const nx2 = Math.cos(ang2), nz2 = Math.sin(ang2);
-        vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
-        normals.push(nx1,0,nz1, nx2,0,nz2, nx1,0,nz1);
-        vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
-        normals.push(nx2,0,nz2, nx2,0,nz2, nx1,0,nz1);
-    }
-    vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeight, radius);
-    normals.push(-1,0,0, -1,0,0, -1,0,0);
-    vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeight, radius);
-    normals.push(-1,0,0, -1,0,0, -1,0,0);
-    for (let i = 0; i < segments; i++) {
-        const ang1 = (i / segments) * Math.PI - Math.PI/2;
-        const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
-        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
-        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-        vertices.push(0, halfHeight, 0,  x1, halfHeight, z1,  x2, halfHeight, z2);
-        normals.push(0,1,0, 0,1,0, 0,1,0);
-        vertices.push(0, -halfHeight, 0,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
-        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
-    }
-    return { vertices, normals };
-}
-
-function createRing(outerRadius, innerRadius, height, segments) {
-    const vertices = [];
-    const normals = [];
-    const halfHeight = height / 2;
-    for (let i = 0; i < segments; i++) {
-        const ang1 = (i / segments) * 2 * Math.PI;
-        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
-        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
-        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
-        // Top face
-        vertices.push(o_x1, halfHeight, o_z1,  o_x2, halfHeight, o_z2,  i_x1, halfHeight, i_z1);
-        vertices.push(i_x1, halfHeight, i_z1,  o_x2, halfHeight, o_z2,  i_x2, halfHeight, i_z2);
-        for(let j=0; j<6; j++) normals.push(0,1,0);
-        // Bottom face
-        vertices.push(o_x1, -halfHeight, o_z1,  i_x1, -halfHeight, i_z1,  o_x2, -halfHeight, o_z2);
-        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, -halfHeight, i_z2,  o_x2, -halfHeight, o_z2);
-        for(let j=0; j<6; j++) normals.push(0,-1,0);
-        // Outer face
-        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
-        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
-        vertices.push(o_x1, halfHeight, o_z1,  o_x1, -halfHeight, o_z1,  o_x2, halfHeight, o_z2);
-        vertices.push(o_x1, -halfHeight, o_z1,  o_x2, -halfHeight, o_z2,  o_x2, halfHeight, o_z2);
-        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
-        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
-        // Inner face
-        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
-        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
-        vertices.push(i_x1, halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x1, -halfHeight, i_z1);
-        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x2, -halfHeight, i_z2);
-        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx1,0,i_nz1);
-        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
-    }
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
-}
-
-function createArc(outerRadius, innerRadius, height, segments, startAngle, endAngle) {
-    const vertices = [];
-    const normals = [];
-    const halfHeight = height / 2;
-    const angleRange = endAngle - startAngle;
-    for (let i = 0; i < segments; i++) {
-        const ang1 = startAngle + (i / segments) * angleRange;
-        const ang2 = startAngle + ((i + 1) / segments) * angleRange;
-        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
-        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
-        // Top face
-        vertices.push(o_x1, halfHeight, o_z1, o_x2, halfHeight, o_z2, i_x1, halfHeight, i_z1);
-        vertices.push(i_x1, halfHeight, i_z1, o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2);
-        for(let j=0; j<6; j++) normals.push(0,1,0);
-        // Bottom face
-        vertices.push(o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1, o_x2, -halfHeight, o_z2);
-        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
-        for(let j=0; j<6; j++) normals.push(0,-1,0);
-        // Outer face
-        const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
-        const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
-        vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, o_x2, halfHeight, o_z2);
-        vertices.push(o_x1, -halfHeight, o_z1, o_x2, -halfHeight, o_z2, o_x2, halfHeight, o_z2);
-        normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
-        normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
-        // Inner face
-        const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
-        const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
-        vertices.push(i_x1, halfHeight, i_z1, i_x1, -halfHeight, i_z1, i_x2, halfHeight, i_z2);
-        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, i_x2, halfHeight, i_z2);
-        normals.push(i_nx1,0,i_nz1, i_nx1,0,i_nz1, i_nx2,0,i_nz2);
-        normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
-    }
-    const ang1 = startAngle;
-    const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-    const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
-    const cap1Normal = [Math.sin(ang1), 0, -Math.cos(ang1)];
-    vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHeight, i_z1);
-    vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1);
-    for(let j=0; j<6; j++) normals.push(...cap1Normal);
-    const ang2 = endAngle;
-    const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-    const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
-    const cap2Normal = [-Math.sin(endAngle), 0, Math.cos(endAngle)];
-    vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, o_z2, o_x2, -halfHeight, o_z2);
-    vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
-    for(let j=0; j<6; j++) normals.push(...cap2Normal);
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
-}
-
-function createCone(radius, height, segments) {
-    const vertices = [];
-    const normals = [];
-    const tip = [0, height / 2, 0];
-    for (let i = 0; i < segments; i++) {
-        const ang1 = (i / segments) * 2 * Math.PI;
-        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
-        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
-        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-        const p1 = [x1, -height/2, z1];
-        const p2 = [x2, -height/2, z2];
-        vertices.push(...tip, ...p1, ...p2);
-        const n1 = [x1 * height, radius, z1 * height];
-        const n2 = [x2 * height, radius, z2 * height];
-        const len1 = Math.sqrt(n1[0]*n1[0] + n1[1]*n1[1] + n1[2]*n1[2]);
-        const len2 = Math.sqrt(n2[0]*n2[0] + n2[1]*n2[1] + n2[2]*n2[2]);
-        const normal1 = [n1[0]/len1, n1[1]/len1, n1[2]/len1];
-        const normal2 = [n2[0]/len2, n2[1]/len2, n2[2]/len2];
-        const tipNormal = [(normal1[0]+normal2[0])/2, (normal1[1]+normal2[1])/2, (normal1[2]+normal2[2])/2];
-        const tipNormalLen = Math.sqrt(tipNormal[0]*tipNormal[0] + tipNormal[1]*tipNormal[1] + tipNormal[2]*tipNormal[2]);
-        normals.push(tipNormal[0]/tipNormalLen, tipNormal[1]/tipNormalLen, tipNormal[2]/tipNormalLen);
-        normals.push(...normal1);
-        normals.push(...normal2);
-    }
-    for (let i = 0; i < segments; i++) {
-        const ang1 = (i / segments) * 2 * Math.PI;
-        const ang2 = ((i + 1) / segments) * 2 * Math.PI;
-        const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
-        const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-        vertices.push(0, -height/2, 0, x2, -height/2, z2, x1, -height/2, z1);
-        normals.push(0,-1,0, 0,-1,0, 0,-1,0);
-    }
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
-}
-
-function createSphere(radius, latitudeBands, longitudeBands) {
-    const vertices = [];
-    const normals = [];
-    const indices = [];
-    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
-        const theta = latNumber * Math.PI / latitudeBands;
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
-        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
-            const phi = longNumber * 2 * Math.PI / longitudeBands;
-            const sinPhi = Math.sin(phi);
-            const cosPhi = Math.cos(phi);
-            const x = cosPhi * sinTheta;
-            const y = cosTheta;
-            const z = sinPhi * sinTheta;
-            normals.push(x, y, z);
-            vertices.push(radius * x, radius * y, radius * z);
-        }
-    }
-    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
-        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
-            const first = (latNumber * (longitudeBands + 1)) + longNumber;
-            const second = first + longitudeBands + 1;
-            indices.push(first, second, first + 1);
-            indices.push(second, second + 1, first + 1);
-        }
-    }
-    return {
-        vertices: new Float32Array(vertices),
-        normals: new Float32Array(normals),
-        indices: new Uint16Array(indices),
-        vertexCount: indices.length
-    };
 }
