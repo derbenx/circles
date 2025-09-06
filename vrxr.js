@@ -600,23 +600,42 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1.0, 1.5, 0.02, 0.1, 4);
-    const cardBuffers = {
+    const cardBodyGeometry = createCardBody(1.0, 1.5, 0.02, 0.1, 8);
+    const cardEdgeGeometry = createCardEdge(1.0, 1.5, 0.02, 0.1, 8);
+
+    const cardBodyBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
         textureCoord: gl.createBuffer(),
         indices: gl.createBuffer(),
-        vertexCount: card.indices.length,
+        vertexCount: cardBodyGeometry.indices.length,
     };
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, card.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, card.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.textureCoord);
-    gl.bufferData(gl.ARRAY_BUFFER, card.uvs, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.indices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.textureCoord);
+    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.uvs, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBodyBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cardBodyGeometry.indices, gl.STATIC_DRAW);
 
+    const cardEdgeBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: cardEdgeGeometry.indices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardEdgeBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, cardEdgeGeometry.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardEdgeBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, cardEdgeGeometry.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardEdgeBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cardEdgeGeometry.indices, gl.STATIC_DRAW);
+
+    const card = {
+        body: cardBodyBuffers,
+        edge: cardEdgeBuffers,
+    };
 
     // Buffers for Circles pieces
     const cylinder = createCylinder(0.5, .2, 16);
