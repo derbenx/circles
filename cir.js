@@ -437,29 +437,19 @@ function rotate(x,y,t=1){
   grid[x][y]=pos.charAt(0)+pos.charAt(1)+pos.charAt(4)+pos.charAt(3)+pos.charAt(2)+pos.charAt(5);
  }
 }
-function gc(cc) {
-    return colorHexMap[cc] || colorHexMap['i'];
+function gc(cc){
+ var o='ivory';
+ if (cc=='g'){ o='#008800' }
+ if (cc=='r'){ o='#dd0000' }
+ if (cc=='y'){ o='#cccc00' }
+ if (cc=='b'){ o='#0000cc' }
+ if (cc=='v'){ o='#8800dd' }
+ if (cc=='c'){ o='#00cccc' }
+ if (cc=='p'){ o='#dd7700' }
+ if (cc=='l'){ o='#00cc00' }
+ if (cc=='e'){ o='#666666' }
+ return o;
 }
-
-function hexToRgba(hex) {
-    if (!hex) return [0.5, 0.5, 0.5, 1.0]; // Default gray for null/undefined
-    if (hex.charAt(0) !== '#') {
-        if (hex === 'ivory') return [1.0, 1.0, 0.94, 1.0];
-        return [0.5, 0.5, 0.5, 1.0]; // Default gray for non-hex strings
-    }
-    var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hex = hex.replace(shorthandRegex, function(m, r, g, b) {
-        return r + r + g + g + b + b;
-    });
-    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? [
-        parseInt(result[1], 16) / 255,
-        parseInt(result[2], 16) / 255,
-        parseInt(result[3], 16) / 255,
-        1.0 // Alpha
-    ] : [0.5, 0.5, 0.5, 1.0]; // Default gray on failure
-}
-
 function drci(rad,x,y,p,s=0) {
  if (rad<4) { return; }
  ol='gray';

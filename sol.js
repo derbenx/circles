@@ -97,7 +97,8 @@ function updateColor(num) {
         co2 = rgbString;
     }
 
-    document.getElementById(`co${num}_swatch`).style.backgroundColor = rgbString;
+    document.getElementById(`co${num}_swatch`).style.backgroundColor = rgbString
+;
     if (!(inVR || inAR)) {
         draw();
     }
@@ -153,7 +154,8 @@ function start(){
     document.getElementById('can').style.display = 'block';
     document.getElementById('spr').style.display = 'block';
     game=document.body;
-    bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHeight*.8;
+    bw=game.clientWidth<game.clientHeight ? game.clientWidth*.8 : game.clientHei
+ght*.8;
     bh=bw;
     can=document.getElementById('can');
     can.width=bw; can.height=bh;
@@ -221,11 +223,15 @@ function clkd(evn, vrIntersectionLocal){
             let draggableStack = [];
 
             if (clickedCard.pile.startsWith('sprd') && clickedCard.faceUp) {
-                const pileCards = masterDeck.filter(c => c.pile === clickedCard.pile).sort((a,b) => a.order - b.order);
+                const pileCards = masterDeck.filter(c => c.pile === clickedCard.
+pile).sort((a,b) => a.order - b.order);
                 draggableStack = pileCards.slice(clickedCard.order);
-            } else if (clickedCard.pile.startsWith('aces') || clickedCard.pile === 'pile') {
-                const pileCards = masterDeck.filter(c => c.pile === clickedCard.pile).sort((a,b) => a.order - b.order);
-                if (pileCards.length > 0 && clickedCard.id === pileCards[pileCards.length - 1].id) {
+            } else if (clickedCard.pile.startsWith('aces') || clickedCard.pile =
+== 'pile') {
+                const pileCards = masterDeck.filter(c => c.pile === clickedCard.
+pile).sort((a,b) => a.order - b.order);
+                if (pileCards.length > 0 && clickedCard.id === pileCards[pileCar
+ds.length - 1].id) {
                     draggableStack.push(clickedCard);
                 }
             }
@@ -278,7 +284,8 @@ function clkd(evn, vrIntersectionLocal){
         }
 
         if (pileId) {
-            const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b) => a.order - b.order);
+            const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,
+b) => a.order - b.order);
             let draggableStack = [];
 
             if (pileId.startsWith('sprd')) {
@@ -330,27 +337,34 @@ async function clku(evn, vrIntersectionLocal){
             }
 
             if (fre === 0) { // Free Play
-                if (targetPileId && (targetPileId.startsWith('aces') || targetPileId.startsWith('sprd'))) {
+                if (targetPileId && (targetPileId.startsWith('aces') || targetPi
+leId.startsWith('sprd'))) {
                     validDrop = true;
                 }
             } else { // Standard Play
                 if (targetPileId) {
                     const cardToDrop = flowCards[0];
                     if (targetPileId.startsWith('aces')) {
-                        const acePileIndex = parseInt(targetPileId.substring(4));
-                        const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                        const acePileIndex = parseInt(targetPileId.substring(4))
+;
+                        const targetPileCards = masterDeck.filter(c => c.pile ==
+= targetPileId);
                         if (flowCards.length === 1) {
-                            if (crdval(cardToDrop.id, 0) === targetPileCards.length && cardToDrop.id[0].toLowerCase() === sc[acePileIndex].toLowerCase()) {
+                            if (crdval(cardToDrop.id, 0) === targetPileCards.len
+gth && cardToDrop.id[0].toLowerCase() === sc[acePileIndex].toLowerCase()) {
                                 validDrop = true;
                             }
                         }
                     } else if (targetPileId.startsWith('sprd')) {
-                        const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                        const targetPileCards = masterDeck.filter(c => c.pile ==
+= targetPileId);
                         if (targetPileCards.length === 0) {
                             validDrop = true; // Allow any card on empty spread
                         } else {
-                            const topCard = targetPileCards.sort((a,b)=>b.order-a.order)[0];
-                            if (crdcol(cardToDrop.id, topCard.id)[3] == false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
+                            const topCard = targetPileCards.sort((a,b)=>b.order-
+a.order)[0];
+                            if (crdcol(cardToDrop.id, topCard.id)[3] == false &&
+ crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
                                 validDrop = true;
                             }
                         }
@@ -359,7 +373,8 @@ async function clku(evn, vrIntersectionLocal){
             }
 
             if (validDrop) {
-                const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+                const targetPileCards = masterDeck.filter(c => c.pile === target
+PileId);
                 let newOrder = targetPileCards.length;
                 flowCards.forEach(card => {
                     card.pile = targetPileId;
@@ -373,8 +388,10 @@ async function clku(evn, vrIntersectionLocal){
             }
 
         } else { // It's a click, not a drop
-             if (hit && (hit.type === 'pile' || hit.type === 'card') && (hit.pileId === 'deck' || (hit.card && hit.card.pile === 'deck'))) {
-                const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
+             if (hit && (hit.type === 'pile' || hit.type === 'card') && (hit.pil
+eId === 'deck' || (hit.card && hit.card.pile === 'deck'))) {
+                const deckCards = masterDeck.filter(c => c.pile === 'deck').sort
+((a,b) => b.order - a.order);
                 if (deckCards.length > 0) {
                     const pileCards = masterDeck.filter(c => c.pile === 'pile');
                     const numToMove = Math.min(drw, deckCards.length);
@@ -389,7 +406,8 @@ async function clku(evn, vrIntersectionLocal){
                         c.pile = 'deck';
                         c.faceUp = false;
                     });
-                    const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
+                    const newDeckCards = masterDeck.filter(c => c.pile === 'deck
+').sort((a,b)=>a.id.localeCompare(b.id));
                     newDeckCards.forEach((c,i)=>c.order=i);
                 }
             }
@@ -450,7 +468,8 @@ async function clku(evn, vrIntersectionLocal){
                 for (let i = 0; i < 7; i++) {
                     let x1 = (i * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
                     if (mx >= x1 && mx <= x1 + tmpw) {
-                        if (masterDeck.filter(c => c.pile === 'sprd' + i).length === 0) {
+                        if (masterDeck.filter(c => c.pile === 'sprd' + i).length
+ === 0) {
                             targetPileId = 'sprd' + i;
                             break;
                         }
@@ -460,7 +479,8 @@ async function clku(evn, vrIntersectionLocal){
                  for (let i = 0; i < 4; i++) {
                     let x1 = ((i + 3) * (tmpw + (tmpw / xxx))) + (tmpw / xxx);
                     if (mx >= x1 && mx <= x1 + tmpw) {
-                        if (masterDeck.filter(c => c.pile === 'aces' + i).length === 0) {
+                        if (masterDeck.filter(c => c.pile === 'aces' + i).length
+ === 0) {
                             targetPileId = 'aces' + i;
                             break;
                         }
@@ -470,16 +490,21 @@ async function clku(evn, vrIntersectionLocal){
         }
 
         if (fre === 0) { // Free Play
-            if (targetPileId && (targetPileId.startsWith('aces') || targetPileId.startsWith('sprd'))) {
+            if (targetPileId && (targetPileId.startsWith('aces') || targetPileId
+.startsWith('sprd'))) {
                 validDrop = true;
             }
         } else if (targetPileId) { // Standard Play
-            const cardToDrop = flowCards.sort((a,b)=>a.originalOrder-b.originalOrder)[0];
-            const targetPileCards = masterDeck.filter(c => c.pile === targetPileId).sort((a,b)=>a.order-b.order);
+            const cardToDrop = flowCards.sort((a,b)=>a.originalOrder-b.originalO
+rder)[0];
+            const targetPileCards = masterDeck.filter(c => c.pile === targetPile
+Id).sort((a,b)=>a.order-b.order);
 
             if (targetPileId.startsWith('aces')) {
                 if (flowCards.length === 1) {
-                    if (crdval(cardToDrop.id, 0) === targetPileCards.length && cardToDrop.id[0].toLowerCase() === sc[parseInt(targetPileId.substring(4))].toLowerCase()) {
+                    if (crdval(cardToDrop.id, 0) === targetPileCards.length && c
+ardToDrop.id[0].toLowerCase() === sc[parseInt(targetPileId.substring(4))].toLowe
+rCase()) {
                         validDrop = true;
                     }
                 }
@@ -488,7 +513,8 @@ async function clku(evn, vrIntersectionLocal){
                     validDrop = true; // Allow any card on empty spread
                 } else {
                     const topCard = targetPileCards[targetPileCards.length - 1];
-                    if (topCard.faceUp && crdcol(cardToDrop.id, topCard.id)[3] == false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
+                    if (topCard.faceUp && crdcol(cardToDrop.id, topCard.id)[3] =
+= false && crdval(cardToDrop.id, 0) === crdval(topCard.id, 0) - 1) {
                         validDrop = true;
                     }
                 }
@@ -496,9 +522,11 @@ async function clku(evn, vrIntersectionLocal){
         }
 
         if (validDrop) {
-            const targetPileCards = masterDeck.filter(c => c.pile === targetPileId);
+            const targetPileCards = masterDeck.filter(c => c.pile === targetPile
+Id);
             let newOrder = targetPileCards.length;
-            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach(card => {
+            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach(card
+=> {
                 card.pile = targetPileId;
                 card.order = newOrder++;
             });
@@ -515,7 +543,8 @@ async function clku(evn, vrIntersectionLocal){
         let ty = coords ? coords.gy : Math.floor((my / bh) * yy);
 
         if (tx==0 && ty>=1 && ty<=4){ // Click on deck
-            const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => b.order - a.order);
+            const deckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,
+b) => b.order - a.order);
             if (deckCards.length > 0) {
                 const pileCards = masterDeck.filter(c => c.pile === 'pile');
                 const numToMove = Math.min(drw, deckCards.length);
@@ -530,14 +559,16 @@ async function clku(evn, vrIntersectionLocal){
                     c.pile = 'deck';
                     c.faceUp = false;
                 });
-                const newDeckCards = masterDeck.filter(c => c.pile === 'deck').sort((a,b)=>a.id.localeCompare(b.id));
+                const newDeckCards = masterDeck.filter(c => c.pile === 'deck').s
+ort((a,b)=>a.id.localeCompare(b.id));
                 newDeckCards.forEach((c,i)=>c.order=i);
             }
         } else if (!autoFlip) { // Manual flip logic
              if (coords && coords.gy > 5) {
                 const pileId = 'sprd' + coords.gx;
                 const cardOrder = coords.gy - 6;
-                const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b)=>a.order-b.order);
+                const pileCards = masterDeck.filter(c => c.pile === pileId).sort
+((a,b)=>a.order-b.order);
                 if (cardOrder === pileCards.length - 1) {
                     const card = pileCards[cardOrder];
                     if (!card.faceUp) {
@@ -597,7 +628,8 @@ function movr(evn){
                 clrcan(spr);
                 for (let i=0; i<flow.length; i++) {
                     if (flox[i] !== undefined) {
-                        dcd(spr, flox[i], floy[i] + ((bw/yy)*i), flow[i], tmpw, co1, co2);
+                        dcd(spr, flox[i], floy[i] + ((bw/yy)*i), flow[i], tmpw,
+co1, co2);
                     }
                 }
             } else {
@@ -680,11 +712,13 @@ function draw() {
         dcd(can,(0*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),'b1',tmpw,co1,co2);
     }
     if (pile.length > 0) {
-        dcd(can,(1*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),pile[pile.length-1],tmpw,co1,co2);
+        dcd(can,(1*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),pile[pile.length-1],tmp
+w,co1,co2);
     }
     for (let i = 0; i < 4; i++) {
         if (aces[i].length > 0) {
-            dcd(can,((i+3)*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),aces[i][aces[i].length-1],tmpw,co1,co2);
+            dcd(can,((i+3)*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy),aces[i][aces[i]
+.length-1],tmpw,co1,co2);
         }
     }
 
@@ -693,7 +727,8 @@ function draw() {
             let crd=sprd[ii][i];
             if (crd){
                 let cardFace = crd.startsWith('x') ? 'b1' : crd;
-                dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace,tmpw,co1,co2);
+                dcd(can,(ii*(tmpw+(tmpw/xxx)))+(tmpw/xxx),(bw/yy)*(i+6),cardFace
+,tmpw,co1,co2);
             }
         }
     }
@@ -717,10 +752,12 @@ function vrButtonHandler(buttonIndex, isPressed, intersection, handedness) {
     if (buttonIndex === 4) { // A/X buttons
         if (isPressed) {
             if (intersection) {
-                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, intersection.local);
+                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, in
+tersection.local);
             }
         } else {
-            clku({ preventDefault: () => {}, stopPropagation: () => {} }, intersection ? intersection.local : null);
+            clku({ preventDefault: () => {}, stopPropagation: () => {} }, inters
+ection ? intersection.local : null);
         }
     }
 }
@@ -738,7 +775,8 @@ function youWin() {
     }
 }
 
-// ... (The rest of the file is VR/AR and drawing logic that I have already reviewed and seems correct)
+// ... (The rest of the file is VR/AR and drawing logic that I have already revi
+ewed and seems correct)
 // ... I will not include it here for brevity, but I have it in my context.
 // ... The final part of the file is the same as the last read_file output.
 // ... from getCardTexture onwards.
@@ -763,7 +801,8 @@ function getCardTexture(gl, cardFace) {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
-    // Draw the card with a margin, effectively scaling it to 95% and centering it
+    // Draw the card with a margin, effectively scaling it to 95% and centering
+it
     const cardSize = baseSize * 0.95;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
@@ -797,8 +836,10 @@ function getCardAtIntersection(local) {
     const cardW = layout.cardWidth;
     const cardH = layout.cardHeight;
 
-    const tableauCards = masterDeck.filter(c => c.pile.startsWith('sprd')).sort((a,b) => b.order - a.order);
-    const topRowCards = masterDeck.filter(c => !c.pile.startsWith('sprd') && c.pile !== 'flow').sort((a,b) => b.order - a.order);
+    const tableauCards = masterDeck.filter(c => c.pile.startsWith('sprd')).sort(
+(a,b) => b.order - a.order);
+    const topRowCards = masterDeck.filter(c => !c.pile.startsWith('sprd') && c.p
+ile !== 'flow').sort((a,b) => b.order - a.order);
     const sortedCards = [...tableauCards, ...topRowCards];
 
     for (const card of sortedCards) {
@@ -830,10 +871,12 @@ function getCardAtIntersection(local) {
 
         if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
             if (card.pile.startsWith('sprd')) {
-                const cardsInPile = masterDeck.filter(c => c.pile === card.pile);
+                const cardsInPile = masterDeck.filter(c => c.pile === card.pile)
+;
                 const isTopCardInStack = card.order === cardsInPile.length - 1;
                 const topOfCard = y + cardH / 2;
-                const bottomOfCard = isTopCardInStack ? (y - cardH / 2) : (y + cardH / 2 - layout.ySpacing);
+                const bottomOfCard = isTopCardInStack ? (y - cardH / 2) : (y + c
+ardH / 2 - layout.ySpacing);
                 if (clickY > bottomOfCard && clickY < topOfCard) {
                     return { type: 'card', card: card };
                 }
@@ -846,7 +889,8 @@ function getCardAtIntersection(local) {
     if (masterDeck.filter(c => c.pile === 'deck').length === 0) {
         const deckX = layout.startX;
         const topY = layout.topRowY;
-        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2 && clickY > topY - cardH/2 && clickY < topY + cardH/2) {
+        if (clickX > deckX - cardW/2 && clickX < deckX + cardW/2 && clickY > top
+Y - cardH/2 && clickY < topY + cardH/2) {
             return { type: 'pile', pileId: 'deck' };
         }
     }
@@ -855,7 +899,8 @@ function getCardAtIntersection(local) {
         if (masterDeck.filter(c => c.pile === pileId).length === 0) {
             const xPos = layout.startX + (3 + i) * layout.xSpacing;
             const yPos = layout.topRowY;
-            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > yPos - cardH/2 && clickY < yPos + cardH/2) {
+            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > y
+Pos - cardH/2 && clickY < yPos + cardH/2) {
                 return { type: 'pile', pileId: pileId };
             }
         }
@@ -865,7 +910,8 @@ function getCardAtIntersection(local) {
         if (masterDeck.filter(c => c.pile === pileId).length === 0) {
             const xPos = layout.startX + i * layout.xSpacing;
             const yPos = layout.spreadStartY;
-            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > yPos - cardH/2 && clickY < yPos + cardH/2) {
+            if (clickX > xPos - cardW/2 && clickX < xPos + cardW/2 && clickY > y
+Pos - cardH/2 && clickY < yPos + cardH/2) {
                 return { type: 'pile', pileId: pileId };
             }
         }
@@ -875,40 +921,53 @@ function getCardAtIntersection(local) {
 }
 
 function rebuildLegacyArrays() {
-    deck = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => a.order - b.order).map(c => c.id);
+    deck = masterDeck.filter(c => c.pile === 'deck').sort((a,b) => a.order - b.o
+rder).map(c => c.id);
     sprd = [];
     for (let i = 0; i < 7; i++) {
-        const pileCards = masterDeck.filter(c => c.pile === 'sprd' + i).sort((a, b) => a.order - b.order).map(c => c.faceUp ? c.id : 'x' + c.id);
+        const pileCards = masterDeck.filter(c => c.pile === 'sprd' + i).sort((a,
+ b) => a.order - b.order).map(c => c.faceUp ? c.id : 'x' + c.id);
         sprd.push(pileCards);
     }
     aces = [];
     for (let i = 0; i < 4; i++) {
-        const pileCards = masterDeck.filter(c => c.pile === 'aces' + i).sort((a, b) => a.order - b.order).map(c => c.id);
+        const pileCards = masterDeck.filter(c => c.pile === 'aces' + i).sort((a,
+ b) => a.order - b.order).map(c => c.id);
         aces.push(pileCards);
     }
-    pile = masterDeck.filter(c => c.pile === 'pile').sort((a, b) => a.order - b.order).map(c => c.id);
-    flow = masterDeck.filter(c => c.pile === 'flow').sort((a, b) => a.order - b.order).map(c => c.id);
+    pile = masterDeck.filter(c => c.pile === 'pile').sort((a, b) => a.order - b.
+order).map(c => c.id);
+    flow = masterDeck.filter(c => c.pile === 'flow').sort((a, b) => a.order - b.
+order).map(c => c.id);
 }
 
-function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
-    const { textureProgramInfo, solidColorProgramInfo } = programs;
-    const { body, edge } = buffers.pieceBuffers.card;
+function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view)
+{
+    const { textureProgramInfo } = programs;
+    const cardBuffers = buffers.pieceBuffers.card;
 
-    // Draw the edge as a solid color
-    drawSolid(gl, solidColorProgramInfo, edge, modelMatrix, view, [1.0, 1.0, 1.0, 1.0]);
-
-    // Draw the faces
     if (cardFace === 'b1' || cardFace.startsWith('x')) {
+        // Face down card, draw the back on both sides
         const backTexture = getCardTexture(gl, 'b1');
-        drawTextured(gl, textureProgramInfo, body, backTexture, modelMatrix, view);
+        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatr
+ix, view);
     } else {
+        // Face up card, draw front and back with culling
         const frontTexture = getCardTexture(gl, cardFace);
         const backTexture = getCardTexture(gl, 'b1');
+
         gl.enable(gl.CULL_FACE);
+
+        // Draw back
         gl.cullFace(gl.FRONT);
-        drawTextured(gl, textureProgramInfo, body, backTexture, modelMatrix, view);
+        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatr
+ix, view);
+
+        // Draw front
         gl.cullFace(gl.BACK);
-        drawTextured(gl, textureProgramInfo, body, frontTexture, modelMatrix, view);
+        drawTextured(gl, textureProgramInfo, cardBuffers, frontTexture, modelMat
+rix, view);
+
         gl.disable(gl.CULL_FACE);
     }
 }
@@ -922,8 +981,10 @@ function drawSolitaire(gl, programs, buffers, view) {
         const cardModelMatrix = glMatrix.mat4.create();
         const canvasMatrix = getCanvasModelMatrix();
         glMatrix.mat4.translate(cardModelMatrix, canvasMatrix, [x, y, z]);
-        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
-        drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+        glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth,
+ layout.cardHeight, gCardDepth]);
+        drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, vie
+w);
     };
 
     // --- Draw all backings first ---
@@ -942,10 +1003,12 @@ function drawSolitaire(gl, programs, buffers, view) {
     }
 
     // --- Draw all active cards with pile-specific logic ---
-    const pileTypes = ['deck', 'pile', ...Array.from({length: 4}, (_, i) => 'aces' + i), ...Array.from({length: 7}, (_, i) => 'sprd' + i)];
+    const pileTypes = ['deck', 'pile', ...Array.from({length: 4}, (_, i) => 'ace
+s' + i), ...Array.from({length: 7}, (_, i) => 'sprd' + i)];
 
     pileTypes.forEach(pileId => {
-        const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b) => a.order - b.order);
+        const pileCards = masterDeck.filter(c => c.pile === pileId).sort((a,b) =
+> a.order - b.order);
         pileCards.forEach((card, indexInPile) => {
             const cardFace = card.faceUp ? card.id : 'b1';
             let x, y, z;
@@ -990,13 +1053,15 @@ function drawSolitaire(gl, programs, buffers, view) {
 
         if (flowCards.length > 0) {
             const yOffset = -layout.cardHeight / 2;
-            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card, i) => {
+            flowCards.sort((a,b)=>a.originalOrder-b.originalOrder).forEach((card
+, i) => {
                 const historyIndex = Math.min(i * 3, dragVecHistory.length - 1);
                 const historyVec = dragVecHistory[historyIndex];
 
                 if (historyVec) {
                     const cardFace = card.faceUp ? card.id : 'b1';
-                    const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMatrix());
+                    const cardModelMatrix = glMatrix.mat4.clone(getCanvasModelMa
+trix());
 
                     const x = historyVec[0];
                     const y = historyVec[1];
@@ -1005,9 +1070,12 @@ function drawSolitaire(gl, programs, buffers, view) {
                     const finalY = y + yOffset - (i * layout.ySpacing);
                     const finalZ = z + (i * gCardDepth * 1.1);
 
-                    glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x, finalY, finalZ]);
-                    glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layout.cardWidth, layout.cardHeight, gCardDepth]);
-                    drawCardWithMatrix(gl, programs, buffers, cardFace, cardModelMatrix, view);
+                    glMatrix.mat4.translate(cardModelMatrix, cardModelMatrix, [x
+, finalY, finalZ]);
+                    glMatrix.mat4.scale(cardModelMatrix, cardModelMatrix, [layou
+t.cardWidth, layout.cardHeight, gCardDepth]);
+                    drawCardWithMatrix(gl, programs, buffers, cardFace, cardMode
+lMatrix, view);
                 }
             });
         }
@@ -1023,7 +1091,8 @@ function drawSolitaire(gl, programs, buffers, view) {
             if (cardToHighlight.pile.startsWith('sprd')) {
                 pileIndex = parseInt(cardToHighlight.pile.substring(4));
                 x = layout.startX + pileIndex * layout.xSpacing;
-                y = layout.spreadStartY - cardToHighlight.order * layout.ySpacing;
+                y = layout.spreadStartY - cardToHighlight.order * layout.ySpacin
+g;
                 z = cardToHighlight.order * gCardDepth;
             } else if (cardToHighlight.pile.startsWith('aces')) {
                 pileIndex = parseInt(cardToHighlight.pile.substring(4));
@@ -1042,9 +1111,12 @@ function drawSolitaire(gl, programs, buffers, view) {
 
             if (x !== undefined) {
                 const markerMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + gCardDepth]);
-                glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, gCardDepth]);
-                drawSolid(gl, solidColorProgramInfo, card.body, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]);
+                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x
+, y, z + gCardDepth]);
+                glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidt
+h + 0.01, layout.cardHeight + 0.01, gCardDepth]);
+                drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [
+1.0, 1.0, 0.0, 0.5]);
             }
         }
     }
@@ -1069,8 +1141,10 @@ document.getElementById("btn-xr").onclick = () => {
 (async () => {
     if (navigator.xr) {
         try {
-            const supported = await navigator.xr.isSessionSupported('immersive-ar');
-            if (supported) document.getElementById('btn-xr').style.display = 'inline';
+            const supported = await navigator.xr.isSessionSupported('immersive-a
+r');
+            if (supported) document.getElementById('btn-xr').style.display = 'in
+line';
         } catch (e) { console.error("Error checking for AR support:", e); }
     }
 })();

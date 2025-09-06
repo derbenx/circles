@@ -6,19 +6,23 @@ let arSession = null;
 
 // --- Public API ---
 
-function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+function toggleVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallb
+ack, buttonHandler) {
   if (vrSession) {
     vrSession.end();
   } else {
-    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+    activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback
+, buttonHandler);
   }
 }
 
-function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+function toggleAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallb
+ack, buttonHandler) {
     if (arSession) {
         arSession.end();
     } else {
-        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
+        activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCall
+back, buttonHandler);
     }
 }
 
@@ -46,83 +50,592 @@ let canvasModelMatrix = null;
 let vrIntersection = null;
 
 
-// --- Geometry Creation ---
+// --- Core VR/XR Logic ---
 
-function createCardBody(width, height, depth, radius, segments) {
+async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
+EndCallback, buttonHandler) {
+  const vrButton = document.getElementById("btn-vr");
+  try {
+    vrSession = await navigator.xr.requestSession("immersive-vr", {
+      optionalFeatures: ["local-floor"],
+    });
+    inVR = true;
+    vrButton.textContent = "Stop VR";
+    vrButton.disabled = false;
+    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy,
+boardAspectRatio, onEndCallback, buttonHandler);
+  } catch (error) {
+    console.error("Failed to enter VR mode:", error);
+    vrSession = null;
+    inVR = false;
+    vrButton.textContent = "Start VR";
+    vrButton.disabled = false;
+  }
+}
+
+async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
+EndCallback, buttonHandler) {
+    const xrButton = document.getElementById('btn-xr');
+    try {
+        arSession = await navigator.xr.requestSession('immersive-ar', {
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        });
+        inAR = true;
+        xrButton.textContent = 'Stop XR';
+        xrButton.disabled = false;
+        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, game
+Yy, boardAspectRatio, onEndCallback, buttonHandler);
+    } catch (e) {
+        console.error("Failed to start AR session:", e);
+        arSession = null;
+        inAR = false;
+        xrButton.textContent = 'Start XR';
+        xrButton.disabled = false;
+    }
+}
+
+async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
+oardAspectRatio, onEndCallback, buttonHandler) {
+    const glCanvas = document.createElement("canvas");
+    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+
+    await gl.makeXRCompatible();
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+    let referenceSpace;
+    try {
+        referenceSpace = await session.requestReferenceSpace("local-floor");
+    } catch (e) {
+        console.warn("Could not get 'local-floor' reference space, falling back
+to 'local'");
+        referenceSpace = await session.requestReferenceSpace("local");
+    }
+
+    // --- Shader Programs ---
+    const textureProgramInfo = setupTextureShaderProgram(gl);
+    const solidColorProgramInfo = setupSolidColorShaderProgram(gl);
+    const programs = { textureProgramInfo, solidColorProgramInfo };
+
+    // --- Buffers for various models ---
+    const genericBuffers = initGenericBuffers(gl);
+    const pieceBuffers = initPieceBuffers(gl); // For game pieces (e.g., cards,
+circles)
+    const controllerBuffers = initControllerBuffers(gl); // For rendering contro
+llers
+    const buffers = { genericBuffers, pieceBuffers, controllerBuffers };
+
+    // --- Textures ---
+    const alertTexture = initTexture(gl, createAlertCanvas());
+    const pointerTexture = initTexture(gl, createPointerCanvas());
+    const textures = { alertTexture, pointerTexture };
+
+    // --- VR interaction state ---
+    let primaryButtonPressedLastFrame = false;
+    let bButtonPressedLastFrame = false;
+    let buttonStatesLastFrame = {}; // For all buttons on controllers
+    let activeController = null;
+    let lastActiveController = null;
+    // VR Y position: 1.0 is floor level. Raise by logical board height (1.0) fo
+r comfortable viewing.
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 2.0,
+ -2.0];
+    let vrCanvasRotationY = 0;
+    canvasModelMatrix = glMatrix.mat4.create();
+    let sessionActive = true;
+
+    function onSessionEnded(event) {
+        sessionActive = false;
+        activeController = null;
+        lastActiveController = null;
+
+        // Set inVR/inAR to false before the callback
+        if (event.session === vrSession) {
+            inVR = false;
+            vrSession = null;
+        } else if (event.session === arSession) {
+            inAR = false;
+            arSession = null;
+        }
+
+        if (onEndCallback) onEndCallback();
+
+        // Update button text after callback
+        const vrButton = document.getElementById("btn-vr");
+        if(vrButton && !vrSession) vrButton.textContent = "Start VR";
+        const xrButton = document.getElementById('btn-xr');
+        if(xrButton && !arSession) xrButton.textContent = 'Start XR';
+    }
+    session.addEventListener('end', onSessionEnded);
+
+
+    // --- Event Listeners ---
+    session.addEventListener('selectstart', (event) => {
+      activeController = event.inputSource;
+      if (vrAlertState.shown) {
+        if (vrAlertState.onDismiss) vrAlertState.onDismiss();
+        vrAlertState.shown = false;
+        ignoreNextSelectEnd = true;
+        return;
+      }
+      if (vrIntersection) {
+        // Pass the raw intersection coordinates; the game logic will be respons
+ible for interpretation
+        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersec
+tion.local);
+      }
+    });
+
+    session.addEventListener('selectend', () => {
+      if (ignoreNextSelectEnd) {
+        ignoreNextSelectEnd = false;
+        return;
+      }
+      if (vrIntersection) {
+        // Pass the raw intersection coordinates; the game logic will be respons
+ible for interpretation
+        clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersec
+tion.local);
+      }
+    });
+
+    function onXRFrame(time, frame) {
+        if (!sessionActive) return;
+        session.requestAnimationFrame(onXRFrame);
+
+        // Update game state before drawing
+        if (typeof draw === 'function') draw(1); // Assumes game has a global dr
+aw function
+
+        const pose = frame.getViewerPose(referenceSpace);
+        if (!pose) return;
+
+        // --- Controller/Input Processing ---
+        vrIntersection = null;
+        let leftController = null;
+        let rightController = null;
+
+        for (const source of session.inputSources) {
+            if (source.handedness === 'left') leftController = source;
+            else if (source.handedness === 'right') rightController = source;
+        }
+
+        // If an active controller is set, but is no longer in the input sources
+ (e.g. it disconnected), clear it.
+        if (activeController && !Array.from(session.inputSources).includes(activ
+eController)) {
+            activeController = null;
+        }
+
+        // If no controller is active, try to default to one.
+        if (!activeController) {
+            activeController = rightController || leftController || session.inpu
+tSources[0] || null;
+        }
+        lastActiveController = activeController;
+
+        // --- Handle controller inputs for movement, rotation, etc. ---
+        // This part remains for general navigation that should be common to all
+ games.
+        // Left controller: movement
+        if (leftController && leftController.gamepad) {
+            const thumbstickX = leftController.gamepad.axes[2];
+            const thumbstickY = leftController.gamepad.axes[3];
+            const moveSpeed = 0.02;
+            if (Math.abs(thumbstickX) > 0.1) vrCanvasPosition[0] += thumbstickX
+* moveSpeed;
+            if (Math.abs(thumbstickY) > 0.1) vrCanvasPosition[1] -= thumbstickY
+* moveSpeed;
+        }
+
+        // Right controller: zoom and rotate
+        if (rightController && rightController.gamepad) {
+            const thumbstickY = rightController.gamepad.axes[3];
+            const zoomSpeed = 0.02;
+            if (Math.abs(thumbstickY) > 0.1) vrCanvasPosition[2] += thumbstickY
+* zoomSpeed;
+
+            const thumbstickX = rightController.gamepad.axes[2];
+            const rotateSpeed = 0.02;
+            if (Math.abs(thumbstickX) > 0.4) vrCanvasRotationY += thumbstickX *
+rotateSpeed;
+
+            const bButton = rightController.gamepad.buttons[5];
+            if (bButton && bButton.pressed && !bButtonPressedLastFrame) session.
+end();
+            bButtonPressedLastFrame = bButton ? bButton.pressed : false;
+        }
+
+        // --- Intersection Detection ---
+        // This needs to happen before button handling so the intersection data
+is available.
+        if (activeController && activeController.gripSpace) {
+            const gripPose = frame.getPose(activeController.gripSpace, reference
+Space);
+            if (gripPose) {
+                const intersection = intersectPlane(gripPose.transform, canvasMo
+delMatrix);
+                if (intersection) {
+                    vrIntersection = { ...intersection, gripPose, controller: ac
+tiveController };
+                }
+            }
+        }
+
+        // --- Generic Button Handling ---
+        if (buttonHandler && session.inputSources) {
+            for (let i = 0; i < session.inputSources.length; i++) {
+                const source = session.inputSources[i];
+                if (source.gamepad && source.handedness) {
+                    const handedness = source.handedness;
+                    if (!buttonStatesLastFrame[handedness]) {
+                        buttonStatesLastFrame[handedness] = [];
+                    }
+                    source.gamepad.buttons.forEach((button, index) => {
+                        const wasPressed = buttonStatesLastFrame[handedness][ind
+ex] || false;
+                        if (button.pressed !== wasPressed) {
+                            buttonHandler(index, button.pressed, vrIntersection,
+ handedness);
+                        }
+                    });
+                    buttonStatesLastFrame[handedness] = source.gamepad.buttons.m
+ap(b => b.pressed);
+                }
+            }
+        }
+
+        // Update canvas model matrix based on controls
+        const aspectRatio = boardAspectRatio || (gameXx / gameYy);
+        glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
+        glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRota
+tionY);
+        glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio,
+1, 1]);
+
+
+        // --- Rendering ---
+        const glLayer = session.renderState.baseLayer;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+        if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
+    else gl.clearColor(0, 0, 0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        for (const view of pose.views) {
+            const viewport = glLayer.getViewport(view);
+            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height)
+;
+
+            // Let the specific game draw its scene
+            if (drawGameCallback) {
+                drawGameCallback(gl, programs, buffers, view);
+            }
+
+            // Draw controllers, cursor, and alerts on top
+            drawControllers(gl, solidColorProgramInfo, controllerBuffers, sessio
+n, frame, referenceSpace, view);
+            if (vrIntersection) {
+                drawCursor(gl, programs, buffers.genericBuffers, textures.pointe
+rTexture, view);
+            }
+            if (vrAlertState.shown) {
+                drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textur
+es.alertTexture, pose, view);
+            }
+        }
+    }
+    session.requestAnimationFrame(onXRFrame);
+}
+
+// --- Drawing Functions ---
+
+function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
+e, view) {
+    if (!session || !session.inputSources) {
+        return;
+    }
+    gl.useProgram(programInfo.program);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+
+    for (let i = 0; i < session.inputSources.length; i++) {
+        const source = session.inputSources[i];
+        if (source.gripSpace) {
+            const gripPose = frame.getPose(source.gripSpace, referenceSpace);
+            if (gripPose) {
+                // Draw controller sphere
+                const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.
+matrix);
+                glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0
+.03, 0.03]);
+                drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, vie
+w, [0.8, 0.8, 0.8, 1.0]);
+
+                // Draw controller ray
+                const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix)
+;
+                // Apply the same downward rotation as the intersection test
+                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0,
+0]);
+                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
+                glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
+                drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0,
+ 1.0, 0.0, 0.8]);
+            }
+        }
+    }
+}
+
+function drawCursor(gl, programs, buffers, texture, view) {
+    // 2D textured pointer (optional, can be disabled)
+    // const { mat4, vec3, quat } = glMatrix;
+    // const pointerModelMatrix = mat4.create();
+    // const boardRotation = quat.create();
+    // mat4.getRotation(boardRotation, canvasModelMatrix);
+    // mat4.fromRotationTranslationScale(pointerModelMatrix, boardRotation, vrIn
+tersection.world, [0.025, 0.025, 0.025]);
+    // drawTextured(gl, programs.textureProgramInfo, buffers.quad, texture, poin
+terModelMatrix, view);
+
+    // 3D cone cursor
+    const { solidColorProgramInfo } = programs;
+    gl.useProgram(solidColorProgramInfo.program);
+    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosit
+ion);
+    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNorma
+l);
+
+    const coneMatrix = glMatrix.mat4.create();
+    const coneHoverPos = glMatrix.vec3.clone(vrIntersection.world);
+    coneHoverPos[2] += 0.2; // Adjust hover height
+    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
+    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
+    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]);
+    drawSolid(gl, solidColorProgramInfo, buffers.cone, coneMatrix, view, [1.0, 1
+.0, 0.0, 1.0]);
+}
+
+function drawAlert(gl, programInfo, buffers, texture, pose, view) {
+    if (vrAlertState.needsUpdate) {
+        const canvas = createAlertCanvas(vrAlertState.message);
+        updateTexture(gl, texture, canvas);
+        vrAlertState.needsUpdate = false;
+    }
+    const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
+    glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
+    //glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0
+]);
+    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
+    drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view)
+;
+}
+
+
+function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
+    gl.useProgram(programInfo.program);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(),
+view.transform.inverse.matrix, modelMatrix);
+    const normalMatrix = glMatrix.mat4.create();
+    glMatrix.mat4.invert(normalMatrix, modelMatrix);
+    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
+
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, vi
+ew.projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, fin
+alModelViewMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normal
+Matrix);
+    gl.uniform4fv(programInfo.uniformLocations.color, color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLO
+AT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.normal);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT
+, false, 0, 0);
+
+    if (bufferInfo.indices) {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
+        gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT,
+ 0);
+    } else {
+        gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.vertexCount);
+    }
+}
+
+function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
+    gl.useProgram(programInfo.program);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
+
+    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.
+transform.inverse.matrix, modelMatrix);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLO
+AT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.textureCoord);
+    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT
+, false, 0, 0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, vi
+ew.projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, mod
+elViewMatrix);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
+    gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
+}
+
+
+// --- Initialization and Setup ---
+
+function setupTextureShaderProgram(gl) {
+    const vsSource = `
+      attribute vec4 aVertexPosition;
+      attribute vec2 aTextureCoord;
+      uniform mat4 uModelViewMatrix;
+      uniform mat4 uProjectionMatrix;
+      varying highp vec2 vTextureCoord;
+      void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        vTextureCoord = aTextureCoord;
+      }`;
+    const fsSource = `
+      precision mediump float;
+      varying highp vec2 vTextureCoord;
+      uniform sampler2D uSampler;
+      void main(void) {
+        gl_FragColor = texture2D(uSampler, vTextureCoord);
+      }`;
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+    return {
+      program: shaderProgram,
+      attribLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatri
+x"),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"
+),
+        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+      },
+    };
+}
+
+function setupSolidColorShaderProgram(gl) {
+    const vsSource = `
+      attribute vec4 aVertexPosition;
+      attribute vec3 aVertexNormal;
+      uniform mat4 uModelViewMatrix;
+      uniform mat4 uProjectionMatrix;
+      uniform mat4 uNormalMatrix;
+      varying highp vec3 vLighting;
+      void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
+        highp vec3 directionalLightColor = vec3(0.7, 0.7, 0.7);
+        highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+        highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+        highp float directional = max(dot(transformedNormal.xyz, directionalVect
+or), 0.0);
+        vLighting = ambientLight + (directionalLightColor * directional);
+      }`;
+    const fsSource = `
+      precision mediump float;
+      uniform vec4 uColor;
+      varying highp vec3 vLighting;
+      void main(void) {
+        gl_FragColor = vec4(uColor.rgb * vLighting, uColor.a);
+      }`;
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+    return {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition
+'),
+            vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal'),
+        },
+        uniformLocations: {
+            projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionM
+atrix'),
+            modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMat
+rix'),
+            normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
+            color: gl.getUniformLocation(shaderProgram, 'uColor'),
+        },
+    };
+}
+
+function initGenericBuffers(gl) {
+    const quad = createCuboid(2.0, 2.0, 0);
+    const quadIndices = new Uint16Array([...quad.frontIndices, ...quad.backIndic
+es]);
+    const quadBuffers = {
+        position: gl.createBuffer(),
+        textureCoord: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: quadIndices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, quad.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.textureCoord);
+    gl.bufferData(gl.ARRAY_BUFFER, quad.textureCoordinates, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndices, gl.STATIC_DRAW);
+
+    const cone = createCone(1.0, 1.0, 12);
+    const coneBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: cone.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, cone.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, cone.normals, gl.STATIC_DRAW);
+
+    return { quad: quadBuffers, cone: coneBuffers };
+}
+
+function createRoundedCuboid(width, height, radius, segments) {
     const w = width / 2;
     const h = height / 2;
-    const d = depth / 2;
+    const d = 0.5; // Use unit depth for scaling later
 
     const vertices = [];
     const normals = [];
     const uvs = [];
     const indices = [];
 
-    // Generate the 2D shape of a face
-    const faceShape = [];
-    const cornerPoints = [
-        [w - radius, h - radius],  // Top-right
-        [-w + radius, h - radius], // Top-left
-        [-w + radius, -h + radius], // Bottom-left
-        [w - radius, -h + radius]   // Bottom-right
-    ];
-
-    for (let i = 0; i < 4; i++) {
-        const [cx, cy] = cornerPoints[i];
-        const startAngle = i * Math.PI / 2;
-        for (let j = 0; j <= segments; j++) {
-            const angle = startAngle + (j / segments) * (Math.PI / 2);
-            faceShape.push([
-                cx + radius * Math.cos(angle),
-                cy + radius * Math.sin(angle)
-            ]);
-        }
-    }
-
-    // Create front and back faces
-    for (let zSign of [-1, 1]) {
-        const baseIndex = vertices.length / 3;
-        faceShape.forEach(([x, y]) => {
-            vertices.push(x, y, d * zSign);
-            normals.push(0, 0, zSign);
-            uvs.push(0.5 + x / width, 0.5 - y / height);
-        });
-        // Triangulate face using a simple fan
-        for (let i = 1; i < faceShape.length - 1; i++) {
-            if (zSign === 1) { // Front face
-                indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
-            } else { // Back face
-                indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
-            }
-        }
-    }
-
-    return {
-        vertices: new Float32Array(vertices),
-        normals: new Float32Array(normals),
-        uvs: new Float32Array(uvs),
-        indices: new Uint16Array(indices)
+    // Helper to add a vertex
+    const addVertex = (x, y, z, nx, ny, nz, u, v) => {
+        vertices.push(x, y, z);
+        normals.push(nx, ny, nz);
+        uvs.push(u, v);
+        return (vertices.length / 3) - 1;
     };
-}
 
-function createCardEdge(width, height, depth, radius, segments) {
-    const w = width / 2;
-    const h = height / 2;
-    const d = depth / 2;
-
-    const vertices = [];
-    const normals = [];
-    const indices = [];
-
-    // Re-generate the same 2D face shape as the card body
+    // Generate the 2D shape of a face and the normals for the edge
     const faceShape = [];
+    const normalShape = [];
     const cornerPoints = [
         [w - radius, h - radius],  // Top-right
         [-w + radius, h - radius], // Top-left
         [-w + radius, -h + radius], // Bottom-left
         [w - radius, -h + radius]   // Bottom-right
     ];
-     const normalShape = [];
 
     for (let i = 0; i < 4; i++) {
         const [cx, cy] = cornerPoints[i];
@@ -140,28 +653,40 @@ function createCardEdge(width, height, depth, radius, segments) {
         }
     }
 
+    // Create front and back faces
+    for (let zSign of [1, -1]) {
+        const baseIndex = vertices.length / 3;
+        faceShape.forEach(([x, y]) => {
+            addVertex(x, y, d * zSign, 0, 0, zSign, 0.5 + x / width, 0.5 - y / height);
+        });
+        // Triangulate face
+        for (let i = 1; i < faceShape.length - 1; i++) {
+            if (zSign === 1) {
+                indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
+            } else {
+                indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
+            }
+        }
+    }
 
-    // Create the edge by connecting the front and back outlines
-    const baseIndex = 0;
+    // Create the edge geometry
+    const edgeBaseIndex = vertices.length / 3;
     for (let i = 0; i < faceShape.length; i++) {
         const [x, y] = faceShape[i];
         const [nx, ny] = normalShape[i];
 
-        // Front vertex
-        vertices.push(x, y, d);
-        normals.push(nx, ny, 0);
-
-        // Back vertex
-        vertices.push(x, y, -d);
-        normals.push(nx, ny, 0);
+        // Front vertex of the edge
+        addVertex(x, y, d, nx, ny, 0, 0.99, 0.99);
+        // Back vertex of the edge
+        addVertex(x, y, -d, nx, ny, 0, 0.99, 0.99);
     }
 
     // Create indices for the edge strip
     for (let i = 0; i < faceShape.length; i++) {
         const next_i = (i + 1) % faceShape.length;
-        const i0 = baseIndex + i * 2;
+        const i0 = edgeBaseIndex + i * 2;
         const i1 = i0 + 1;
-        const i2 = baseIndex + next_i * 2;
+        const i2 = edgeBaseIndex + next_i * 2;
         const i3 = i2 + 1;
 
         indices.push(i0, i2, i1);
@@ -171,9 +696,265 @@ function createCardEdge(width, height, depth, radius, segments) {
     return {
         vertices: new Float32Array(vertices),
         normals: new Float32Array(normals),
+        uvs: new Float32Array(uvs),
         indices: new Uint16Array(indices)
     };
 }
+
+function initPieceBuffers(gl) {
+    // Buffers for Solitaire cards
+    const card = createRoundedCuboid(1.0, 1.5, 0.1, 4);
+    const cardBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        textureCoord: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: card.indices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, card.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, card.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.textureCoord);
+    gl.bufferData(gl.ARRAY_BUFFER, card.uvs, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.indices, gl.STATIC_DRAW);
+
+
+    // Buffers for Circles pieces
+    const cylinder = createCylinder(0.5, .2, 16);
+    const cylinderBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: cylinder.indices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATI
+C_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.normals), gl.STATIC
+_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cylinder.indices), gl
+.STATIC_DRAW);
+
+    const halfCylinder = createHalfCylinder(.2,.4, 8);
+    const halfCylinderBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        vertexCount: halfCylinder.vertices.length / 3,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.S
+TATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.normals), gl.ST
+ATIC_DRAW);
+
+    const stick = createCuboid(1.0, 1.0, 1.0);
+    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIn
+dices]);
+    const stickBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: stickIndices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
+
+    const ring = createRing(0.5, 0.465, 1.0, 16);
+    const ringBuffers = {
+        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: rin
+g.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, ring.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, ring.normals, gl.STATIC_DRAW);
+
+    const arcBottom = createArc(0.5, 0.465, 1.0, 8, 0, Math.PI);
+    const arcBottomBuffers = {
+        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: arc
+Bottom.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.normals, gl.STATIC_DRAW);
+
+    const arcLeft = createArc(0.5, 0.465, 1.0, 8, Math.PI / 2, Math.PI * 1.5);
+    const arcLeftBuffers = {
+        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: arc
+Left.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.normals, gl.STATIC_DRAW);
+
+    return { card: cardBuffers, cylinder: cylinderBuffers, halfCylinder: halfCyl
+inderBuffers, stick: stickBuffers, ring: ringBuffers, arcBottom: arcBottomBuffer
+s, arcLeft: arcLeftBuffers };
+}
+
+function initControllerBuffers(gl) {
+    const sphere = createSphere(1.0, 16, 16);
+    const sphereBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: sphere.vertexCount,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, sphere.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
+
+    const stick = createCuboid(1.0, 1.0, 1.0);
+    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIn
+dices]);
+    const stickBuffers = {
+        position: gl.createBuffer(),
+        normal: gl.createBuffer(),
+        indices: gl.createBuffer(),
+        vertexCount: stickIndices.length,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
+
+    return { sphere: sphereBuffers, stick: stickBuffers };
+}
+
+
+// --- Helper Functions ---
+
+function initShaderProgram(gl, vsSource, fsSource) {
+  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  const shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    console.error("Unable to initialize the shader program: " + gl.getProgramInf
+oLog(shaderProgram));
+    return null;
+  }
+  return shaderProgram;
+}
+
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error("An error occurred compiling the shaders: " + gl.getShaderInfo
+Log(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function initTexture(gl, source) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  return texture;
+}
+
+function updateTexture(gl, texture, source) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+}
+
+function createAlertCanvas(message = "You Won!") {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 512;
+    canvas.height = 256;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.font = "40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+    return canvas;
+}
+
+function createPointerCanvas() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+    ctx.beginPath();
+    ctx.arc(32, 32, 30, 0, 2 * Math.PI);
+    ctx.fill();
+    return canvas;
+}
+
+function intersectPlane(transform, quadModelMatrix) {
+    const { vec3, mat4, quat } = glMatrix;
+    const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y
+, transform.position.z);
+
+    // Create a quaternion for the downward rotation
+    const rotX = quat.create();
+    quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
+
+    // Combine the controller's orientation with the downward rotation
+    const finalRot = quat.multiply(quat.create(), [transform.orientation.x, tran
+sform.orientation.y, transform.orientation.z, transform.orientation.w], rotX);
+
+    // Get the forward direction from the final rotation
+    const rayDirection = vec3.fromValues(0, 0, -1);
+    vec3.transformQuat(rayDirection, rayDirection, finalRot);
+
+    // The rest of the function remains the same, but this is a safer way to han
+dle rotations.
+    const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
+    const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModel
+Matrix);
+    const rayDirectionLocal = vec3.transformMat4(vec3.create(), rayDirection, in
+vModelMatrix);
+    vec3.subtract(rayDirectionLocal, rayDirectionLocal, vec3.transformMat4(vec3.
+create(), [0,0,0], invModelMatrix));
+    vec3.normalize(rayDirectionLocal, rayDirectionLocal);
+    const planeNormal = vec3.fromValues(0, 0, 1);
+    const denom = vec3.dot(planeNormal, rayDirectionLocal);
+    if (Math.abs(denom) > 0.0001) {
+        const t = -rayOriginLocal[2] / denom;
+        if (t >= 0) {
+            const intersectionLocal = vec3.add(vec3.create(), rayOriginLocal, ve
+c3.scale(vec3.create(), rayDirectionLocal, t));
+            if (intersectionLocal[0] >= -1 && intersectionLocal[0] <= 1 && inter
+sectionLocal[1] >= -1 && intersectionLocal[1] <= 1) {
+                const intersectionWorld = vec3.transformMat4(vec3.create(), inte
+rsectionLocal, quadModelMatrix);
+                return { world: intersectionWorld, local: intersectionLocal };
+            }
+        }
+    }
+    return null;
+}
+
+// --- Geometry Creation ---
 
 function createCuboid(width, height, depth) {
     const w = width / 2, h = height / 2, d = depth / 2;
@@ -210,7 +991,8 @@ function createCuboid(width, height, depth) {
         0.0,  1.0, 1.0,  1.0, 1.0,  0.0, 0.0,  0.0,
         // Back face (maps to the whole texture, for the card back)
         0.0,  1.0, 0.0,  0.0, 1.0,  0.0, 1.0,  1.0,
-        // Top, Bottom, Right, Left faces (map to a single white pixel for the edge)
+        // Top, Bottom, Right, Left faces (map to a single white pixel for the e
+dge)
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Top
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Bottom
         0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // Right
@@ -264,7 +1046,8 @@ function createCylinder(radius, height, segments) {
         normals.push(0, -1, 0);
     }
     for (let i = 0; i < segments; i++) {
-        indices.push(bottomCenterIndex, bottomCenterIndex + ((i + 1) % segments) + 1, bottomCenterIndex + i + 1);
+        indices.push(bottomCenterIndex, bottomCenterIndex + ((i + 1) % segments)
+ + 1, bottomCenterIndex + i + 1);
     }
     // Sides
     const sideStartIndex = vertices.length / 3;
@@ -299,23 +1082,29 @@ function createHalfCylinder(radius, height, segments) {
         const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
         const nx1 = Math.cos(ang1), nz1 = Math.sin(ang1);
         const nx2 = Math.cos(ang2), nz2 = Math.sin(ang2);
-        vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight, z1);
+        vertices.push(x1, halfHeight, z1,  x2, halfHeight, z2,  x1, -halfHeight,
+ z1);
         normals.push(nx1,0,nz1, nx2,0,nz2, nx1,0,nz1);
-        vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        vertices.push(x2, halfHeight, z2,  x2, -halfHeight, z2,  x1, -halfHeight
+, z1);
         normals.push(nx2,0,nz2, nx2,0,nz2, nx1,0,nz1);
     }
-    vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeight, radius);
+    vertices.push(0, halfHeight, -radius,  0, -halfHeight, -radius,  0, halfHeig
+ht, radius);
     normals.push(-1,0,0, -1,0,0, -1,0,0);
-    vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeight, radius);
+    vertices.push(0, -halfHeight, -radius,  0, -halfHeight, radius,  0, halfHeig
+ht, radius);
     normals.push(-1,0,0, -1,0,0, -1,0,0);
     for (let i = 0; i < segments; i++) {
         const ang1 = (i / segments) * Math.PI - Math.PI/2;
         const ang2 = ((i + 1) / segments) * Math.PI - Math.PI/2;
         const x1 = radius * Math.cos(ang1), z1 = radius * Math.sin(ang1);
         const x2 = radius * Math.cos(ang2), z2 = radius * Math.sin(ang2);
-        vertices.push(0, halfHeight, 0,  x1, halfHeight, z1,  x2, halfHeight, z2);
+        vertices.push(0, halfHeight, 0,  x1, halfHeight, z1,  x2, halfHeight, z2
+);
         normals.push(0,1,0, 0,1,0, 0,1,0);
-        vertices.push(0, -halfHeight, 0,  x2, -halfHeight, z2,  x1, -halfHeight, z1);
+        vertices.push(0, -halfHeight, 0,  x2, -halfHeight, z2,  x1, -halfHeight,
+ z1);
         normals.push(0,-1,0, 0,-1,0, 0,-1,0);
     }
     return { vertices, normals };
@@ -328,37 +1117,51 @@ function createRing(outerRadius, innerRadius, height, segments) {
     for (let i = 0; i < segments; i++) {
         const ang1 = (i / segments) * 2 * Math.PI;
         const ang2 = ((i + 1) / segments) * 2 * Math.PI;
-        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
-        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin
+(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin
+(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin
+(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin
+(ang2);
         // Top face
-        vertices.push(o_x1, halfHeight, o_z1,  o_x2, halfHeight, o_z2,  i_x1, halfHeight, i_z1);
-        vertices.push(i_x1, halfHeight, i_z1,  o_x2, halfHeight, o_z2,  i_x2, halfHeight, i_z2);
+        vertices.push(o_x1, halfHeight, o_z1,  o_x2, halfHeight, o_z2,  i_x1, ha
+lfHeight, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1,  o_x2, halfHeight, o_z2,  i_x2, ha
+lfHeight, i_z2);
         for(let j=0; j<6; j++) normals.push(0,1,0);
         // Bottom face
-        vertices.push(o_x1, -halfHeight, o_z1,  i_x1, -halfHeight, i_z1,  o_x2, -halfHeight, o_z2);
-        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, -halfHeight, i_z2,  o_x2, -halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1,  i_x1, -halfHeight, i_z1,  o_x2,
+-halfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, -halfHeight, i_z2,  o_x2,
+-halfHeight, o_z2);
         for(let j=0; j<6; j++) normals.push(0,-1,0);
         // Outer face
         const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
         const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
-        vertices.push(o_x1, halfHeight, o_z1,  o_x1, -halfHeight, o_z1,  o_x2, halfHeight, o_z2);
-        vertices.push(o_x1, -halfHeight, o_z1,  o_x2, -halfHeight, o_z2,  o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, halfHeight, o_z1,  o_x1, -halfHeight, o_z1,  o_x2, h
+alfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1,  o_x2, -halfHeight, o_z2,  o_x2,
+halfHeight, o_z2);
         normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
         normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
         // Inner face
         const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
         const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
-        vertices.push(i_x1, halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x1, -halfHeight, i_z1);
-        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x2, -halfHeight, i_z2);
+        vertices.push(i_x1, halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x1, -h
+alfHeight, i_z1);
+        vertices.push(i_x1, -halfHeight, i_z1,  i_x2, halfHeight, i_z2,  i_x2, -
+halfHeight, i_z2);
         normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx1,0,i_nz1);
         normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
     }
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(nor
+mals), vertexCount: vertices.length / 3 };
 }
 
-function createArc(outerRadius, innerRadius, height, segments, startAngle, endAngle) {
+function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
+gle) {
     const vertices = [];
     const normals = [];
     const halfHeight = height / 2;
@@ -366,48 +1169,69 @@ function createArc(outerRadius, innerRadius, height, segments, startAngle, endAn
     for (let i = 0; i < segments; i++) {
         const ang1 = startAngle + (i / segments) * angleRange;
         const ang2 = startAngle + ((i + 1) / segments) * angleRange;
-        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
-        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+        const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin
+(ang1);
+        const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin
+(ang2);
+        const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin
+(ang1);
+        const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin
+(ang2);
         // Top face
-        vertices.push(o_x1, halfHeight, o_z1, o_x2, halfHeight, o_z2, i_x1, halfHeight, i_z1);
-        vertices.push(i_x1, halfHeight, i_z1, o_x2, halfHeight, o_z2, i_x2, halfHeight, i_z2);
+        vertices.push(o_x1, halfHeight, o_z1, o_x2, halfHeight, o_z2, i_x1, half
+Height, i_z1);
+        vertices.push(i_x1, halfHeight, i_z1, o_x2, halfHeight, o_z2, i_x2, half
+Height, i_z2);
         for(let j=0; j<6; j++) normals.push(0,1,0);
         // Bottom face
-        vertices.push(o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1, o_x2, -halfHeight, o_z2);
-        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1, o_x2, -h
+alfHeight, o_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, o_x2, -h
+alfHeight, o_z2);
         for(let j=0; j<6; j++) normals.push(0,-1,0);
         // Outer face
         const o_nx1 = Math.cos(ang1), o_nz1 = Math.sin(ang1);
         const o_nx2 = Math.cos(ang2), o_nz2 = Math.sin(ang2);
-        vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, o_x2, halfHeight, o_z2);
-        vertices.push(o_x1, -halfHeight, o_z1, o_x2, -halfHeight, o_z2, o_x2, halfHeight, o_z2);
+        vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, o_x2, hal
+fHeight, o_z2);
+        vertices.push(o_x1, -halfHeight, o_z1, o_x2, -halfHeight, o_z2, o_x2, ha
+lfHeight, o_z2);
         normals.push(o_nx1,0,o_nz1, o_nx1,0,o_nz1, o_nx2,0,o_nz2);
         normals.push(o_nx1,0,o_nz1, o_nx2,0,o_nz2, o_nx2,0,o_nz2);
         // Inner face
         const i_nx1 = -Math.cos(ang1), i_nz1 = -Math.sin(ang1);
         const i_nx2 = -Math.cos(ang2), i_nz2 = -Math.sin(ang2);
-        vertices.push(i_x1, halfHeight, i_z1, i_x1, -halfHeight, i_z1, i_x2, halfHeight, i_z2);
-        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, i_x2, halfHeight, i_z2);
+        vertices.push(i_x1, halfHeight, i_z1, i_x1, -halfHeight, i_z1, i_x2, hal
+fHeight, i_z2);
+        vertices.push(i_x1, -halfHeight, i_z1, i_x2, -halfHeight, i_z2, i_x2, ha
+lfHeight, i_z2);
         normals.push(i_nx1,0,i_nz1, i_nx1,0,i_nz1, i_nx2,0,i_nz2);
         normals.push(i_nx1,0,i_nz1, i_nx2,0,i_nz2, i_nx2,0,i_nz2);
     }
     const ang1 = startAngle;
-    const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang1);
-    const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang1);
+    const o_x1 = outerRadius * Math.cos(ang1), o_z1 = outerRadius * Math.sin(ang
+1);
+    const i_x1 = innerRadius * Math.cos(ang1), i_z1 = innerRadius * Math.sin(ang
+1);
     const cap1Normal = [Math.sin(ang1), 0, -Math.cos(ang1)];
-    vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHeight, i_z1);
-    vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHeight, i_z1);
+    vertices.push(o_x1, halfHeight, o_z1, o_x1, -halfHeight, o_z1, i_x1, halfHei
+ght, i_z1);
+    vertices.push(i_x1, halfHeight, i_z1, o_x1, -halfHeight, o_z1, i_x1, -halfHe
+ight, i_z1);
     for(let j=0; j<6; j++) normals.push(...cap1Normal);
     const ang2 = endAngle;
-    const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang2);
-    const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang2);
+    const o_x2 = outerRadius * Math.cos(ang2), o_z2 = outerRadius * Math.sin(ang
+2);
+    const i_x2 = innerRadius * Math.cos(ang2), i_z2 = innerRadius * Math.sin(ang
+2);
     const cap2Normal = [-Math.sin(endAngle), 0, Math.cos(endAngle)];
-    vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, o_z2, o_x2, -halfHeight, o_z2);
-    vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHeight, o_z2);
+    vertices.push(o_x2, halfHeight, o_z2, i_x2, halfHeight, o_z2, o_x2, -halfHei
+ght, o_z2);
+    vertices.push(i_x2, halfHeight, i_z2, i_x2, -halfHeight, i_z2, o_x2, -halfHe
+ight, o_z2);
     for(let j=0; j<6; j++) normals.push(...cap2Normal);
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(nor
+mals), vertexCount: vertices.length / 3 };
 }
 
 function createCone(radius, height, segments) {
@@ -428,9 +1252,12 @@ function createCone(radius, height, segments) {
         const len2 = Math.sqrt(n2[0]*n2[0] + n2[1]*n2[1] + n2[2]*n2[2]);
         const normal1 = [n1[0]/len1, n1[1]/len1, n1[2]/len1];
         const normal2 = [n2[0]/len2, n2[1]/len2, n2[2]/len2];
-        const tipNormal = [(normal1[0]+normal2[0])/2, (normal1[1]+normal2[1])/2, (normal1[2]+normal2[2])/2];
-        const tipNormalLen = Math.sqrt(tipNormal[0]*tipNormal[0] + tipNormal[1]*tipNormal[1] + tipNormal[2]*tipNormal[2]);
-        normals.push(tipNormal[0]/tipNormalLen, tipNormal[1]/tipNormalLen, tipNormal[2]/tipNormalLen);
+        const tipNormal = [(normal1[0]+normal2[0])/2, (normal1[1]+normal2[1])/2,
+ (normal1[2]+normal2[2])/2];
+        const tipNormalLen = Math.sqrt(tipNormal[0]*tipNormal[0] + tipNormal[1]*
+tipNormal[1] + tipNormal[2]*tipNormal[2]);
+        normals.push(tipNormal[0]/tipNormalLen, tipNormal[1]/tipNormalLen, tipNo
+rmal[2]/tipNormalLen);
         normals.push(...normal1);
         normals.push(...normal2);
     }
@@ -442,7 +1269,8 @@ function createCone(radius, height, segments) {
         vertices.push(0, -height/2, 0, x2, -height/2, z2, x1, -height/2, z1);
         normals.push(0,-1,0, 0,-1,0, 0,-1,0);
     }
-    return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+    return { vertices: new Float32Array(vertices), normals: new Float32Array(nor
+mals), vertexCount: vertices.length / 3 };
 }
 
 function createSphere(radius, latitudeBands, longitudeBands) {
@@ -478,805 +1306,4 @@ function createSphere(radius, latitudeBands, longitudeBands) {
         indices: new Uint16Array(indices),
         vertexCount: indices.length
     };
-}
-
-// --- Core VR/XR Logic ---
-
-async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
-  const vrButton = document.getElementById("btn-vr");
-  try {
-    vrSession = await navigator.xr.requestSession("immersive-vr", {
-      optionalFeatures: ["local-floor"],
-    });
-    inVR = true;
-    vrButton.textContent = "Stop VR";
-    vrButton.disabled = false;
-    runXRRendering(vrSession, 'immersive-vr', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
-  } catch (error) {
-    console.error("Failed to enter VR mode:", error);
-    vrSession = null;
-    inVR = false;
-    vrButton.textContent = "Start VR";
-    vrButton.disabled = false;
-  }
-}
-
-async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
-    const xrButton = document.getElementById('btn-xr');
-    try {
-        arSession = await navigator.xr.requestSession('immersive-ar', {
-            optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: document.body }
-        });
-        inAR = true;
-        xrButton.textContent = 'Stop XR';
-        xrButton.disabled = false;
-        runXRRendering(arSession, 'immersive-ar', drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler);
-    } catch (e) {
-        console.error("Failed to start AR session:", e);
-        arSession = null;
-        inAR = false;
-        xrButton.textContent = 'Start XR';
-        xrButton.disabled = false;
-    }
-}
-
-async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
-    const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.DEPTH_TEST);
-
-    await gl.makeXRCompatible();
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-
-    let referenceSpace;
-    try {
-        referenceSpace = await session.requestReferenceSpace("local-floor");
-    } catch (e) {
-        console.warn("Could not get 'local-floor' reference space, falling back to 'local'");
-        referenceSpace = await session.requestReferenceSpace("local");
-    }
-
-    // --- Shader Programs ---
-    const textureProgramInfo = setupTextureShaderProgram(gl);
-    const solidColorProgramInfo = setupSolidColorShaderProgram(gl);
-    const programs = { textureProgramInfo, solidColorProgramInfo };
-
-    // --- Buffers for various models ---
-    const genericBuffers = initGenericBuffers(gl);
-    const pieceBuffers = initPieceBuffers(gl); // For game pieces (e.g., cards, circles)
-    const controllerBuffers = initControllerBuffers(gl); // For rendering controllers
-    const buffers = { genericBuffers, pieceBuffers, controllerBuffers };
-
-    // --- Textures ---
-    const alertTexture = initTexture(gl, createAlertCanvas());
-    const pointerTexture = initTexture(gl, createPointerCanvas());
-    const textures = { alertTexture, pointerTexture };
-
-    // --- VR interaction state ---
-    let primaryButtonPressedLastFrame = false;
-    let bButtonPressedLastFrame = false;
-    let buttonStatesLastFrame = {}; // For all buttons on controllers
-    let activeController = null;
-    let lastActiveController = null;
-    // VR Y position: 1.0 is floor level. Raise by logical board height (1.0) for comfortable viewing.
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 2.0, -2.0];
-    let vrCanvasRotationY = 0;
-    canvasModelMatrix = glMatrix.mat4.create();
-    let sessionActive = true;
-
-    function onSessionEnded(event) {
-        sessionActive = false;
-        activeController = null;
-        lastActiveController = null;
-
-        // Set inVR/inAR to false before the callback
-        if (event.session === vrSession) {
-            inVR = false;
-            vrSession = null;
-        } else if (event.session === arSession) {
-            inAR = false;
-            arSession = null;
-        }
-
-        if (onEndCallback) onEndCallback();
-
-        // Update button text after callback
-        const vrButton = document.getElementById("btn-vr");
-        if(vrButton && !vrSession) vrButton.textContent = "Start VR";
-        const xrButton = document.getElementById('btn-xr');
-        if(xrButton && !arSession) xrButton.textContent = 'Start XR';
-    }
-    session.addEventListener('end', onSessionEnded);
-
-
-    // --- Event Listeners ---
-    session.addEventListener('selectstart', (event) => {
-      activeController = event.inputSource;
-      if (vrAlertState.shown) {
-        if (vrAlertState.onDismiss) vrAlertState.onDismiss();
-        vrAlertState.shown = false;
-        ignoreNextSelectEnd = true;
-        return;
-      }
-      if (vrIntersection) {
-        // Pass the raw intersection coordinates; the game logic will be responsible for interpretation
-        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-      }
-    });
-
-    session.addEventListener('selectend', () => {
-      if (ignoreNextSelectEnd) {
-        ignoreNextSelectEnd = false;
-        return;
-      }
-      if (vrIntersection) {
-        // Pass the raw intersection coordinates; the game logic will be responsible for interpretation
-        clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-      }
-    });
-
-    function onXRFrame(time, frame) {
-        if (!sessionActive) return;
-        session.requestAnimationFrame(onXRFrame);
-
-        // Update game state before drawing
-        if (typeof draw === 'function') draw(1); // Assumes game has a global draw function
-
-        const pose = frame.getViewerPose(referenceSpace);
-        if (!pose) return;
-
-        // --- Controller/Input Processing ---
-        vrIntersection = null;
-        let leftController = null;
-        let rightController = null;
-
-        for (const source of session.inputSources) {
-            if (source.handedness === 'left') leftController = source;
-            else if (source.handedness === 'right') rightController = source;
-        }
-
-        // If an active controller is set, but is no longer in the input sources (e.g. it disconnected), clear it.
-        if (activeController && !Array.from(session.inputSources).includes(activeController)) {
-            activeController = null;
-        }
-
-        // If no controller is active, try to default to one.
-        if (!activeController) {
-            activeController = rightController || leftController || session.inputSources[0] || null;
-        }
-        lastActiveController = activeController;
-
-        // --- Handle controller inputs for movement, rotation, etc. ---
-        // This part remains for general navigation that should be common to all games.
-        // Left controller: movement
-        if (leftController && leftController.gamepad) {
-            const thumbstickX = leftController.gamepad.axes[2];
-            const thumbstickY = leftController.gamepad.axes[3];
-            const moveSpeed = 0.02;
-            if (Math.abs(thumbstickX) > 0.1) vrCanvasPosition[0] += thumbstickX * moveSpeed;
-            if (Math.abs(thumbstickY) > 0.1) vrCanvasPosition[1] -= thumbstickY * moveSpeed;
-        }
-
-        // Right controller: zoom and rotate
-        if (rightController && rightController.gamepad) {
-            const thumbstickY = rightController.gamepad.axes[3];
-            const zoomSpeed = 0.02;
-            if (Math.abs(thumbstickY) > 0.1) vrCanvasPosition[2] += thumbstickY * zoomSpeed;
-
-            const thumbstickX = rightController.gamepad.axes[2];
-            const rotateSpeed = 0.02;
-            if (Math.abs(thumbstickX) > 0.4) vrCanvasRotationY += thumbstickX * rotateSpeed;
-
-            const bButton = rightController.gamepad.buttons[5];
-            if (bButton && bButton.pressed && !bButtonPressedLastFrame) session.end();
-            bButtonPressedLastFrame = bButton ? bButton.pressed : false;
-        }
-
-        // --- Intersection Detection ---
-        // This needs to happen before button handling so the intersection data is available.
-        if (activeController && activeController.gripSpace) {
-            const gripPose = frame.getPose(activeController.gripSpace, referenceSpace);
-            if (gripPose) {
-                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
-                if (intersection) {
-                    vrIntersection = { ...intersection, gripPose, controller: activeController };
-                }
-            }
-        }
-
-        // --- Generic Button Handling ---
-        if (buttonHandler && session.inputSources) {
-            for (let i = 0; i < session.inputSources.length; i++) {
-                const source = session.inputSources[i];
-                if (source.gamepad && source.handedness) {
-                    const handedness = source.handedness;
-                    if (!buttonStatesLastFrame[handedness]) {
-                        buttonStatesLastFrame[handedness] = [];
-                    }
-                    source.gamepad.buttons.forEach((button, index) => {
-                        const wasPressed = buttonStatesLastFrame[handedness][index] || false;
-                        if (button.pressed !== wasPressed) {
-                            buttonHandler(index, button.pressed, vrIntersection, handedness);
-                        }
-                    });
-                    buttonStatesLastFrame[handedness] = source.gamepad.buttons.map(b => b.pressed);
-                }
-            }
-        }
-
-        // Update canvas model matrix based on controls
-        const aspectRatio = boardAspectRatio || (gameXx / gameYy);
-        glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
-        glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
-        glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
-
-
-        // --- Rendering ---
-        const glLayer = session.renderState.baseLayer;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-        if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
-    else gl.clearColor(0, 0, 0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        for (const view of pose.views) {
-            const viewport = glLayer.getViewport(view);
-            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-
-            // Let the specific game draw its scene
-            if (drawGameCallback) {
-                drawGameCallback(gl, programs, buffers, view);
-            }
-
-            // Draw controllers, cursor, and alerts on top
-            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view);
-            if (vrIntersection) {
-                drawCursor(gl, programs, buffers.genericBuffers, textures.pointerTexture, view);
-            }
-            if (vrAlertState.shown) {
-                drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textures.alertTexture, pose, view);
-            }
-        }
-    }
-    session.requestAnimationFrame(onXRFrame);
-}
-
-// --- Drawing Functions ---
-
-function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
-    if (!session || !session.inputSources) {
-        return;
-    }
-    gl.useProgram(programInfo.program);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-
-    for (let i = 0; i < session.inputSources.length; i++) {
-        const source = session.inputSources[i];
-        if (source.gripSpace) {
-            const gripPose = frame.getPose(source.gripSpace, referenceSpace);
-            if (gripPose) {
-                // Draw controller sphere
-                const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
-                drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, view, [0.8, 0.8, 0.8, 1.0]);
-
-                // Draw controller ray
-                const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                // Apply the same downward rotation as the intersection test
-                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
-                glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
-                glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
-                drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
-            }
-        }
-    }
-}
-
-function drawCursor(gl, programs, buffers, texture, view) {
-    // 2D textured pointer (optional, can be disabled)
-    // const { mat4, vec3, quat } = glMatrix;
-    // const pointerModelMatrix = mat4.create();
-    // const boardRotation = quat.create();
-    // mat4.getRotation(boardRotation, canvasModelMatrix);
-    // mat4.fromRotationTranslationScale(pointerModelMatrix, boardRotation, vrIntersection.world, [0.025, 0.025, 0.025]);
-    // drawTextured(gl, programs.textureProgramInfo, buffers.quad, texture, pointerModelMatrix, view);
-
-    // 3D cone cursor
-    const { solidColorProgramInfo } = programs;
-    gl.useProgram(solidColorProgramInfo.program);
-    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
-
-    const coneMatrix = glMatrix.mat4.create();
-    const coneHoverPos = glMatrix.vec3.clone(vrIntersection.world);
-    coneHoverPos[2] += 0.2; // Adjust hover height
-    glMatrix.mat4.fromTranslation(coneMatrix, coneHoverPos);
-    glMatrix.mat4.scale(coneMatrix, coneMatrix, [0.02, 0.05, 0.02]);
-    glMatrix.mat4.rotate(coneMatrix, coneMatrix, Math.PI, [1, 0, 0]);
-    drawSolid(gl, solidColorProgramInfo, buffers.cone, coneMatrix, view, [1.0, 1.0, 0.0, 1.0]);
-}
-
-function drawAlert(gl, programInfo, buffers, texture, pose, view) {
-    if (vrAlertState.needsUpdate) {
-        const canvas = createAlertCanvas(vrAlertState.message);
-        updateTexture(gl, texture, canvas);
-        vrAlertState.needsUpdate = false;
-    }
-    const alertModelMatrix = glMatrix.mat4.clone(pose.transform.matrix);
-    glMatrix.mat4.translate(alertModelMatrix, alertModelMatrix, [0, 0, -1.5]);
-    //glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
-    glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
-    drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view);
-}
-
-
-function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
-    gl.useProgram(programInfo.program);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
-    const normalMatrix = glMatrix.mat4.create();
-    glMatrix.mat4.invert(normalMatrix, modelMatrix);
-    glMatrix.mat4.transpose(normalMatrix, normalMatrix);
-
-    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, finalModelViewMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
-    gl.uniform4fv(programInfo.uniformLocations.color, color);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.normal);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-
-    if (bufferInfo.indices) {
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
-        gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
-    } else {
-        gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.vertexCount);
-    }
-}
-
-function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
-    gl.useProgram(programInfo.program);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
-
-    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.textureCoord);
-    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
-
-    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
-    gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
-}
-
-
-// --- Initialization and Setup ---
-
-function setupTextureShaderProgram(gl) {
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      attribute vec2 aTextureCoord;
-      uniform mat4 uModelViewMatrix;
-      uniform mat4 uProjectionMatrix;
-      varying highp vec2 vTextureCoord;
-      void main(void) {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        vTextureCoord = aTextureCoord;
-      }`;
-    const fsSource = `
-      precision mediump float;
-      varying highp vec2 vTextureCoord;
-      uniform sampler2D uSampler;
-      void main(void) {
-        gl_FragColor = texture2D(uSampler, vTextureCoord);
-      }`;
-    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-    return {
-      program: shaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
-      },
-      uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
-        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
-      },
-    };
-}
-
-function setupSolidColorShaderProgram(gl) {
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      attribute vec3 aVertexNormal;
-      uniform mat4 uModelViewMatrix;
-      uniform mat4 uProjectionMatrix;
-      uniform mat4 uNormalMatrix;
-      varying highp vec3 vLighting;
-      void main(void) {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
-        highp vec3 directionalLightColor = vec3(0.7, 0.7, 0.7);
-        highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
-        highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
-        highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
-        vLighting = ambientLight + (directionalLightColor * directional);
-      }`;
-    const fsSource = `
-      precision mediump float;
-      uniform vec4 uColor;
-      varying highp vec3 vLighting;
-      void main(void) {
-        gl_FragColor = vec4(uColor.rgb * vLighting, uColor.a);
-      }`;
-    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-    return {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-            vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal'),
-        },
-        uniformLocations: {
-            projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-            modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-            normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
-            color: gl.getUniformLocation(shaderProgram, 'uColor'),
-        },
-    };
-}
-
-function initGenericBuffers(gl) {
-    const quad = createCuboid(2.0, 2.0, 0);
-    const quadIndices = new Uint16Array([...quad.frontIndices, ...quad.backIndices]);
-    const quadBuffers = {
-        position: gl.createBuffer(),
-        textureCoord: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: quadIndices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, quad.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffers.textureCoord);
-    gl.bufferData(gl.ARRAY_BUFFER, quad.textureCoordinates, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndices, gl.STATIC_DRAW);
-
-    const cone = createCone(1.0, 1.0, 12);
-    const coneBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        vertexCount: cone.vertexCount,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, cone.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, coneBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, cone.normals, gl.STATIC_DRAW);
-
-    return { quad: quadBuffers, cone: coneBuffers };
-}
-
-function createRoundedCuboid(width, height, depth, radius, segments) {
-    const w = width / 2;
-    const h = height / 2;
-    const d = depth / 2;
-
-    const vertices = [];
-    const normals = [];
-    const uvs = [];
-    const indices = [];
-
-    // Helper to add a vertex and return its index
-    const addVertex = (x, y, z, nx, ny, nz, u, v) => {
-        vertices.push(x, y, z);
-        normals.push(nx, ny, nz);
-        uvs.push(u, v);
-        return (vertices.length / 3) - 1;
-    };
-
-    // Generate the 2D shape of a face
-    const faceShape = [];
-    const cornerPoints = [
-        [w - radius, h - radius],  // Top-right
-        [-w + radius, h - radius], // Top-left
-        [-w + radius, -h + radius], // Bottom-left
-        [w - radius, -h + radius]   // Bottom-right
-    ];
-
-    for (let i = 0; i < 4; i++) {
-        const [cx, cy] = cornerPoints[i];
-        const startAngle = i * Math.PI / 2;
-        for (let j = 0; j <= segments; j++) {
-            const angle = startAngle + (j / segments) * (Math.PI / 2);
-            faceShape.push([
-                cx + radius * Math.cos(angle),
-                cy + radius * Math.sin(angle)
-            ]);
-        }
-    }
-
-    // Create front and back faces (with dedicated vertices)
-    for (let zSign of [-1, 1]) {
-        const baseIndex = vertices.length / 3;
-        faceShape.forEach(([x, y]) => {
-            addVertex(x, y, d * zSign, 0, 0, zSign, 0.5 + x / width, 0.5 - y / height);
-        });
-        // Triangulate face
-        for (let i = 1; i < faceShape.length - 1; i++) {
-            if (zSign === 1) {
-                indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
-            } else {
-                indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
-            }
-        }
-    }
-
-    return {
-        vertices: new Float32Array(vertices),
-        normals: new Float32Array(normals),
-        uvs: new Float32Array(uvs),
-        indices: new Uint16Array(indices)
-    };
-}
-
-function initPieceBuffers(gl) {
-    // Buffers for Solitaire cards
-    const cardBodyGeometry = createCardBody(1.0, 1.5, 0.02, 0.1, 8);
-    const cardEdgeGeometry = createCardEdge(1.0, 1.5, 0.02, 0.1, 8);
-
-    const cardBodyBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        textureCoord: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: cardBodyGeometry.indices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardBodyBuffers.textureCoord);
-    gl.bufferData(gl.ARRAY_BUFFER, cardBodyGeometry.uvs, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBodyBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cardBodyGeometry.indices, gl.STATIC_DRAW);
-
-    const cardEdgeBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: cardEdgeGeometry.indices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardEdgeBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, cardEdgeGeometry.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cardEdgeBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, cardEdgeGeometry.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardEdgeBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cardEdgeGeometry.indices, gl.STATIC_DRAW);
-
-    const card = {
-        body: cardBodyBuffers,
-        edge: cardEdgeBuffers,
-    };
-
-    // Buffers for Circles pieces
-    const cylinder = createCylinder(0.5, .2, 16);
-    const cylinderBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: cylinder.indices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.vertices), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cylinderBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cylinder.normals), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylinderBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cylinder.indices), gl.STATIC_DRAW);
-
-    const halfCylinder = createHalfCylinder(.2,.4, 8);
-    const halfCylinderBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        vertexCount: halfCylinder.vertices.length / 3,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.vertices), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, halfCylinderBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(halfCylinder.normals), gl.STATIC_DRAW);
-
-    const stick = createCuboid(1.0, 1.0, 1.0);
-    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIndices]);
-    const stickBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: stickIndices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
-
-    const ring = createRing(0.5, 0.465, 1.0, 16);
-    const ringBuffers = {
-        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: ring.vertexCount,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, ring.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, ringBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, ring.normals, gl.STATIC_DRAW);
-
-    const arcBottom = createArc(0.5, 0.465, 1.0, 8, 0, Math.PI);
-    const arcBottomBuffers = {
-        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: arcBottom.vertexCount,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, arcBottomBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, arcBottom.normals, gl.STATIC_DRAW);
-
-    const arcLeft = createArc(0.5, 0.465, 1.0, 8, Math.PI / 2, Math.PI * 1.5);
-    const arcLeftBuffers = {
-        position: gl.createBuffer(), normal: gl.createBuffer(), vertexCount: arcLeft.vertexCount,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, arcLeftBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, arcLeft.normals, gl.STATIC_DRAW);
-
-    return { card: cardBuffers, cylinder: cylinderBuffers, halfCylinder: halfCylinderBuffers, stick: stickBuffers, ring: ringBuffers, arcBottom: arcBottomBuffers, arcLeft: arcLeftBuffers };
-}
-
-function initControllerBuffers(gl) {
-    const sphere = createSphere(1.0, 16, 16);
-    const sphereBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: sphere.vertexCount,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, sphere.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
-
-    const stick = createCuboid(1.0, 1.0, 1.0);
-    const stickIndices = new Uint16Array([...stick.frontIndices, ...stick.backIndices]);
-    const stickBuffers = {
-        position: gl.createBuffer(),
-        normal: gl.createBuffer(),
-        indices: gl.createBuffer(),
-        vertexCount: stickIndices.length,
-    };
-    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.position);
-    gl.bufferData(gl.ARRAY_BUFFER, stick.vertices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, stickBuffers.normal);
-    gl.bufferData(gl.ARRAY_BUFFER, stick.normals, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, stickBuffers.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, stickIndices, gl.STATIC_DRAW);
-
-    return { sphere: sphereBuffers, stick: stickBuffers };
-}
-
-
-// --- Helper Functions ---
-
-function initShaderProgram(gl, vsSource, fsSource) {
-  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  const shaderProgram = gl.createProgram();
-  gl.attachShader(shaderProgram, vertexShader);
-  gl.attachShader(shaderProgram, fragmentShader);
-  gl.linkProgram(shaderProgram);
-  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-    console.error("Unable to initialize the shader program: " + gl.getProgramInfoLog(shaderProgram));
-    return null;
-  }
-  return shaderProgram;
-}
-
-function loadShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
-}
-
-function initTexture(gl, source) {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  return texture;
-}
-
-function updateTexture(gl, texture, source) {
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-}
-
-function createAlertCanvas(message = "You Won!") {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = 512;
-    canvas.height = 256;
-    ctx.fillStyle = "rgba(0, 0, 0, 0)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "white";
-    ctx.font = "40px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(message, canvas.width / 2, canvas.height / 2);
-    return canvas;
-}
-
-function createPointerCanvas() {
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-    ctx.beginPath();
-    ctx.arc(32, 32, 30, 0, 2 * Math.PI);
-    ctx.fill();
-    return canvas;
-}
-
-function intersectPlane(transform, quadModelMatrix) {
-    const { vec3, mat4, quat } = glMatrix;
-    const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
-
-    // Create a quaternion for the downward rotation
-    const rotX = quat.create();
-    quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
-
-    // Combine the controller's orientation with the downward rotation
-    const finalRot = quat.multiply(quat.create(), [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w], rotX);
-
-    // Get the forward direction from the final rotation
-    const rayDirection = vec3.fromValues(0, 0, -1);
-    vec3.transformQuat(rayDirection, rayDirection, finalRot);
-
-    // The rest of the function remains the same, but this is a safer way to handle rotations.
-    const invModelMatrix = mat4.invert(mat4.create(), quadModelMatrix);
-    const rayOriginLocal = vec3.transformMat4(vec3.create(), rayOrigin, invModelMatrix);
-    const rayDirectionLocal = vec3.transformMat4(vec3.create(), rayDirection, invModelMatrix);
-    vec3.subtract(rayDirectionLocal, rayDirectionLocal, vec3.transformMat4(vec3.create(), [0,0,0], invModelMatrix));
-    vec3.normalize(rayDirectionLocal, rayDirectionLocal);
-    const planeNormal = vec3.fromValues(0, 0, 1);
-    const denom = vec3.dot(planeNormal, rayDirectionLocal);
-    if (Math.abs(denom) > 0.0001) {
-        const t = -rayOriginLocal[2] / denom;
-        if (t >= 0) {
-            const intersectionLocal = vec3.add(vec3.create(), rayOriginLocal, vec3.scale(vec3.create(), rayDirectionLocal, t));
-            if (intersectionLocal[0] >= -1 && intersectionLocal[0] <= 1 && intersectionLocal[1] >= -1 && intersectionLocal[1] <= 1) {
-                const intersectionWorld = vec3.transformMat4(vec3.create(), intersectionLocal, quadModelMatrix);
-                return { world: intersectionWorld, local: intersectionLocal };
-            }
-        }
-    }
-    return null;
 }
