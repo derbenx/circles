@@ -779,7 +779,7 @@ function getCardTexture(gl, cardFace) {
 const layout = {
     boardAspectRatio: 7.0 / 5.0,
     cardWidth: 0.2,
-    get cardHeight() { return this.cardWidth * 1.5; },
+    get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
     get xSpacing() { return this.cardWidth * 1.15; },
     get ySpacing() { return this.cardHeight * 0.2; },
     get totalWidth() { return 7 * this.xSpacing; },
