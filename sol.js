@@ -892,17 +892,22 @@ function rebuildLegacyArrays() {
 
 function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
     const { textureProgramInfo } = programs;
-    const { card } = buffers.pieceBuffers;
+    const cardBuffers = buffers.pieceBuffers.card;
 
-    const backTexture = getCardTexture(gl, 'b1');
-    const backBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.backIndices, vertexCount: card.backVertexCount };
-    drawTextured(gl, textureProgramInfo, backBuffers, backTexture, modelMatrix, view);
-
-    if (cardFace !== 'b1' && !cardFace.startsWith('x')) {
-        const frontTexture = getCardTexture(gl, cardFace);
-        const frontBuffers = { position: card.position, textureCoord: card.textureCoord, indices: card.frontIndices, vertexCount: card.frontVertexCount };
-        drawTextured(gl, textureProgramInfo, frontBuffers, frontTexture, modelMatrix, view);
+    console.log("--- DEBUG: drawCardWithMatrix ---");
+    console.log("Card Face:", cardFace);
+    console.log("Card Buffers:", cardBuffers);
+    if (cardBuffers) {
+        console.log("Indices valid:", gl.isBuffer(cardBuffers.indices));
     }
+
+    // This simplified logic draws the same texture on both sides.
+    const texture = (cardFace === 'b1' || cardFace.startsWith('x'))
+        ? getCardTexture(gl, 'b1')
+        : getCardTexture(gl, cardFace);
+
+    // The entire card is now one drawable object.
+    drawTextured(gl, textureProgramInfo, cardBuffers, texture, modelMatrix, view);
 }
 
 function drawSolitaire(gl, programs, buffers, view) {
