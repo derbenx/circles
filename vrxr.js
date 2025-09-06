@@ -539,13 +539,22 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     const w = width / 2;
     const h = height / 2;
     const d = depth / 2;
+    const corner_tex_uv = 0.01; // UV coordinate for the white edge color
 
     const vertices = [];
     const normals = [];
     const uvs = [];
     const indices = [];
 
-    // Create a single face's vertices
+    // Helper function to add a vertex
+    function addVertex(x, y, z, nx, ny, nz, u, v) {
+        vertices.push(x, y, z);
+        normals.push(nx, ny, nz);
+        uvs.push(u, v);
+        return (vertices.length / 3) - 1;
+    }
+
+    // Generate vertices for a single rounded-rectangle face shape
     const faceShape = [];
     const cornerPoints = [
         [w - radius, h - radius],  // Top-right
@@ -559,11 +568,10 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
         const startAngle = i * Math.PI / 2;
         for (let j = 0; j <= segments; j++) {
             const angle = startAngle + (j / segments) * (Math.PI / 2);
-            const x = cx + radius * Math.cos(angle);
-            const y = cy + radius * Math.sin(angle);
-            if (j < segments) { // Avoid duplicating vertices at the seam
-                faceShape.push([x, y]);
-            }
+            faceShape.push([
+                cx + radius * Math.cos(angle),
+                cy + radius * Math.sin(angle)
+            ]);
         }
     }
 
@@ -571,14 +579,11 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     for (let zSign = -1; zSign <= 1; zSign += 2) {
         const baseIndex = vertices.length / 3;
         for (const [x, y] of faceShape) {
-            vertices.push(x, y, d * zSign);
-            normals.push(0, 0, zSign);
-            uvs.push(x / width + 0.5, y / height + 0.5);
+            addVertex(x, y, d * zSign, 0, 0, zSign, 0.5 + x / width, 0.5 - y / height);
         }
-
-        // Triangulate the face using a simple fan from the first vertex
-        for (let i = 1; i < faceShape.length - 1; i++) {
-            if (zSign === 1) {
+        // Triangulate the face
+        for (let i = 1; i < faceShape.length - 2; i++) {
+             if (zSign === 1) {
                 indices.push(baseIndex, baseIndex + i, baseIndex + i + 1);
             } else {
                 indices.push(baseIndex, baseIndex + i + 1, baseIndex + i);
@@ -592,51 +597,25 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     for (let i = 0; i < faceShape.length; i++) {
         const i_next = (i + 1) % faceShape.length;
 
-        const f1 = frontBase + i;
-        const f2 = frontBase + i_next;
-        const b1 = backBase + i;
-        const b2 = backBase + i_next;
+        const [x1, y1] = faceShape[i];
+        const [x2, y2] = faceShape[i_next];
 
-        indices.push(f1, b1, f2);
-        indices.push(b1, b2, f2);
-    }
+        // Calculate normal for the edge
+        const edge_dx = x2 - x1;
+        const edge_dy = y2 - y1;
+        let nx = -edge_dy;
+        let ny = edge_dx;
+        const len = Math.sqrt(nx*nx + ny*ny);
+        nx /= len;
+        ny /= len;
 
-    // Fix normals for the edges
-    for (let i = 0; i < faceShape.length; i++) {
-        const [x, y] = faceShape[i];
-        let nx = 0, ny = 0;
+        const v1_front = addVertex(x1, y1, d, nx, ny, 0, corner_tex_uv, corner_tex_uv);
+        const v2_front = addVertex(x2, y2, d, nx, ny, 0, corner_tex_uv, corner_tex_uv);
+        const v1_back = addVertex(x1, y1, -d, nx, ny, 0, corner_tex_uv, corner_tex_uv);
+        const v2_back = addVertex(x2, y2, -d, nx, ny, 0, corner_tex_uv, corner_tex_uv);
 
-        // Top edge
-        if (Math.abs(y - (h - radius)) < 0.001 && x > -w + radius && x < w - radius) ny = 1;
-        // Bottom edge
-        else if (Math.abs(y - (-h + radius)) < 0.001 && x > -w + radius && x < w - radius) ny = -1;
-        // Right edge
-        else if (Math.abs(x - (w - radius)) < 0.001 && y > -h + radius && y < h - radius) nx = 1;
-        // Left edge
-        else if (Math.abs(x - (-w + radius)) < 0.001 && y > -h + radius && y < h - radius) nx = -1;
-        else { // Corner
-            let cx, cy;
-            if (x > 0 && y > 0) [cx, cy] = cornerPoints[0];
-            else if (x < 0 && y > 0) [cx, cy] = cornerPoints[1];
-            else if (x < 0 && y < 0) [cx, cy] = cornerPoints[2];
-            else [cx, cy] = cornerPoints[3];
-            const dx = x - cx;
-            const dy = y - cy;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            nx = dx / len;
-            ny = dy / len;
-        }
-
-        const frontIndex = frontBase + i;
-        const backIndex = backBase + i;
-
-        normals[frontIndex * 3] = nx;
-        normals[frontIndex * 3 + 1] = ny;
-        normals[frontIndex * 3 + 2] = 0;
-
-        normals[backIndex * 3] = nx;
-        normals[backIndex * 3 + 1] = ny;
-        normals[backIndex * 3 + 2] = 0;
+        indices.push(v1_front, v1_back, v2_front);
+        indices.push(v1_back, v2_back, v2_front);
     }
 
     return {
@@ -649,7 +628,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1, 1.5, 0.01, 0.1, 5);
+    const card = createRoundedCuboid(1.0, 1.5, 0.02, 0.05, 4);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),

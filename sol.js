@@ -894,13 +894,6 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
     const { textureProgramInfo } = programs;
     const cardBuffers = buffers.pieceBuffers.card;
 
-    console.log("--- DEBUG: drawCardWithMatrix ---");
-    console.log("Card Face:", cardFace);
-    console.log("Card Buffers:", cardBuffers);
-    if (cardBuffers) {
-        console.log("Indices valid:", gl.isBuffer(cardBuffers.indices));
-    }
-
     // This simplified logic draws the same texture on both sides.
     const texture = (cardFace === 'b1' || cardFace.startsWith('x'))
         ? getCardTexture(gl, 'b1')
