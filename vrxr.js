@@ -536,7 +536,7 @@ function initGenericBuffers(gl) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createCuboid(1.0, 1.0, 1.0);
+    const card = createRoundedCuboid(1.0, 1.0, 1.0, 0.05, 8);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
@@ -768,6 +768,85 @@ function intersectPlane(transform, quadModelMatrix) {
 }
 
 // --- Geometry Creation ---
+
+function createRoundedCuboid(width, height, depth, radius, segments) {
+    const w = width / 2, h = height / 2, d = depth / 2;
+    const iw = w - radius, ih = h - radius;
+
+    const vertices = [];
+    const normals = [];
+    const uvs = [];
+    let frontIndices = [];
+    let backIndices = [];
+
+    const profile = [];
+
+    // Generate a 2D rounded rectangle profile
+    for (let i = 0; i <= segments; i++) { // Top-left corner
+        const angle = Math.PI + (Math.PI / 2) * (i / segments);
+        profile.push({ x: -iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
+    }
+    for (let i = 0; i <= segments; i++) { // Top-right corner
+        const angle = 1.5 * Math.PI + (Math.PI / 2) * (i / segments);
+        profile.push({ x: iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
+    }
+    for (let i = 0; i <= segments; i++) { // Bottom-right corner
+        const angle = (Math.PI / 2) * (i / segments);
+        profile.push({ x: iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
+    }
+    for (let i = 0; i <= segments; i++) { // Bottom-left corner
+        const angle = Math.PI / 2 + (Math.PI / 2) * (i / segments);
+        profile.push({ x: -iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
+    }
+
+    // Create vertices, normals, and UVs for front and back faces
+    profile.forEach(p => { // Front face
+        vertices.push(p.x, p.y, d);
+        normals.push(0, 0, 1);
+        uvs.push(0.5 + p.x / width, 0.5 + p.y / height);
+    });
+    profile.forEach(p => { // Back face
+        vertices.push(p.x, p.y, -d);
+        normals.push(0, 0, -1);
+        uvs.push(0.5 - p.x / width, 0.5 + p.y / height); // Flipped U for back
+    });
+
+    const profileLen = profile.length;
+    const frontOffset = 0;
+    const backOffset = profileLen;
+
+    // Triangulate front and back faces (as a fan)
+    const frontCenterIndex = vertices.length/3;
+    vertices.push(0,0,d); normals.push(0,0,1); uvs.push(0.5,0.5);
+    const backCenterIndex = vertices.length/3;
+    vertices.push(0,0,-d); normals.push(0,0,-1); uvs.push(0.5,0.5);
+
+    for (let i = 0; i < profileLen; i++) {
+        frontIndices.push(frontCenterIndex, frontOffset + i, frontOffset + (i + 1) % profileLen);
+        backIndices.push(backCenterIndex, backOffset + (i + 1) % profileLen, backOffset + i);
+    }
+
+    // Create edge faces and normals
+    for (let i = 0; i < profileLen; i++) {
+        const i1 = i;
+        const i2 = (i + 1) % profileLen;
+        const v1_front = frontOffset + i1;
+        const v2_front = frontOffset + i2;
+        const v1_back = backOffset + i1;
+        const v2_back = backOffset + i2;
+
+        backIndices.push(v1_front, v1_back, v2_front);
+        backIndices.push(v2_front, v1_back, v2_back);
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        textureCoordinates: new Float32Array(uvs),
+        frontIndices: new Uint16Array(frontIndices),
+        backIndices: new Uint16Array(backIndices)
+    };
+}
 
 function createCuboid(width, height, depth) {
     const w = width / 2, h = height / 2, d = depth / 2;
