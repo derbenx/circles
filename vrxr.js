@@ -803,12 +803,12 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     profile.forEach(p => { // Front face
         vertices.push(p.x, p.y, d);
         normals.push(0, 0, 1);
-        uvs.push(0.5 + p.x / width, 0.5 + p.y / height);
+        uvs.push(0.5 + p.x / width, 0.5 - p.y / height);
     });
     profile.forEach(p => { // Back face
         vertices.push(p.x, p.y, -d);
         normals.push(0, 0, -1);
-        uvs.push(0.5 - p.x / width, 0.5 + p.y / height); // Flipped U for back
+        uvs.push(0.5 - p.x / width, 0.5 - p.y / height); // Flipped U for back
     });
 
     const profileLen = profile.length;
