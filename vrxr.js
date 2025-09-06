@@ -624,7 +624,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1.0, 1.0, 0.02, 0.05, 4);
+    const card = createRoundedCuboid(1.0, 1.0, 0.02, 0.025, 4);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
