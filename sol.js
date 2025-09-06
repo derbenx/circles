@@ -1034,7 +1034,7 @@ function drawSolitaire(gl, programs, buffers, view) {
 
             if (x !== undefined) {
                 const markerMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + gCardDepth * 1.5]);
+                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z - gCardDepth * 1.1]);
                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, gCardDepth]);
                 drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]);
             }
