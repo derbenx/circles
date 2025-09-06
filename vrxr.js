@@ -536,7 +536,7 @@ function initGenericBuffers(gl) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1.0, 1.0, 1.0, 0.05, 8);
+    const card = createRoundedCuboid(1.0, 1.5, 0.02, 0.1, 4);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
@@ -770,100 +770,71 @@ function intersectPlane(transform, quadModelMatrix) {
 // --- Geometry Creation ---
 
 function createRoundedCuboid(width, height, depth, radius, segments) {
-    const w = width / 2, h = height / 2, d = depth / 2;
-    const iw = w - radius, ih = h - radius;
+    const w = width / 2;
+    const h = height / 2;
+    const d = depth / 2;
 
     const vertices = [];
     const normals = [];
     const uvs = [];
-    let frontIndices = [];
-    let backIndices = [];
+    const indices = [];
 
-    const profile = [];
-    const edgeNormals = [];
+    function addVertex(x, y, z, nx, ny, nz, u, v) {
+        vertices.push(x, y, z);
+        normals.push(nx, ny, nz);
+        uvs.push(u, v);
+        return (vertices.length / 3) - 1;
+    }
 
-    // Generate a 2D rounded rectangle profile and its edge normals
+    const faceShape = [];
+    const iw = w - radius;
+    const ih = h - radius;
+
+    // Generate corners
     const cornerSegments = segments;
-    // Top-right corner
+    // Top-right
     for (let i = 0; i <= cornerSegments; i++) {
         const angle = (i / cornerSegments) * (Math.PI / 2);
-        profile.push({ x: iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
-        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
+        faceShape.push([iw + radius * Math.cos(angle), ih + radius * Math.sin(angle)]);
     }
-    // Top-left corner
+    // Top-left
     for (let i = 0; i <= cornerSegments; i++) {
         const angle = Math.PI / 2 + (i / cornerSegments) * (Math.PI / 2);
-        profile.push({ x: -iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
-        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
+        faceShape.push([-iw + radius * Math.cos(angle), ih + radius * Math.sin(angle)]);
     }
-    // Bottom-left corner
+    // Bottom-left
     for (let i = 0; i <= cornerSegments; i++) {
         const angle = Math.PI + (i / cornerSegments) * (Math.PI / 2);
-        profile.push({ x: -iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
-        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
+        faceShape.push([-iw + radius * Math.cos(angle), -ih + radius * Math.sin(angle)]);
     }
-    // Bottom-right corner
+    // Bottom-right
     for (let i = 0; i <= cornerSegments; i++) {
         const angle = 1.5 * Math.PI + (i / cornerSegments) * (Math.PI / 2);
-        profile.push({ x: iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
-        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
+        faceShape.push([iw + radius * Math.cos(angle), -ih + radius * Math.sin(angle)]);
     }
 
-    // Generate vertices, normals, and UVs for the front, back, and edge faces
-    const profileLen = profile.length;
-    for (let i = 0; i < profileLen; i++) {
-        const p = profile[i];
-        const n = edgeNormals[i];
-        // Front vertex
-        vertices.push(p.x, p.y, d);
-        normals.push(0, 0, 1);
-        uvs.push(0.5 + p.x / width, 0.5 - p.y / height);
-        // Back vertex
-        vertices.push(p.x, p.y, -d);
-        normals.push(0, 0, -1);
-        uvs.push(0.5 + p.x / width, 0.5 - p.y / height); // Back UVs fixed later
-        // Edge vertex 1
-        vertices.push(p.x, p.y, d);
-        normals.push(n.x, n.y, 0);
-        uvs.push(0.01, 0.01); // Small portion of texture for solid edge color
-        // Edge vertex 2
-        vertices.push(p.x, p.y, -d);
-        normals.push(n.x, n.y, 0);
-        uvs.push(0.01, 0.01);
-    }
+    // Create front and back faces
+    const frontIndices = [];
+    const backIndices = [];
+    const frontCenterIndex = addVertex(0, 0, d, 0, 0, 1, 0.5, 0.5);
+    const backCenterIndex = addVertex(0, 0, -d, 0, 0, -1, 0.5, 0.5);
 
-    // Fix back UVs
-    for (let i = 0; i < profileLen; i++) {
-        const back_v_idx = i * 4 + 1;
-        uvs[back_v_idx * 2] = 0.5 - vertices[back_v_idx * 3] / width;
-    }
+    for (let i = 0; i < faceShape.length; i++) {
+        const [x, y] = faceShape[i];
+        const u = 0.5 + x / width;
+        const v = 0.5 - y / height;
+        const front_v_idx = addVertex(x, y, d, 0, 0, 1, u, v);
+        const back_v_idx = addVertex(x, y, -d, 0, 0, -1, 1 - u, v);
 
-    // Generate indices
-    const frontCenterIndex = vertices.length / 3;
-    vertices.push(0, 0, d); normals.push(0, 0, 1); uvs.push(0.5, 0.5);
-    const backCenterIndex = vertices.length / 3;
-    vertices.push(0, 0, -d); normals.push(0, 0, -1); uvs.push(0.5, 0.5);
+        const next_i = (i + 1) % faceShape.length;
+        const [next_x, next_y] = faceShape[next_i];
+        const next_u = 0.5 + next_x / width;
+        const next_v = 0.5 - next_y / height;
+        const next_front_v_idx = addVertex(next_x, next_y, d, 0, 0, 1, next_u, next_v);
+        const next_back_v_idx = addVertex(next_x, next_y, -d, 0, 0, -1, 1 - next_u, next_v);
 
-    for (let i = 0; i < profileLen; i++) {
-        const next_i = (i + 1) % profileLen;
-
-        // Front face indices
-        const v_front = i * 4;
-        const v_next_front = next_i * 4;
-        frontIndices.push(v_front, v_next_front, frontCenterIndex);
-
-        // Back face indices
-        const v_back = i * 4 + 1;
-        const v_next_back = next_i * 4 + 1;
-        backIndices.push(v_back, backCenterIndex, v_next_back);
-
-        // Edge face indices
-        const v_edge1 = i * 4 + 2;
-        const v_edge2 = i * 4 + 3;
-        const v_next_edge1 = next_i * 4 + 2;
-        const v_next_edge2 = next_i * 4 + 3;
-        backIndices.push(v_edge1, v_next_edge1, v_edge2);
-        backIndices.push(v_next_edge1, v_next_edge2, v_edge2);
+        frontIndices.push(front_v_idx, next_front_v_idx, frontCenterIndex);
+        backIndices.push(next_back_v_idx, back_v_idx, backCenterIndex);
     }
 
     return {
