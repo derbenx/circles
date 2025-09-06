@@ -539,7 +539,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     const w = width / 2;
     const h = height / 2;
     const d = depth / 2;
-    const corner_tex_uv = 0.5;
+    const edge_uv = 0.5; // Use center of texture for solid white edge
 
     const vertices = [];
     const normals = [];
@@ -575,7 +575,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
         }
     }
 
-    // Create front and back faces
+    // Create front and back faces (with dedicated vertices)
     for (let zSign of [-1, 1]) {
         const baseIndex = vertices.length / 3;
         faceShape.forEach(([x, y]) => {
@@ -591,47 +591,27 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
         }
     }
 
-    // Create edge faces
-    const frontBase = 0;
-    const backBase = faceShape.length;
+    // Create edge faces (with dedicated vertices)
     for (let i = 0; i < faceShape.length; i++) {
         const i_next = (i + 1) % faceShape.length;
 
-        const v1_front = frontBase + i;
-        const v2_front = frontBase + i_next;
-        const v1_back = backBase + i;
-        const v2_back = backBase + i_next;
-
-        // Calculate normal for the edge based on the first vertex
         const [x1, y1] = faceShape[i];
-        let nx = 0, ny = 0;
-        if (x1 > w - radius) nx = 1;
-        else if (x1 < -w + radius) nx = -1;
-        if (y1 > h - radius) ny = 1;
-        else if (y1 < -h + radius) ny = -1;
+        const [x2, y2] = faceShape[i_next];
 
-        if (nx === 0 && ny === 0) { // It's a corner
-            let [cx, cy] = [0,0];
-            if(x1 > 0 && y1 > 0) [cx, cy] = cornerPoints[0];
-            else if(x1 < 0 && y1 > 0) [cx, cy] = cornerPoints[1];
-            else if(x1 < 0 && y1 < 0) [cx, cy] = cornerPoints[2];
-            else [cx, cy] = cornerPoints[3];
-            nx = x1 - cx;
-            ny = y1 - cy;
-        }
+        // Simplified normal calculation
+        const nx = x1 > 0 ? (x1 - (w-radius)) : (x1 - (-w+radius));
+        const ny = y1 > 0 ? (y1 - (h-radius)) : (y1 - (-h+radius));
+        const len = Math.sqrt(nx*nx + ny*ny);
 
-        const len = Math.sqrt(nx * nx + ny * ny);
-        nx /= len;
-        ny /= len;
+        const normal = [nx/len, ny/len, 0];
 
-        // Create new vertices for the edge with correct normals and UVs
-        const ev1_front = addVertex(vertices[v1_front*3], vertices[v1_front*3+1], vertices[v1_front*3+2], nx, ny, 0, corner_tex_uv, corner_tex_uv);
-        const ev2_front = addVertex(vertices[v2_front*3], vertices[v2_front*3+1], vertices[v2_front*3+2], nx, ny, 0, corner_tex_uv, corner_tex_uv);
-        const ev1_back = addVertex(vertices[v1_back*3], vertices[v1_back*3+1], vertices[v1_back*3+2], nx, ny, 0, corner_tex_uv, corner_tex_uv);
-        const ev2_back = addVertex(vertices[v2_back*3], vertices[v2_back*3+1], vertices[v2_back*3+2], nx, ny, 0, corner_tex_uv, corner_tex_uv);
+        const v1f = addVertex(x1, y1, d, ...normal, edge_uv, edge_uv);
+        const v2f = addVertex(x2, y2, d, ...normal, edge_uv, edge_uv);
+        const v1b = addVertex(x1, y1, -d, ...normal, edge_uv, edge_uv);
+        const v2b = addVertex(x2, y2, -d, ...normal, edge_uv, edge_uv);
 
-        indices.push(ev1_front, ev1_back, ev2_front);
-        indices.push(ev1_back, ev2_back, ev2_front);
+        indices.push(v1f, v1b, v2f);
+        indices.push(v1b, v2b, v2f);
     }
 
     return {

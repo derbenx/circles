@@ -894,13 +894,27 @@ function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) 
     const { textureProgramInfo } = programs;
     const cardBuffers = buffers.pieceBuffers.card;
 
-    // This simplified logic draws the same texture on both sides.
-    const texture = (cardFace === 'b1' || cardFace.startsWith('x'))
-        ? getCardTexture(gl, 'b1')
-        : getCardTexture(gl, cardFace);
+    if (cardFace === 'b1' || cardFace.startsWith('x')) {
+        // Face down card, draw the back on both sides
+        const backTexture = getCardTexture(gl, 'b1');
+        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatrix, view);
+    } else {
+        // Face up card, draw front and back with culling
+        const frontTexture = getCardTexture(gl, cardFace);
+        const backTexture = getCardTexture(gl, 'b1');
 
-    // The entire card is now one drawable object.
-    drawTextured(gl, textureProgramInfo, cardBuffers, texture, modelMatrix, view);
+        gl.enable(gl.CULL_FACE);
+
+        // Draw back
+        gl.cullFace(gl.FRONT);
+        drawTextured(gl, textureProgramInfo, cardBuffers, backTexture, modelMatrix, view);
+
+        // Draw front
+        gl.cullFace(gl.BACK);
+        drawTextured(gl, textureProgramInfo, cardBuffers, frontTexture, modelMatrix, view);
+
+        gl.disable(gl.CULL_FACE);
+    }
 }
 
 function drawSolitaire(gl, programs, buffers, view) {
