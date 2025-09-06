@@ -780,63 +780,90 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     let backIndices = [];
 
     const profile = [];
+    const edgeNormals = [];
 
-    // Generate a 2D rounded rectangle profile
-    for (let i = 0; i <= segments; i++) { // Top-left corner
-        const angle = Math.PI + (Math.PI / 2) * (i / segments);
-        profile.push({ x: -iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
-    }
-    for (let i = 0; i <= segments; i++) { // Top-right corner
-        const angle = 1.5 * Math.PI + (Math.PI / 2) * (i / segments);
+    // Generate a 2D rounded rectangle profile and its edge normals
+    const cornerSegments = segments;
+    // Top-right corner
+    for (let i = 0; i <= cornerSegments; i++) {
+        const angle = (i / cornerSegments) * (Math.PI / 2);
         profile.push({ x: iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
+        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
     }
-    for (let i = 0; i <= segments; i++) { // Bottom-right corner
-        const angle = (Math.PI / 2) * (i / segments);
-        profile.push({ x: iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
+    // Top-left corner
+    for (let i = 0; i <= cornerSegments; i++) {
+        const angle = Math.PI / 2 + (i / cornerSegments) * (Math.PI / 2);
+        profile.push({ x: -iw + radius * Math.cos(angle), y: ih + radius * Math.sin(angle) });
+        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
     }
-    for (let i = 0; i <= segments; i++) { // Bottom-left corner
-        const angle = Math.PI / 2 + (Math.PI / 2) * (i / segments);
+    // Bottom-left corner
+    for (let i = 0; i <= cornerSegments; i++) {
+        const angle = Math.PI + (i / cornerSegments) * (Math.PI / 2);
         profile.push({ x: -iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
+        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
+    }
+    // Bottom-right corner
+    for (let i = 0; i <= cornerSegments; i++) {
+        const angle = 1.5 * Math.PI + (i / cornerSegments) * (Math.PI / 2);
+        profile.push({ x: iw + radius * Math.cos(angle), y: -ih + radius * Math.sin(angle) });
+        edgeNormals.push({ x: Math.cos(angle), y: Math.sin(angle) });
     }
 
-    // Create vertices, normals, and UVs for front and back faces
-    profile.forEach(p => { // Front face
+    // Generate vertices, normals, and UVs for the front, back, and edge faces
+    const profileLen = profile.length;
+    for (let i = 0; i < profileLen; i++) {
+        const p = profile[i];
+        const n = edgeNormals[i];
+        // Front vertex
         vertices.push(p.x, p.y, d);
         normals.push(0, 0, 1);
         uvs.push(0.5 + p.x / width, 0.5 - p.y / height);
-    });
-    profile.forEach(p => { // Back face
+        // Back vertex
         vertices.push(p.x, p.y, -d);
         normals.push(0, 0, -1);
-        uvs.push(0.5 - p.x / width, 0.5 - p.y / height); // Flipped U for back
-    });
-
-    const profileLen = profile.length;
-    const frontOffset = 0;
-    const backOffset = profileLen;
-
-    // Triangulate front and back faces (as a fan)
-    const frontCenterIndex = vertices.length/3;
-    vertices.push(0,0,d); normals.push(0,0,1); uvs.push(0.5,0.5);
-    const backCenterIndex = vertices.length/3;
-    vertices.push(0,0,-d); normals.push(0,0,-1); uvs.push(0.5,0.5);
-
-    for (let i = 0; i < profileLen; i++) {
-        frontIndices.push(frontCenterIndex, frontOffset + i, frontOffset + (i + 1) % profileLen);
-        backIndices.push(backCenterIndex, backOffset + (i + 1) % profileLen, backOffset + i);
+        uvs.push(0.5 + p.x / width, 0.5 - p.y / height); // Back UVs fixed later
+        // Edge vertex 1
+        vertices.push(p.x, p.y, d);
+        normals.push(n.x, n.y, 0);
+        uvs.push(0.01, 0.01); // Small portion of texture for solid edge color
+        // Edge vertex 2
+        vertices.push(p.x, p.y, -d);
+        normals.push(n.x, n.y, 0);
+        uvs.push(0.01, 0.01);
     }
 
-    // Create edge faces and normals
+    // Fix back UVs
     for (let i = 0; i < profileLen; i++) {
-        const i1 = i;
-        const i2 = (i + 1) % profileLen;
-        const v1_front = frontOffset + i1;
-        const v2_front = frontOffset + i2;
-        const v1_back = backOffset + i1;
-        const v2_back = backOffset + i2;
+        const back_v_idx = i * 4 + 1;
+        uvs[back_v_idx * 2] = 0.5 - vertices[back_v_idx * 3] / width;
+    }
 
-        backIndices.push(v1_front, v1_back, v2_front);
-        backIndices.push(v2_front, v1_back, v2_back);
+    // Generate indices
+    const frontCenterIndex = vertices.length / 3;
+    vertices.push(0, 0, d); normals.push(0, 0, 1); uvs.push(0.5, 0.5);
+    const backCenterIndex = vertices.length / 3;
+    vertices.push(0, 0, -d); normals.push(0, 0, -1); uvs.push(0.5, 0.5);
+
+    for (let i = 0; i < profileLen; i++) {
+        const next_i = (i + 1) % profileLen;
+
+        // Front face indices
+        const v_front = i * 4;
+        const v_next_front = next_i * 4;
+        frontIndices.push(v_front, v_next_front, frontCenterIndex);
+
+        // Back face indices
+        const v_back = i * 4 + 1;
+        const v_next_back = next_i * 4 + 1;
+        backIndices.push(v_back, backCenterIndex, v_next_back);
+
+        // Edge face indices
+        const v_edge1 = i * 4 + 2;
+        const v_edge2 = i * 4 + 3;
+        const v_next_edge1 = next_i * 4 + 2;
+        const v_next_edge2 = next_i * 4 + 3;
+        backIndices.push(v_edge1, v_next_edge1, v_edge2);
+        backIndices.push(v_next_edge1, v_next_edge2, v_edge2);
     }
 
     return {
