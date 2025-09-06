@@ -537,26 +537,23 @@ function initGenericBuffers(gl) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createCuboid(1.0, 1.0, 1.0);
+    const card = createRoundedCuboid(1, 1.5, 0.01, 0.1, 5);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
         textureCoord: gl.createBuffer(),
-        frontIndices: gl.createBuffer(),
-        backIndices: gl.createBuffer(),
-        frontVertexCount: card.frontIndices.length,
-        backVertexCount: card.backIndices.length,
+        indices: gl.createBuffer(),
+        vertexCount: card.indices.length,
     };
     gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.position);
     gl.bufferData(gl.ARRAY_BUFFER, card.vertices, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.normal);
     gl.bufferData(gl.ARRAY_BUFFER, card.normals, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, cardBuffers.textureCoord);
-    gl.bufferData(gl.ARRAY_BUFFER, card.textureCoordinates, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.frontIndices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.frontIndices, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.backIndices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.backIndices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, card.uvs, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cardBuffers.indices);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, card.indices, gl.STATIC_DRAW);
+
 
     // Buffers for Circles pieces
     const cylinder = createCylinder(0.5, .2, 16);
