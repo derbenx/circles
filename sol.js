@@ -753,9 +753,9 @@ function getCardTexture(gl, cardFace) {
 
     // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
-    const baseSize = 200;
+    const baseSize = 256;
     textureCanvas.width = baseSize;
-    textureCanvas.height = baseSize * 1.5; // Correct 1.5 aspect ratio
+    textureCanvas.height = baseSize;
 
     const ctx = textureCanvas.getContext('2d');
 
