@@ -88,13 +88,13 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 
 async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
     const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialias: true}) });
 
     let referenceSpace;
     try {
