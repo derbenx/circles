@@ -1,4 +1,3 @@
-let vrxr_ver = 4;
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -101,7 +100,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     try {
         referenceSpace = await session.requestReferenceSpace("local-floor");
     } catch (e) {
-        console.warn("Could not get 'local-floor' reference space, falling back to 'local'");
+        //console.warn("Could not get 'local-floor' reference space, falling back to 'local'");
         referenceSpace = await session.requestReferenceSpace("local");
     }
 
@@ -474,8 +473,8 @@ function setupSolidColorShaderProgram(gl) {
       varying highp vec3 vLighting;
       void main(void) {
         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-        highp vec3 directionalLightColor = vec3(1, 1, 1);
+        highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
+        highp vec3 directionalLightColor = vec3(.7, .7, .7);
         highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
         highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
         highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
@@ -536,7 +535,7 @@ function initGenericBuffers(gl) {
 
 function initPieceBuffers(gl) {
     // Buffers for Solitaire cards
-    const card = createRoundedCuboid(1.0, 1.0, 1.0, 0.175, 8);
+    const card = createRoundedCuboid(1, 1.5, .75, 0.2, 8);
     const cardBuffers = {
         position: gl.createBuffer(),
         normal: gl.createBuffer(),
