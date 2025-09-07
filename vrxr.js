@@ -318,6 +318,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
             // --- 2. Render FBO texture to screen with FXAA ---
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(viewport.x, viewport.y, viewport.width, viewport.height);
             gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -335,6 +338,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             gl.uniform2f(fxaaProgramInfo.uniformLocations.u_resolution, fboWidth, fboHeight);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            gl.disable(gl.SCISSOR_TEST);
         }
     }
     session.requestAnimationFrame(onXRFrame);
