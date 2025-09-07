@@ -88,13 +88,13 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 
 async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
     const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl", { xrCompatible: true });
+    const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialias: true}) });
 
     let referenceSpace;
     try {
@@ -784,7 +784,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
     // UV mapping constants for the card texture sub-region
     const u_offset = 128 / 512; // 0.25
-    const v_offset = 128 / 512; // 0.25
+    const v_offset = 64 / 512;  // 0.125
     const u_scale = 256 / 512;  // 0.5
     const v_scale = 384 / 512;  // 0.75
 
