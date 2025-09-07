@@ -764,7 +764,7 @@ function getCardTexture(gl, cardFace) {
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
     // Draw the card with a margin, effectively scaling it to 95% and centering it
-    const cardSize = 341;
+    const cardSize = 256;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
 

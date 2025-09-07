@@ -782,6 +782,12 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     const profile = [];
     const edgeNormals = [];
 
+    // UV mapping constants for the card texture sub-region
+    const u_offset = 128 / 512; // 0.25
+    const v_offset = 64 / 512;  // 0.125
+    const u_scale = 256 / 512;  // 0.5
+    const v_scale = 384 / 512;  // 0.75
+
     // Generate a 2D rounded rectangle profile and its edge normals
     const cornerSegments = segments;
     // Top-right corner
@@ -814,14 +820,20 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
     for (let i = 0; i < profileLen; i++) {
         const p = profile[i];
         const n = edgeNormals[i];
+
+        const u = 0.5 + p.x / width;
+        const v = 0.5 - p.y / height;
+        const scaled_u = u_offset + u * u_scale;
+        const scaled_v = v_offset + v * v_scale;
+
         // Front vertex
         vertices.push(p.x, p.y, d);
         normals.push(0, 0, 1);
-        uvs.push(0.5 + p.x / width, 0.5 - p.y / height);
+        uvs.push(scaled_u, scaled_v);
         // Back vertex
         vertices.push(p.x, p.y, -d);
         normals.push(0, 0, -1);
-        uvs.push(0.5 + p.x / width, 0.5 - p.y / height); // Back UVs fixed later
+        uvs.push(scaled_u, scaled_v); // Back UVs fixed later
         // Edge vertex 1
         vertices.push(p.x, p.y, d);
         normals.push(n.x, n.y, 0);
@@ -832,17 +844,20 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
         uvs.push(0.01, 0.01);
     }
 
-    // Fix back UVs
+    // Fix back UVs to be flipped horizontally
     for (let i = 0; i < profileLen; i++) {
         const back_v_idx = i * 4 + 1;
-        uvs[back_v_idx * 2] = 0.5 - vertices[back_v_idx * 3] / width;
+        const p_x = vertices[back_v_idx * 3];
+        const u_flipped = 0.5 - p_x / width;
+        uvs[back_v_idx * 2] = u_offset + u_flipped * u_scale;
     }
 
     // Generate indices
     const frontCenterIndex = vertices.length / 3;
-    vertices.push(0, 0, d); normals.push(0, 0, 1); uvs.push(0.5, 0.5);
+    vertices.push(0, 0, d); normals.push(0, 0, 1); uvs.push(u_offset + 0.5 * u_scale, v_offset + 0.5 * v_scale);
     const backCenterIndex = vertices.length / 3;
-    vertices.push(0, 0, -d); normals.push(0, 0, -1); uvs.push(0.5, 0.5);
+    vertices.push(0, 0, -d); normals.push(0, 0, -1); uvs.push(u_offset + 0.5 * u_scale, v_offset + 0.5 * v_scale);
+
 
     for (let i = 0; i < profileLen; i++) {
         const next_i = (i + 1) % profileLen;
