@@ -784,7 +784,7 @@ function createRoundedCuboid(width, height, depth, radius, segments) {
 
     // UV mapping constants for the card texture sub-region
     const u_offset = 128 / 512; // 0.25
-    const v_offset = 64 / 512;  // 0.125
+    const v_offset = 128 / 512; // 0.25
     const u_scale = 256 / 512;  // 0.5
     const v_scale = 384 / 512;  // 0.75
 
