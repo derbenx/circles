@@ -87,6 +87,13 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 }
 
 async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+
+    const glCanvas = document.createElement("canvas");
+    const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+
     // --- Load VR Background Settings ---
     const VR_SETTINGS_KEY = 'vr-background-settings';
     const USER_IMAGE_CACHE_NAME = 'user-image-cache';
@@ -125,12 +132,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     } catch (e) {
         console.error("Could not load VR background settings", e);
     }
-
-    const glCanvas = document.createElement("canvas");
-    const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.DEPTH_TEST);
 
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialias: true}) });

@@ -1,4 +1,4 @@
-body { background:black; color:grey; overflow-y: hidden }
+body { background:black; color:grey; overflow-y: hidden; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
 h1{ color:green; text-align:center; }
 #debug { position:fixed;top:0px;left:0px; }
 #wrp{  margin:auto; width:100%; overflow:hidden; overscroll-behavior: none; }
