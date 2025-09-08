@@ -96,15 +96,41 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
     // --- Load VR Background Settings ---
     const VR_SETTINGS_KEY = 'vr-background-settings';
+    const USER_IMAGE_CACHE_NAME = 'user-image-cache';
+    const USER_IMAGE_KEY = 'user-360-image';
     const GLTF_SCENE_CACHE_NAME = 'gltf-scene-cache';
     const GLTF_SCENE_KEY = 'user-gltf-scene';
+    let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
+    let vrBackgroundTexture = null;
     gltfRenderData = null; // Reset on new session
 
     try {
         const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
         if (settingsString) {
             const settings = JSON.parse(settingsString);
-            if (settings.mode === 'scene' && settings.hasScene) {
+            if (settings.mode === 'solid' && settings.color) {
+                vrBackgroundColor = [
+                    settings.color.r / 255.0,
+                    settings.color.g / 255.0,
+                    settings.color.b / 255.0,
+                    1.0
+                ];
+            } else if (settings.mode === '360' && settings.hasImage) {
+                const cache = await caches.open(USER_IMAGE_CACHE_NAME);
+                const response = await cache.match(USER_IMAGE_KEY);
+                if (response) {
+                    const blob = await response.blob();
+                    const imageBitmap = await createImageBitmap(blob);
+
+                    vrBackgroundTexture = gl.createTexture();
+                    gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+                }
+            } else if (settings.mode === 'scene' && settings.hasScene) {
                 const cache = await caches.open(GLTF_SCENE_CACHE_NAME);
                 const response = await cache.match(GLTF_SCENE_KEY);
                 if (response) {
@@ -134,13 +160,33 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const textureProgramInfo = setupTextureShaderProgram(gl);
     const solidColorProgramInfo = setupSolidColorShaderProgram(gl);
     const fxaaProgramInfo = setupFxaaShaderProgram(gl);
-    const programs = { textureProgramInfo, solidColorProgramInfo, fxaaProgramInfo };
+    const texturedSphereProgramInfo = setupTexturedSphereShaderProgram(gl);
+    const programs = { textureProgramInfo, solidColorProgramInfo, fxaaProgramInfo, texturedSphereProgramInfo };
 
     // --- Buffers for various models ---
     const genericBuffers = initGenericBuffers(gl);
     const pieceBuffers = initPieceBuffers(gl);
     const controllerBuffers = initControllerBuffers(gl);
-    const buffers = { genericBuffers, pieceBuffers, controllerBuffers };
+
+    // --- Textured Sphere Buffers ---
+    let texturedSphereBuffers = null;
+    if (vrBackgroundTexture) { // Only create if we have a texture
+        const sphere = createTextureableSphere(5.0, 32, 32); // Radius 5.0m
+        texturedSphereBuffers = {
+            position: gl.createBuffer(),
+            textureCoord: gl.createBuffer(),
+            indices: gl.createBuffer(),
+            vertexCount: sphere.vertexCount,
+        };
+        gl.bindBuffer(gl.ARRAY_BUFFER, texturedSphereBuffers.position);
+        gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, texturedSphereBuffers.textureCoord);
+        gl.bufferData(gl.ARRAY_BUFFER, sphere.textureCoordinates, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, texturedSphereBuffers.indices);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
+    }
+
+    const buffers = { genericBuffers, pieceBuffers, controllerBuffers, texturedSphereBuffers };
 
     // --- FXAA Fullscreen Quad ---
     const fxaaQuadBuffer = gl.createBuffer();
@@ -327,11 +373,21 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepthbuffer);
 
             gl.viewport(0, 0, fboWidth, fboHeight);
-            gl.clearColor(0, 0, 0, mode === 'immersive-ar' ? 0.0 : 1.0);
+            if (mode === 'immersive-ar') {
+                gl.clearColor(0, 0, 0, 0);
+            } else {
+                gl.clearColor(...vrBackgroundColor);
+            }
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            if (gltfRenderData) {
-                drawGltfScene(gl, programs.solidColorProgramInfo, gltfRenderData, view);
+            if (mode === 'immersive-vr') {
+                if (vrBackgroundTexture && buffers.texturedSphereBuffers) {
+                    const sphereModelMatrix = glMatrix.mat4.create();
+                    glMatrix.mat4.rotateY(sphereModelMatrix, sphereModelMatrix, -Math.PI / 2); // -90 degrees
+                    drawTexturedSphere(gl, programs.texturedSphereProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
+                } else if (gltfRenderData) {
+                    drawGltfScene(gl, programs.solidColorProgramInfo, gltfRenderData, view);
+                }
             }
 
             if (drawGameCallback) {
@@ -378,7 +434,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
 function processGltfScene(gl, gltf) {
     gltfRenderData = { models: [] };
-    const defaultScene = gltf.scenes[gltf.scene];
+    const defaultScene = gltf.json.scenes[gltf.json.scene];
 
     // A recursive function to traverse the scene graph
     function traverseNode(node, parentMatrix) {
@@ -393,7 +449,7 @@ function processGltfScene(gl, gltf) {
         const worldMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), parentMatrix, localMatrix);
 
         if (node.mesh !== undefined) {
-            const mesh = gltf.meshes[node.mesh];
+            const mesh = gltf.json.meshes[node.mesh];
             for (const primitive of mesh.primitives) {
                 const attributes = primitive.attributes;
                 if (!attributes.POSITION || !attributes.NORMAL) {
@@ -431,7 +487,7 @@ function processGltfScene(gl, gltf) {
 
                 let color = [0.8, 0.8, 0.8, 1.0]; // Default grey
                 if (primitive.material !== undefined) {
-                    const material = gltf.materials[primitive.material];
+                    const material = gltf.json.materials[primitive.material];
                     if (material && material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorFactor) {
                         color = material.pbrMetallicRoughness.baseColorFactor;
                     }
@@ -453,14 +509,14 @@ function processGltfScene(gl, gltf) {
 
         if (node.children) {
             for (const childIndex of node.children) {
-                traverseNode(gltf.nodes[childIndex], worldMatrix);
+                traverseNode(gltf.json.nodes[childIndex], worldMatrix);
             }
         }
     }
 
     const rootMatrix = glMatrix.mat4.create();
     for (const nodeIndex of defaultScene.nodes) {
-        traverseNode(gltf.nodes[nodeIndex], rootMatrix);
+        traverseNode(gltf.json.nodes[nodeIndex], rootMatrix);
     }
     console.log("glTF scene processed into render data:", gltfRenderData);
 }
@@ -502,6 +558,29 @@ function drawGltfMesh(gl, programInfo, model, view) {
 
 
 // --- Drawing Functions ---
+
+function drawTexturedSphere(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
+    gl.useProgram(programInfo.program);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
+
+    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.textureCoord);
+    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
+    gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
+}
 
 function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
     if (!session || !session.inputSources) {
@@ -623,6 +702,39 @@ function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
 
 
 // --- Initialization and Setup ---
+
+function setupTexturedSphereShaderProgram(gl) {
+    const vsSource = `
+      attribute vec4 aVertexPosition;
+      attribute vec2 aTextureCoord;
+      uniform mat4 uModelViewMatrix;
+      uniform mat4 uProjectionMatrix;
+      varying highp vec2 vTextureCoord;
+      void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        vTextureCoord = aTextureCoord;
+      }`;
+    const fsSource = `
+      precision mediump float;
+      varying highp vec2 vTextureCoord;
+      uniform sampler2D uSampler;
+      void main(void) {
+        gl_FragColor = texture2D(uSampler, vTextureCoord);
+      }`;
+    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+    return {
+      program: shaderProgram,
+      attribLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
+      },
+    };
+}
 
 function setupTextureShaderProgram(gl) {
     const vsSource = `
@@ -1471,6 +1583,50 @@ function createCone(radius, height, segments) {
         normals.push(0,-1,0, 0,-1,0, 0,-1,0);
     }
     return { vertices: new Float32Array(vertices), normals: new Float32Array(normals), vertexCount: vertices.length / 3 };
+}
+
+function createTextureableSphere(radius, latitudeBands, longitudeBands) {
+    const vertices = [];
+    const normals = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
+        const theta = latNumber * Math.PI / latitudeBands;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+            const phi = longNumber * 2 * Math.PI / longitudeBands;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+
+            const x = cosPhi * sinTheta;
+            const y = cosTheta;
+            const z = sinPhi * sinTheta;
+
+            normals.push(x, y, z);
+            uvs.push(longNumber / longitudeBands, latNumber / latitudeBands);
+            vertices.push(radius * x, radius * y, radius * z);
+        }
+    }
+
+    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
+        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
+            const first = (latNumber * (longitudeBands + 1)) + longNumber;
+            const second = first + longitudeBands + 1;
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        textureCoordinates: new Float32Array(uvs),
+        indices: new Uint16Array(indices),
+        vertexCount: indices.length
+    };
 }
 
 function createSphere(radius, latitudeBands, longitudeBands) {
