@@ -723,7 +723,7 @@ function drawCircles(gl, programs, buffers, view) {
     // Draw 3D grid
     const pieceHeight = 0.36 / yy;
     const gridHeight = pieceHeight / 3;
-    const lineWidth = 0.0075;
+    const lineWidth = (inVR || inAR) ? 0.012 : 0.0075;
     const gridColor = gc("g",1);
 
     for (let y = 0; y <= yy; y++) {
