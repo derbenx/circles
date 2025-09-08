@@ -1,4 +1,4 @@
-body { background:black; color:grey; overflow-y: hidden; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+body { background:black; color:grey; overflow-y: hidden }
 #game{ border:none; margin:auto; width:100%;  overflow:hidden; overscroll-behavior: none; }
 #can{ border:solid 1px red; margin-left: auto;margin-right:auto; display: block; }
 #spr {  border: 1px dashed green;  transform: translate(0, -100%); }

@@ -87,6 +87,30 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 }
 
 async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
+    // --- Load VR Background Settings ---
+    const VR_SETTINGS_KEY = 'vr-background-settings';
+    const USER_IMAGE_CACHE_NAME = 'user-image-cache';
+    const USER_IMAGE_KEY = 'user-360-image';
+    let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
+
+    try {
+        const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
+        if (settingsString) {
+            const settings = JSON.parse(settingsString);
+            if (settings.mode === 'solid' && settings.color) {
+                vrBackgroundColor = [
+                    settings.color.r / 255.0,
+                    settings.color.g / 255.0,
+                    settings.color.b / 255.0,
+                    1.0
+                ];
+            }
+            // TODO: Handle 360 image mode
+        }
+    } catch (e) {
+        console.error("Could not load VR background settings", e);
+    }
+
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
     gl.enable(gl.BLEND);
@@ -302,7 +326,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
             gl.viewport(0, 0, fboWidth, fboHeight);
             if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
-            else gl.clearColor(0, 0, 0, 1.0);
+            else gl.clearColor(...vrBackgroundColor);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             if (drawGameCallback) {
