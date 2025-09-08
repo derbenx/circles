@@ -34,7 +34,6 @@ function getCanvasModelMatrix() {
 
 // --- Private State ---
 
-let loggedThisFrame = false; // For debugging
 let vrAlertState = {
     shown: false,
     message: "",
@@ -271,7 +270,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     });
 
     function onXRFrame(time, frame) {
-        loggedThisFrame = false; // Reset at the start of the frame
         if (!sessionActive) return;
         session.requestAnimationFrame(onXRFrame);
 
@@ -345,7 +343,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         const aspectRatio = boardAspectRatio || (gameXx / gameYy);
         glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
         glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
-        glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
 
         // --- Rendering ---
@@ -514,17 +511,10 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
 
 
 function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
-    if (!loggedThisFrame) {
-        console.log("--- New Frame ---");
-        console.log("View Matrix:", JSON.stringify(Array.from(view.transform.matrix)));
-        console.log("Projection Matrix:", JSON.stringify(Array.from(view.projectionMatrix)));
-        console.log("Model Matrix:", JSON.stringify(Array.from(modelMatrix)));
-        loggedThisFrame = true;
-    }
     gl.useProgram(programInfo.program);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.matrix, modelMatrix);
+    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
     const normalMatrix = glMatrix.mat4.create();
     glMatrix.mat4.invert(normalMatrix, modelMatrix);
     glMatrix.mat4.transpose(normalMatrix, normalMatrix);
@@ -552,7 +542,7 @@ function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
 
-    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.matrix, modelMatrix);
+    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
     gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
