@@ -204,7 +204,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let buttonStatesLastFrame = {};
     let activeController = null;
     let lastActiveController = null;
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 0.8, -2.0]; // Lowered from 1.0 to 0.8
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
@@ -353,7 +353,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             const viewport = glLayer.getViewport(view);
 
             // --- Resize FBO if necessary ---
-            if (fboWidth !== viewport.width || fboHeight !== viewport.height) {
+            if ((fboWidth !== viewport.width || fboHeight !== viewport.height) && viewport.width > 0 && viewport.height > 0) {
                 fboWidth = viewport.width;
                 fboHeight = viewport.height;
 
@@ -368,9 +368,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             }
 
             // --- 1. Render scene to FBO ---
-            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTexture, 0);
-            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepthbuffer);
+            if (fboWidth === 0 || fboHeight === 0) {
+                // Skip rendering to FBO if it's not initialized, to prevent warnings
+            } else {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTexture, 0);
+                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepthbuffer);
 
             gl.viewport(0, 0, fboWidth, fboHeight);
             if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
@@ -408,6 +411,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textures.alertTexture, pose, view);
             }
 
+            }
             // --- 2. Render FBO texture to screen with FXAA ---
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
