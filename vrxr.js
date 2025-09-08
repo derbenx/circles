@@ -34,6 +34,7 @@ function getCanvasModelMatrix() {
 
 // --- Private State ---
 
+let loggedThisFrame = false; // For debugging
 let vrAlertState = {
     shown: false,
     message: "",
@@ -270,6 +271,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     });
 
     function onXRFrame(time, frame) {
+        loggedThisFrame = false; // Reset at the start of the frame
         if (!sessionActive) return;
         session.requestAnimationFrame(onXRFrame);
 
@@ -512,6 +514,13 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
 
 
 function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
+    if (!loggedThisFrame) {
+        console.log("--- New Frame ---");
+        console.log("View Matrix:", JSON.stringify(Array.from(view.transform.matrix)));
+        console.log("Projection Matrix:", JSON.stringify(Array.from(view.projectionMatrix)));
+        console.log("Model Matrix:", JSON.stringify(Array.from(modelMatrix)));
+        loggedThisFrame = true;
+    }
     gl.useProgram(programInfo.program);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
