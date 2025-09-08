@@ -511,7 +511,7 @@ function drawSolid(gl, programInfo, bufferInfo, modelMatrix, view, color) {
     gl.useProgram(programInfo.program);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+    const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.matrix, modelMatrix);
     const normalMatrix = glMatrix.mat4.create();
     glMatrix.mat4.invert(normalMatrix, modelMatrix);
     glMatrix.mat4.transpose(normalMatrix, normalMatrix);
@@ -539,7 +539,7 @@ function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
 
-    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
+    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.matrix, modelMatrix);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
     gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
