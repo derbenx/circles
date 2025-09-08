@@ -148,8 +148,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const textureProgramInfo = setupTextureShaderProgram(gl);
     const solidColorProgramInfo = setupSolidColorShaderProgram(gl);
     const fxaaProgramInfo = setupFxaaShaderProgram(gl);
-    const texturedSphereProgramInfo = setupTexturedSphereShaderProgram(gl);
-    const programs = { textureProgramInfo, solidColorProgramInfo, fxaaProgramInfo, texturedSphereProgramInfo };
+    const programs = { textureProgramInfo, solidColorProgramInfo, fxaaProgramInfo };
 
     // --- Buffers for various models ---
     const genericBuffers = initGenericBuffers(gl);
@@ -159,7 +158,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     // --- Textured Sphere Buffers ---
     let texturedSphereBuffers = null;
     if (vrBackgroundTexture) { // Only create if we have a texture
-        const sphere = createTextureableSphere(0.5, 32, 32); // Radius 0.5m
+        const sphere = createTextureableSphere(5.0, 32, 32); // Radius 5.0m
         texturedSphereBuffers = {
             position: gl.createBuffer(),
             textureCoord: gl.createBuffer(),
@@ -380,9 +379,22 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
             // --- Draw Textured Sphere if it exists ---
             if (buffers.texturedSphereBuffers && vrBackgroundTexture) {
+                gl.enable(gl.CULL_FACE);
+                gl.cullFace(gl.FRONT);
+                gl.depthMask(false);
+
                 const sphereModelMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.fromTranslation(sphereModelMatrix, [0, 1.5, -1.5]); // Position in front of the user
-                drawTexturedSphere(gl, programs.texturedSphereProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
+                // Get viewer's position from the view matrix's inverse
+                const viewerWorldMatrix = view.transform.inverse.matrix;
+                const viewerPosition = glMatrix.vec3.create();
+                glMatrix.mat4.getTranslation(viewerPosition, viewerWorldMatrix);
+                glMatrix.mat4.fromTranslation(sphereModelMatrix, viewerPosition);
+
+                drawTextured(gl, programs.textureProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
+
+                gl.depthMask(true);
+                gl.cullFace(gl.BACK); // Restore default
+                gl.disable(gl.CULL_FACE);
             }
 
             if (drawGameCallback) {
@@ -545,66 +557,9 @@ function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
     gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
 }
 
-function drawTexturedSphere(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
-    gl.useProgram(programInfo.program);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
-
-    const modelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, modelMatrix);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.position);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.textureCoord);
-    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
-
-    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
-    gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
-}
-
-
 // --- Initialization and Setup ---
 
 function setupTextureShaderProgram(gl) {
-    const vsSource = `
-      attribute vec4 aVertexPosition;
-      attribute vec2 aTextureCoord;
-      uniform mat4 uModelViewMatrix;
-      uniform mat4 uProjectionMatrix;
-      varying highp vec2 vTextureCoord;
-      void main(void) {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        vTextureCoord = aTextureCoord;
-      }`;
-    const fsSource = `
-      precision mediump float;
-      varying highp vec2 vTextureCoord;
-      uniform sampler2D uSampler;
-      void main(void) {
-        gl_FragColor = texture2D(uSampler, vTextureCoord);
-      }`;
-    const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-    return {
-      program: shaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-        textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
-      },
-      uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
-        modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-        uSampler: gl.getUniformLocation(shaderProgram, "uSampler"),
-      },
-    };
-}
-
-function setupTexturedSphereShaderProgram(gl) {
     const vsSource = `
       attribute vec4 aVertexPosition;
       attribute vec2 aTextureCoord;
