@@ -137,6 +137,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                     const sceneData = await response.arrayBuffer();
                     const gltf = await loaders.parse(sceneData, loaders.GLTFLoader);
                     console.log('glTF scene loaded and parsed successfully with loader.gl:', gltf);
+                    console.log(JSON.stringify(gltf.json, null, 2));
                     processGltfScene(gl, gltf);
                 }
             }
