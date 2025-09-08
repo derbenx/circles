@@ -87,51 +87,11 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 }
 
 async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
-
     const glCanvas = document.createElement("canvas");
     const gl = glCanvas.getContext("webgl", { antialias: true, xrCompatible: true });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
-
-    // --- Load VR Background Settings ---
-    const VR_SETTINGS_KEY = 'vr-background-settings';
-    const USER_IMAGE_CACHE_NAME = 'user-image-cache';
-    const USER_IMAGE_KEY = 'user-360-image';
-    let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
-    let vrBackgroundTexture = null;
-
-    try {
-        const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
-        if (settingsString) {
-            const settings = JSON.parse(settingsString);
-            if (settings.mode === 'solid' && settings.color) {
-                vrBackgroundColor = [
-                    settings.color.r / 255.0,
-                    settings.color.g / 255.0,
-                    settings.color.b / 255.0,
-                    1.0
-                ];
-            } else if (settings.mode === '360' && settings.hasImage) {
-                const cache = await caches.open(USER_IMAGE_CACHE_NAME);
-                const response = await cache.match(USER_IMAGE_KEY);
-                if (response) {
-                    const blob = await response.blob();
-                    const imageBitmap = await createImageBitmap(blob);
-
-                    vrBackgroundTexture = gl.createTexture();
-                    gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Could not load VR background settings", e);
-    }
 
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialias: true}) });
@@ -154,26 +114,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const genericBuffers = initGenericBuffers(gl);
     const pieceBuffers = initPieceBuffers(gl);
     const controllerBuffers = initControllerBuffers(gl);
-
-    // --- Textured Sphere Buffers ---
-    let texturedSphereBuffers = null;
-    if (vrBackgroundTexture) { // Only create if we have a texture
-        const sphere = createTextureableSphere(5.0, 32, 32); // Radius 5.0m
-        texturedSphereBuffers = {
-            position: gl.createBuffer(),
-            textureCoord: gl.createBuffer(),
-            indices: gl.createBuffer(),
-            vertexCount: sphere.vertexCount,
-        };
-        gl.bindBuffer(gl.ARRAY_BUFFER, texturedSphereBuffers.position);
-        gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, texturedSphereBuffers.textureCoord);
-        gl.bufferData(gl.ARRAY_BUFFER, sphere.textureCoordinates, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, texturedSphereBuffers.indices);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
-    }
-
-    const buffers = { genericBuffers, pieceBuffers, controllerBuffers, texturedSphereBuffers };
+    const buffers = { genericBuffers, pieceBuffers, controllerBuffers };
 
     // --- FXAA Fullscreen Quad ---
     const fxaaQuadBuffer = gl.createBuffer();
@@ -204,25 +145,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let buttonStatesLastFrame = {};
     let activeController = null;
     let lastActiveController = null;
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 0.8, -2.0]; // Lowered from 1.0 to 0.8
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
 
     function onSessionEnded(event) {
-        if (vrBackgroundTexture) {
-            gl.deleteTexture(vrBackgroundTexture);
-            vrBackgroundTexture = null;
-        }
-        if (buffers.texturedSphereBuffers) {
-            gl.deleteBuffer(buffers.texturedSphereBuffers.position);
-            gl.deleteBuffer(buffers.texturedSphereBuffers.textureCoord);
-            gl.deleteBuffer(buffers.texturedSphereBuffers.indices);
-        }
-        // Note: The shader program is not deleted as it could be used by other sessions.
-        // If this were a more complex app, we might have a more sophisticated
-        // resource management system. For now, this is sufficient.
-
         sessionActive = false;
         activeController = null;
         lastActiveController = null;
@@ -343,6 +271,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         const aspectRatio = boardAspectRatio || (gameXx / gameYy);
         glMatrix.mat4.fromTranslation(canvasModelMatrix, vrCanvasPosition);
         glMatrix.mat4.rotateY(canvasModelMatrix, canvasModelMatrix, vrCanvasRotationY);
+        glMatrix.mat4.scale(canvasModelMatrix, canvasModelMatrix, [aspectRatio, 1, 1]);
 
 
         // --- Rendering ---
@@ -352,7 +281,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             const viewport = glLayer.getViewport(view);
 
             // --- Resize FBO if necessary ---
-            if ((fboWidth !== viewport.width || fboHeight !== viewport.height) && viewport.width > 0 && viewport.height > 0) {
+            if (fboWidth !== viewport.width || fboHeight !== viewport.height) {
                 fboWidth = viewport.width;
                 fboHeight = viewport.height;
 
@@ -367,37 +296,14 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             }
 
             // --- 1. Render scene to FBO ---
-            if (fboWidth === 0 || fboHeight === 0) {
-                // Skip rendering to FBO if it's not initialized, to prevent warnings
-            } else {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTexture, 0);
-                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepthbuffer);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTexture, 0);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepthbuffer);
 
             gl.viewport(0, 0, fboWidth, fboHeight);
             if (mode === 'immersive-ar') gl.clearColor(0, 0, 0, 0);
-            else gl.clearColor(...vrBackgroundColor);
+            else gl.clearColor(0, 0, 0, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // --- Draw Textured Sphere if it exists ---
-            if (buffers.texturedSphereBuffers && vrBackgroundTexture) {
-                gl.enable(gl.CULL_FACE);
-                gl.cullFace(gl.FRONT);
-                gl.depthMask(false);
-
-                const sphereModelMatrix = glMatrix.mat4.create();
-                // Get viewer's position from the view matrix's inverse
-                const viewerWorldMatrix = view.transform.inverse.matrix;
-                const viewerPosition = glMatrix.vec3.create();
-                glMatrix.mat4.getTranslation(viewerPosition, viewerWorldMatrix);
-                glMatrix.mat4.fromTranslation(sphereModelMatrix, viewerPosition);
-
-                drawTextured(gl, programs.textureProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
-
-                gl.depthMask(true);
-                gl.cullFace(gl.BACK); // Restore default
-                gl.disable(gl.CULL_FACE);
-            }
 
             if (drawGameCallback) {
                 drawGameCallback(gl, programs, buffers, view);
@@ -410,7 +316,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textures.alertTexture, pose, view);
             }
 
-            }
             // --- 2. Render FBO texture to screen with FXAA ---
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
@@ -559,6 +464,7 @@ function drawTextured(gl, programInfo, bufferInfo, texture, modelMatrix, view) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInfo.indices);
     gl.drawElements(gl.TRIANGLES, bufferInfo.vertexCount, gl.UNSIGNED_SHORT, 0);
 }
+
 
 // --- Initialization and Setup ---
 
@@ -1441,51 +1347,6 @@ function createSphere(radius, latitudeBands, longitudeBands) {
     return {
         vertices: new Float32Array(vertices),
         normals: new Float32Array(normals),
-        indices: new Uint16Array(indices),
-        vertexCount: indices.length
-    };
-}
-
-
-function createTextureableSphere(radius, latitudeBands, longitudeBands) {
-    const vertices = [];
-    const normals = [];
-    const uvs = [];
-    const indices = [];
-
-    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
-        const theta = latNumber * Math.PI / latitudeBands;
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
-
-        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
-            const phi = longNumber * 2 * Math.PI / longitudeBands;
-            const sinPhi = Math.sin(phi);
-            const cosPhi = Math.cos(phi);
-
-            const x = cosPhi * sinTheta;
-            const y = cosTheta;
-            const z = sinPhi * sinTheta;
-
-            normals.push(x, y, z);
-            uvs.push(longNumber / longitudeBands, latNumber / latitudeBands);
-            vertices.push(radius * x, radius * y, radius * z);
-        }
-    }
-
-    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
-        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
-            const first = (latNumber * (longitudeBands + 1)) + longNumber;
-            const second = first + longitudeBands + 1;
-            indices.push(first, second, first + 1);
-            indices.push(second, second + 1, first + 1);
-        }
-    }
-
-    return {
-        vertices: new Float32Array(vertices),
-        normals: new Float32Array(normals),
-        textureCoordinates: new Float32Array(uvs),
         indices: new Uint16Array(indices),
         vertexCount: indices.length
     };
