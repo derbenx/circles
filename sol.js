@@ -753,9 +753,9 @@ function getCardTexture(gl, cardFace) {
 
     // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
-    const baseSize = 200;
+    const baseSize = 512;
     textureCanvas.width = baseSize;
-    textureCanvas.height = baseSize * 1.5; // Correct 1.5 aspect ratio
+    textureCanvas.height = baseSize;
 
     const ctx = textureCanvas.getContext('2d');
 
@@ -764,7 +764,7 @@ function getCardTexture(gl, cardFace) {
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
     // Draw the card with a margin, effectively scaling it to 95% and centering it
-    const cardSize = baseSize * 0.95;
+    const cardSize = 256;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
 
