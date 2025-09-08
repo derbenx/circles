@@ -2,7 +2,7 @@
 <link rel="manifest" href="manifest.json" />
 <!--<link rel="stylesheet" href="css.css">-->
 <style>
-body { background:black; color:grey; overflow-y: hidden; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+body { background:black; color:grey; overflow-y: hidden; }
 h1 { color:green; text-align:center; }
 td,#hdr { border: solid 1px green; text-align:center; background:black; }
 table,#hdr {width:50% }
@@ -28,6 +28,11 @@ img { width:25% }
     display: inline-block;
     vertical-align: middle;
     margin-left: 10px;
+}
+.filename-display {
+    color: #0f0;
+    margin-left: 10px;
+    font-style: italic;
 }
 </style>
 </head>
@@ -72,7 +77,9 @@ These games are procedurally generated content, which means endless fun.
         <input type="file" id="file-input-360" accept=".jpg,.jpeg" style="display: none;" />
     </div>
     <div id="vr-bg-scene-options" style="display:none;">
-        <p>Work in Progress</p>
+        <p>Select a glTF file: <span id="gltf-filename-display" class="filename-display"></span></p>
+        <button id="browse-gltf-button">Browse...</button>
+        <input type="file" id="gltf-file-input" accept=".gltf,.glb" style="display: none;">
     </div>
 </div>
 </center>
@@ -194,12 +201,18 @@ function frame(){
 }
 </script>
 
+<script src="https://unpkg.com/@loaders.gl/core/dist/dist.min.js"></script>
+<script src="https://unpkg.com/@loaders.gl/gltf/dist/dist.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // --- Constants ---
     const VR_SETTINGS_KEY = 'vr-background-settings';
     const USER_IMAGE_CACHE_NAME = 'user-image-cache';
     const USER_IMAGE_KEY = 'user-360-image';
+    const GLTF_SCENE_CACHE_NAME = 'gltf-scene-cache';
+    const GLTF_SCENE_KEY = 'user-gltf-scene';
+    const GLTF_FILENAME_KEY = 'gltf-filename';
+
 
     // --- Element References ---
     const vrSettingsToggle = document.getElementById('vr-settings-toggle');
@@ -214,6 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const swatch = document.getElementById('vr-bg-color-swatch');
     const browseButton = document.getElementById('browse-360-button');
     const fileInput = document.getElementById('file-input-360');
+    const browseGltfButton = document.getElementById('browse-gltf-button');
+    const gltfFileInput = document.getElementById('gltf-file-input');
+    const gltfFilenameDisplay = document.getElementById('gltf-filename-display');
 
     // --- Functions ---
     function updateSwatch(color) {
@@ -308,9 +324,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    browseGltfButton.addEventListener('click', () => {
+        gltfFileInput.click();
+    });
+
+    gltfFileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const cache = await caches.open(GLTF_SCENE_CACHE_NAME);
+            const response = new Response(file);
+            await cache.put(GLTF_SCENE_KEY, response);
+
+            localStorage.setItem(GLTF_FILENAME_KEY, file.name);
+            gltfFilenameDisplay.textContent = file.name;
+
+            const currentSettings = loadSettings();
+            currentSettings.hasScene = true;
+            saveSettings(currentSettings);
+
+            alert('3D scene saved successfully!');
+        } catch (err) {
+            console.error('Error saving scene to cache:', err);
+            alert('Could not save scene. See console for details.');
+        }
+    });
+
     // --- Initial State ---
     const initialSettings = loadSettings();
     updateUiFromSettings(initialSettings);
+
+    const savedGltfFilename = localStorage.getItem(GLTF_FILENAME_KEY);
+    if (savedGltfFilename) {
+        gltfFilenameDisplay.textContent = savedGltfFilename;
+    }
 });
 </script>
 </html>
