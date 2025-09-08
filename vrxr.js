@@ -382,7 +382,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             if (buffers.texturedSphereBuffers && vrBackgroundTexture) {
                 const sphereModelMatrix = glMatrix.mat4.create();
                 glMatrix.mat4.fromTranslation(sphereModelMatrix, [0, 1.5, -1.5]); // Position in front of the user
-                glMatrix.mat4.rotateY(sphereModelMatrix, sphereModelMatrix, Math.PI / 2); // 90 degrees
+                glMatrix.mat4.rotateY(sphereModelMatrix, sphereModelMatrix, -Math.PI / 2); // -90 degrees
                 drawTexturedSphere(gl, programs.texturedSphereProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
             }
 
