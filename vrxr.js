@@ -479,14 +479,19 @@ function processGltfScene(gl, gltf) {
                     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, primitive.indices.value, gl.STATIC_DRAW);
                     vertexCount = primitive.indices.count;
 
-                    if (primitive.indices.value instanceof Uint16Array) {
+                    if (primitive.indices.value instanceof Uint8Array) {
+                        indexType = gl.UNSIGNED_BYTE;
+                    } else if (primitive.indices.value instanceof Uint16Array) {
                         indexType = gl.UNSIGNED_SHORT;
                     } else if (primitive.indices.value instanceof Uint32Array) {
                         if (!gl.getExtension('OES_element_index_uint')) {
-                            console.error("32-bit indices not supported.");
-                            continue;
+                            console.error("32-bit indices not supported on this device.");
+                            continue; // Skip this primitive if 32-bit indices are not supported
                         }
                         indexType = gl.UNSIGNED_INT;
+                    } else {
+                        console.error("Unsupported index type");
+                        continue;
                     }
                 }
 
