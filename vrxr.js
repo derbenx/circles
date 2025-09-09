@@ -555,8 +555,6 @@ function drawGltfScene(gl, programInfo, renderData, view) {
 
 function drawGltfMesh(gl, programInfo, model, view) {
     gl.useProgram(programInfo.program);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
 
     const finalModelViewMatrix = glMatrix.mat4.multiply(glMatrix.mat4.create(), view.transform.inverse.matrix, model.modelMatrix);
     const normalMatrix = glMatrix.mat4.create();
@@ -568,12 +566,24 @@ function drawGltfMesh(gl, programInfo, model, view) {
     gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
     gl.uniform4fv(programInfo.uniformLocations.color, model.color);
 
+    // --- Position Attribute ---
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.bindBuffer(gl.ARRAY_BUFFER, model.buffers.position);
     gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, model.buffers.normal);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+    // --- Normal Attribute (with fallback) ---
+    if (model.buffers.normal) {
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.buffers.normal);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+    } else {
+        gl.disableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+        // Provide a default normal if the buffer is missing.
+        // The shader uses lighting, so a normal is required.
+        gl.vertexAttrib3f(programInfo.attribLocations.vertexNormal, 0.0, 0.0, 1.0);
+    }
 
+    // --- Draw Call ---
     if (model.buffers.indices) {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.buffers.indices);
         gl.drawElements(gl.TRIANGLES, model.vertexCount, model.indexType, 0);
