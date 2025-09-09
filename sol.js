@@ -753,9 +753,9 @@ function getCardTexture(gl, cardFace) {
 
     // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
-    const baseSize = 200;
+    const baseSize = 512;
     textureCanvas.width = baseSize;
-    textureCanvas.height = baseSize * 1.5; // Correct 1.5 aspect ratio
+    textureCanvas.height = baseSize;
 
     const ctx = textureCanvas.getContext('2d');
 
@@ -764,7 +764,7 @@ function getCardTexture(gl, cardFace) {
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
     // Draw the card with a margin, effectively scaling it to 95% and centering it
-    const cardSize = baseSize * 0.95;
+    const cardSize = 256;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
 
@@ -779,13 +779,13 @@ function getCardTexture(gl, cardFace) {
 const layout = {
     boardAspectRatio: 7.0 / 5.0,
     cardWidth: 0.2,
-    get cardHeight() { return this.cardWidth * 1.5 * this.boardAspectRatio; },
+    get cardHeight() { return this.cardWidth * this.boardAspectRatio; },
     get xSpacing() { return this.cardWidth * 1.15; },
-    get ySpacing() { return this.cardHeight * 0.2; },
+    get ySpacing() { return this.cardHeight * 0.4; },
     get totalWidth() { return 7 * this.xSpacing; },
     get startX() { return -this.totalWidth / 2 + (this.xSpacing/2); },
     topRowY: 0.6,
-    get spreadStartY() { return this.topRowY - this.cardHeight - 0.1; }
+    get spreadStartY() { return this.topRowY - this.cardHeight - .2; }
 };
 
 
@@ -808,7 +808,7 @@ function getCardAtIntersection(local) {
         if (card.pile.startsWith('sprd')) {
             pileIndex = parseInt(card.pile.substring(4));
             x = layout.startX + pileIndex * layout.xSpacing;
-            y = layout.spreadStartY - card.order * layout.ySpacing;
+            y = .1+ layout.spreadStartY - card.order * layout.ySpacing;
         } else if (card.pile.startsWith('aces')) {
             pileIndex = parseInt(card.pile.substring(4));
             x = layout.startX + (3 + pileIndex) * layout.xSpacing;
@@ -1034,7 +1034,7 @@ function drawSolitaire(gl, programs, buffers, view) {
 
             if (x !== undefined) {
                 const markerMatrix = glMatrix.mat4.create();
-                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z - gCardDepth * 1.1]);
+                glMatrix.mat4.translate(markerMatrix, getCanvasModelMatrix(), [x, y, z + gCardDepth]);
                 glMatrix.mat4.scale(markerMatrix, markerMatrix, [layout.cardWidth + 0.01, layout.cardHeight + 0.01, gCardDepth]);
                 drawSolid(gl, solidColorProgramInfo, card, markerMatrix, view, [1.0, 1.0, 0.0, 0.5]);
             }

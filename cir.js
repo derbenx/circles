@@ -437,8 +437,9 @@ function rotate(x,y,t=1){
   grid[x][y]=pos.charAt(0)+pos.charAt(1)+pos.charAt(4)+pos.charAt(3)+pos.charAt(2)+pos.charAt(5);
  }
 }
-function gc(cc){
- var o='ivory';
+
+function gc(cc,f=0){
+ var o='#fffff0';
  if (cc=='g'){ o='#008800' }
  if (cc=='r'){ o='#dd0000' }
  if (cc=='y'){ o='#cccc00' }
@@ -448,6 +449,7 @@ function gc(cc){
  if (cc=='p'){ o='#dd7700' }
  if (cc=='l'){ o='#00cc00' }
  if (cc=='e'){ o='#666666' }
+ if (f==1){ o= [...o.slice(1).match(/../g).map(h => parseInt(h, 16) / 255), 1]; } //convert hex to 0-1 VR
  return o;
 }
 function drci(rad,x,y,p,s=0) {
@@ -462,7 +464,8 @@ function drci(rad,x,y,p,s=0) {
  if (pp.charAt(0)>0) {
   tmp.beginPath();
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI, false);
-  tmp.fillStyle = gc(col.charAt(0));
+  tmp.fillStyle = gc("g");
+  console.log(col.charAt(0));
   tmp.fill();
   tmp.beginPath();
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI);
@@ -618,14 +621,6 @@ function openFileDialog(accept, callback) {
  inputElement.dispatchEvent(new MouseEvent("click"));
 }
 
-const colorMap = {
-    'g': [0.0, 1.0, 0.0, 1.0], 'r': [1.0, 0.0, 0.0, 1.0],
-    'y': [1.0, 1.0, 0.0, 1.0], 'b': [0.0, 0.0, 1.0, 1.0],
-    'v': [0.5, 0.0, 0.5, 1.0], 'c': [0.0, 1.0, 1.0, 1.0],
-    'p': [1.0, 0.5, 0.0, 1.0], 'l': [0.5, 1.0, 0.5, 1.0],
-    'e': [0.5, 0.5, 0.5, 1.0],
-};
-
 function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
     const { solidColorProgramInfo } = programs;
     const { cylinder, halfCylinder, stick, ring, arcBottom, arcLeft } = buffers.pieceBuffers;
@@ -634,7 +629,7 @@ function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
     gl.enableVertexAttribArray(solidColorProgramInfo.attribLocations.vertexNormal);
 
     // Draw main cylinder body
-    drawSolid(gl, solidColorProgramInfo, cylinder, pieceModelMatrix, view, [0.0, 0.8, 0.0, 1.0]);
+    drawSolid(gl, solidColorProgramInfo, cylinder, pieceModelMatrix, view, gc("g",1));
 
     // Draw nubs
     const nubColors = pieceData.substr(2, 4);
@@ -651,7 +646,7 @@ function draw3dPiece(gl, programs, buffers, pieceData, pieceModelMatrix, view) {
             glMatrix.mat4.multiply(finalNubMatrix, pieceModelMatrix, nubLocalMatrix);
             const nubScale = 1 / 1.2;
             glMatrix.mat4.scale(finalNubMatrix, finalNubMatrix, [nubScale, nubScale, nubScale]);
-            const color = colorMap[colorChar] || [1,1,1,1];
+            const color = gc(colorChar,1);
             drawSolid(gl, solidColorProgramInfo, halfCylinder, finalNubMatrix, view, color);
         }
     }
@@ -729,7 +724,7 @@ function drawCircles(gl, programs, buffers, view) {
     const pieceHeight = 0.36 / yy;
     const gridHeight = pieceHeight / 3;
     const lineWidth = 0.0075;
-    const gridColor = [0.0, 1.0, 0.0, 1.0];
+    const gridColor = gc("g",1);
 
     for (let y = 0; y <= yy; y++) {
         const y_pos = (y / yy) * 2.0 - 1.0;

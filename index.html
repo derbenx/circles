@@ -2,7 +2,7 @@
 <link rel="manifest" href="manifest.json" />
 <!--<link rel="stylesheet" href="css.css">-->
 <style>
-body { background:black; color:grey; overflow-y: hidden }
+body { background:black; color:grey; overflow-y: hidden; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
 h1 { color:green; text-align:center; }
 td,#hdr { border: solid 1px green; text-align:center; background:black; }
 table,#hdr {width:50% }
@@ -15,6 +15,20 @@ img { width:25% }
 #dbug{top:0;position:fixed;left:50;background:#ccc;border:1px solid red;padding:5px;font:50px bold;}
 #circtab td{padding:5px;}
 #btg { position:fixed; top:0px; }
+#vr-settings-toggle {
+    background-color: #333;
+    color: #0f0;
+    border: 1px solid #0f0;
+    cursor: pointer;
+}
+.color-swatch {
+    width: 25px;
+    height: 25px;
+    border: 1px solid grey;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 10px;
+}
 </style>
 </head>
 <center><p><br></p><div id="hdr">
@@ -26,6 +40,41 @@ These games are procedurally generated content, which means endless fun.
 <td onclick="play(1)"><img src="favicon/cir.png"><br><button>Circles</button></td>
 <td onclick="play(2)"><img src="favicon/sol.png"><br><button>Solitare</button></td>
 <tr></table>
+<br>
+<button id='vr-settings-toggle'>-VR Settings-</button>
+
+<div id="vr-settings" style="display:none; border: 1px solid green; padding: 10px; margin-top: 10px; width: 50%; background-color: black;">
+    <h4>VR Background Options</h4>
+    <div>
+        <input type="radio" id="vr-bg-solid" name="vr-bg-option" value="solid" checked>
+        <label for="vr-bg-solid">Solid Colour</label>
+    </div>
+    <div>
+        <input type="radio" id="vr-bg-360" name="vr-bg-option" value="360">
+        <label for="vr-bg-360">360 Image</label>
+    </div>
+    <!-- <div>
+        <input type="radio" id="vr-bg-scene" name="vr-bg-option" value="scene">
+        <label for="vr-bg-scene">3D Scene</label>
+    </div>-->
+    <hr>
+    <div id="vr-bg-solid-options">
+        <p>Choose background color: <span id="vr-bg-color-swatch" class="color-swatch"></span></p>
+        <table>
+            <tr><td>R</td><td><input type="range" id="vr-bg-r" min="0" max="255" value="0"></td></tr>
+            <tr><td>G</td><td><input type="range" id="vr-bg-g" min="0" max="255" value="0"></td></tr>
+            <tr><td>B</td><td><input type="range" id="vr-bg-b" min="0" max="255" value="0"></td></tr>
+        </table>
+    </div>
+    <div id="vr-bg-360-options" style="display:none;">
+        <p>Select a 360-degree JPG image:</p>
+        <button id="browse-360-button">Browse</button>
+        <input type="file" id="file-input-360" accept=".jpg,.jpeg" style="display: none;" />
+    </div>
+    <div id="vr-bg-scene-options" style="display:none;">
+        <p>Work in Progress</p>
+    </div>
+</div>
 </center>
 <script>
  if (typeof navigator.serviceWorker !== 'undefined') {
@@ -145,4 +194,123 @@ function frame(){
 }
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Constants ---
+    const VR_SETTINGS_KEY = 'vr-background-settings';
+    const USER_IMAGE_CACHE_NAME = 'user-image-cache';
+    const USER_IMAGE_KEY = 'user-360-image';
+
+    // --- Element References ---
+    const vrSettingsToggle = document.getElementById('vr-settings-toggle');
+    const vrSettingsPanel = document.getElementById('vr-settings');
+    const bgOptions = document.querySelectorAll('input[name="vr-bg-option"]');
+    const solidOptions = document.getElementById('vr-bg-solid-options');
+    const imageOptions = document.getElementById('vr-bg-360-options');
+    const sceneOptions = document.getElementById('vr-bg-scene-options');
+    const rSlider = document.getElementById('vr-bg-r');
+    const gSlider = document.getElementById('vr-bg-g');
+    const bSlider = document.getElementById('vr-bg-b');
+    const swatch = document.getElementById('vr-bg-color-swatch');
+    const browseButton = document.getElementById('browse-360-button');
+    const fileInput = document.getElementById('file-input-360');
+
+    // --- Functions ---
+    function updateSwatch(color) {
+        swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+
+    function saveSettings(settings) {
+        localStorage.setItem(VR_SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function loadSettings() {
+        const saved = localStorage.getItem(VR_SETTINGS_KEY);
+        return saved ? JSON.parse(saved) : {
+            mode: 'solid',
+            color: { r: 0, g: 0, b: 0 }
+        };
+    }
+
+    function updateUiFromSettings(settings) {
+        // Set radio button
+        const radio = document.querySelector(`input[name="vr-bg-option"][value="${settings.mode}"]`);
+        if (radio) {
+            radio.checked = true;
+        }
+
+        // Set slider values
+        rSlider.value = settings.color.r;
+        gSlider.value = settings.color.g;
+        bSlider.value = settings.color.b;
+
+        // Update swatch
+        updateSwatch(settings.color);
+
+        // Show/hide option panels
+        solidOptions.style.display = settings.mode === 'solid' ? 'block' : 'none';
+        imageOptions.style.display = settings.mode === '360' ? 'block' : 'none';
+        sceneOptions.style.display = settings.mode === 'scene' ? 'block' : 'none';
+    }
+
+    // --- Event Listeners ---
+    vrSettingsToggle.addEventListener('click', () => {
+        const isVisible = vrSettingsPanel.style.display !== 'none';
+        vrSettingsPanel.style.display = isVisible ? 'none' : 'block';
+    });
+
+    bgOptions.forEach(radio => {
+        radio.addEventListener('change', (event) => {
+            const newMode = event.target.value;
+            const currentSettings = loadSettings();
+            currentSettings.mode = newMode;
+            saveSettings(currentSettings);
+            updateUiFromSettings(currentSettings);
+        });
+    });
+
+    [rSlider, gSlider, bSlider].forEach(slider => {
+        slider.addEventListener('input', () => {
+            const color = {
+                r: parseInt(rSlider.value),
+                g: parseInt(gSlider.value),
+                b: parseInt(bSlider.value)
+            };
+            const currentSettings = loadSettings();
+            currentSettings.color = color;
+            saveSettings(currentSettings);
+            updateSwatch(color);
+        });
+    });
+
+    browseButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const cache = await caches.open(USER_IMAGE_CACHE_NAME);
+            const response = new Response(file);
+            await cache.put(USER_IMAGE_KEY, response);
+            alert('360 image saved successfully!');
+
+            // Also update settings to indicate an image is stored
+            const currentSettings = loadSettings();
+            currentSettings.hasImage = true;
+            saveSettings(currentSettings);
+
+        } catch (err) {
+            console.error('Error saving image to cache:', err);
+            alert('Could not save image. See console for details.');
+        }
+    });
+
+    // --- Initial State ---
+    const initialSettings = loadSettings();
+    updateUiFromSettings(initialSettings);
+});
+</script>
 </html>
