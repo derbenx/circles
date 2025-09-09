@@ -1,3 +1,4 @@
+// --- Start of vrxr.js content ---
 var inAR = false;
 var inVR = false;
 let vrSession = null;
@@ -136,7 +137,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 if (response) {
                     const sceneData = await response.arrayBuffer();
                     const gltf = await loaders.parse(sceneData, loaders.GLTFLoader);
-                    // console.log('glTF scene loaded and parsed successfully with loader.gl:', gltf);
                     processGltfScene(gl, gltf);
                 }
             }
@@ -152,7 +152,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     try {
         referenceSpace = await session.requestReferenceSpace("local-floor");
     } catch (e) {
-        //console.warn("Could not get 'local-floor' reference space, falling back to 'local'");
         referenceSpace = await session.requestReferenceSpace("local");
     }
 
@@ -473,28 +472,22 @@ function processGltfScene(gl, gltf) {
                 let vertexCount = attributes.POSITION.count;
                 let indexType = null;
 
-                if (primitive.indices) {
-                    if (primitive.indices.value === undefined) {
-                        console.error("Found primitive with indices but no value:", primitive.indices);
+                if (primitive.indices !== undefined) {
+                    const indexAccessor = gltf.json.accessors[primitive.indices];
+                    if (!indexAccessor || indexAccessor.value === undefined) {
+                        console.error("Primitive has indices but accessor or value is missing.", primitive);
                         continue;
                     }
+
                     indexBuffer = gl.createBuffer();
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, primitive.indices.value, gl.STATIC_DRAW);
-                    vertexCount = primitive.indices.count;
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexAccessor.value, gl.STATIC_DRAW);
+                    vertexCount = indexAccessor.count;
 
-                    if (primitive.indices.value instanceof Uint8Array) {
-                        indexType = gl.UNSIGNED_BYTE;
-                    } else if (primitive.indices.value instanceof Uint16Array) {
-                        indexType = gl.UNSIGNED_SHORT;
-                    } else if (primitive.indices.value instanceof Uint32Array) {
-                        if (!gl.getExtension('OES_element_index_uint')) {
-                            console.error("32-bit indices not supported on this device.");
-                            continue; // Skip this primitive if 32-bit indices are not supported
-                        }
-                        indexType = gl.UNSIGNED_INT;
-                    } else {
-                        console.error("Unsupported index type", primitive.indices);
+                    // componentType is a WebGL enum value, e.g., 5123 for UNSIGNED_SHORT
+                    indexType = indexAccessor.componentType;
+                    if (indexType === gl.UNSIGNED_INT && !gl.getExtension('OES_element_index_uint')) {
+                        console.error("32-bit indices not supported on this device.");
                         continue;
                     }
                 }
