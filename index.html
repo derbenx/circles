@@ -57,6 +57,10 @@ These games are procedurally generated content, which means endless fun.
         <input type="radio" id="vr-bg-scene" name="vr-bg-option" value="scene">
         <label for="vr-bg-scene">3D Scene</label>
     </div>-->
+    <div>
+        <input type="checkbox" id="vr-xr-clock">
+        <label for="vr-xr-clock">VR/XR Clock</label>
+    </div>
     <hr>
     <div id="vr-bg-solid-options">
         <p>Choose background color: <span id="vr-bg-color-swatch" class="color-swatch"></span></p>
@@ -218,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('file-input-360');
     const fileNameSpan = document.getElementById('file-360-name');
     const deleteButton = document.getElementById('delete-360-button');
+    const clockCheckbox = document.getElementById('vr-xr-clock');
 
     // --- Functions ---
     function updateSwatch(color) {
@@ -234,7 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
             mode: 'solid',
             color: { r: 0, g: 0, b: 0 },
             hasImage: false,
-            imageName: null
+            imageName: null,
+            showClock: false
         };
         const settings = saved ? JSON.parse(saved) : defaults;
         return { ...defaults, ...settings };
@@ -272,6 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 deleteButton.style.display = 'none';
             }
         }
+
+        // Update clock checkbox
+        clockCheckbox.checked = settings.showClock;
     }
 
     // --- Event Listeners ---
@@ -345,6 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error deleting image from cache:', err);
             alert('Could not delete image. See console for details.');
         }
+    });
+
+    clockCheckbox.addEventListener('change', () => {
+        const currentSettings = loadSettings();
+        currentSettings.showClock = clockCheckbox.checked;
+        saveSettings(currentSettings);
     });
 
     // --- Initial State ---

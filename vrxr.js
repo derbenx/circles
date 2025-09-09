@@ -100,11 +100,13 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const USER_IMAGE_KEY = 'user-360-image';
     let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
     let vrBackgroundTexture = null;
+    let showClock = false;
 
     try {
         const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
         if (settingsString) {
             const settings = JSON.parse(settingsString);
+            showClock = settings.showClock || false;
             if (settings.mode === 'solid' && settings.color) {
                 vrBackgroundColor = [
                     settings.color.r / 255.0,
@@ -197,7 +199,11 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     // --- Textures ---
     const alertTexture = initTexture(gl, createAlertCanvas());
     const pointerTexture = initTexture(gl, createPointerCanvas());
-    const textures = { alertTexture, pointerTexture };
+    let clockTexture = null;
+    if (showClock) {
+        clockTexture = initTexture(gl, createClockCanvas());
+    }
+    const textures = { alertTexture, pointerTexture, clockTexture };
 
     // --- VR interaction state ---
     let primaryButtonPressedLastFrame = false;
@@ -214,6 +220,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         if (vrBackgroundTexture) {
             gl.deleteTexture(vrBackgroundTexture);
             vrBackgroundTexture = null;
+        }
+        if (textures.clockTexture) {
+            gl.deleteTexture(textures.clockTexture);
         }
         if (buffers.texturedSphereBuffers) {
             gl.deleteBuffer(buffers.texturedSphereBuffers.position);
@@ -386,6 +395,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawTexturedSphere(gl, programs.texturedSphereProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
             }
 
+            if (showClock) {
+                drawClock(gl, programs, buffers, textures, view);
+            }
             if (drawGameCallback) {
                 drawGameCallback(gl, programs, buffers, view);
             }
@@ -493,6 +505,25 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
     //glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
     glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
     drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view);
+}
+
+function drawClock(gl, programs, buffers, textures, view) {
+    // This creates a new canvas every frame, which is not ideal for performance,
+    // but it's the simplest way to update the time text for now.
+    const clockCanvas = createClockCanvas();
+    updateTexture(gl, textures.clockTexture, clockCanvas);
+
+    const clockModelMatrix = glMatrix.mat4.create();
+    // Use the main canvas's model matrix to position the clock relative to it
+    glMatrix.mat4.copy(clockModelMatrix, getCanvasModelMatrix());
+
+    // Position it above the board. The y-translation might need tweaking.
+    glMatrix.mat4.translate(clockModelMatrix, clockModelMatrix, [0, 1.5, 0]);
+
+    // Scale the clock to an appropriate size.
+    glMatrix.mat4.scale(clockModelMatrix, clockModelMatrix, [0.4, 0.1, 1]); // Adjust width and height
+
+    drawTextured(gl, programs.textureProgramInfo, buffers.genericBuffers.quad, textures.clockTexture, clockModelMatrix, view);
 }
 
 
@@ -1022,6 +1053,29 @@ function createPointerCanvas() {
     ctx.beginPath();
     ctx.arc(32, 32, 30, 0, 2 * Math.PI);
     ctx.fill();
+    return canvas;
+}
+
+function createClockCanvas() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+
+    // Semi-transparent background
+    ctx.fillStyle = "rgba(20, 20, 20, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // White text
+    ctx.fillStyle = "white";
+    ctx.font = "bold 48px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    ctx.fillText(timeString, canvas.width / 2, canvas.height / 2);
+
     return canvas;
 }
 
