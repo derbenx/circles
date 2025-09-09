@@ -107,27 +107,30 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         if (settingsString) {
             const settings = JSON.parse(settingsString);
             showClock = settings.showClock || false;
-            if (settings.mode === 'solid' && settings.color) {
-                vrBackgroundColor = [
-                    settings.color.r / 255.0,
-                    settings.color.g / 255.0,
-                    settings.color.b / 255.0,
-                    1.0
-                ];
-            } else if (settings.mode === '360' && settings.hasImage) {
-                const cache = await caches.open(USER_IMAGE_CACHE_NAME);
-                const response = await cache.match(USER_IMAGE_KEY);
-                if (response) {
-                    const blob = await response.blob();
-                    const imageBitmap = await createImageBitmap(blob);
 
-                    vrBackgroundTexture = gl.createTexture();
-                    gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+            if (mode !== 'immersive-ar') {
+                if (settings.mode === 'solid' && settings.color) {
+                    vrBackgroundColor = [
+                        settings.color.r / 255.0,
+                        settings.color.g / 255.0,
+                        settings.color.b / 255.0,
+                        1.0
+                    ];
+                } else if (settings.mode === '360' && settings.hasImage) {
+                    const cache = await caches.open(USER_IMAGE_CACHE_NAME);
+                    const response = await cache.match(USER_IMAGE_KEY);
+                    if (response) {
+                        const blob = await response.blob();
+                        const imageBitmap = await createImageBitmap(blob);
+
+                        vrBackgroundTexture = gl.createTexture();
+                        gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+                    }
                 }
             }
         }
@@ -201,7 +204,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const pointerTexture = initTexture(gl, createPointerCanvas());
     let clockTexture = null;
     if (showClock) {
-        clockTexture = initTexture(gl, createClockCanvas());
+        clockTexture = initDynamicTexture(gl, createClockCanvas());
     }
     const textures = { alertTexture, pointerTexture, clockTexture };
 
@@ -511,7 +514,7 @@ function drawClock(gl, programs, buffers, textures, view) {
     // This creates a new canvas every frame, which is not ideal for performance,
     // but it's the simplest way to update the time text for now.
     const clockCanvas = createClockCanvas();
-    updateTexture(gl, textures.clockTexture, clockCanvas);
+    updateDynamicTexture(gl, textures.clockTexture, clockCanvas);
 
     const clockModelMatrix = glMatrix.mat4.create();
     // Use the main canvas's model matrix to position the clock relative to it
@@ -1028,6 +1031,21 @@ function initTexture(gl, source) {
 function updateTexture(gl, texture, source) {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+}
+
+function initDynamicTexture(gl, source) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    return texture;
+}
+
+function updateDynamicTexture(gl, texture, source) {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
 }
 
 function createAlertCanvas(message = "You Won!") {
