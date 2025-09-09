@@ -474,6 +474,10 @@ function processGltfScene(gl, gltf) {
                 let indexType = null;
 
                 if (primitive.indices) {
+                    if (primitive.indices.value === undefined) {
+                        console.error("Found primitive with indices but no value:", primitive.indices);
+                        continue;
+                    }
                     indexBuffer = gl.createBuffer();
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
                     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, primitive.indices.value, gl.STATIC_DRAW);
@@ -490,7 +494,7 @@ function processGltfScene(gl, gltf) {
                         }
                         indexType = gl.UNSIGNED_INT;
                     } else {
-                        console.error("Unsupported index type");
+                        console.error("Unsupported index type", primitive.indices);
                         continue;
                     }
                 }
