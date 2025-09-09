@@ -101,36 +101,38 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
     let vrBackgroundTexture = null;
 
-    try {
-        const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
-        if (settingsString) {
-            const settings = JSON.parse(settingsString);
-            if (settings.mode === 'solid' && settings.color) {
-                vrBackgroundColor = [
-                    settings.color.r / 255.0,
-                    settings.color.g / 255.0,
-                    settings.color.b / 255.0,
-                    1.0
-                ];
-            } else if (settings.mode === '360' && settings.hasImage) {
-                const cache = await caches.open(USER_IMAGE_CACHE_NAME);
-                const response = await cache.match(USER_IMAGE_KEY);
-                if (response) {
-                    const blob = await response.blob();
-                    const imageBitmap = await createImageBitmap(blob);
+    if (mode !== 'immersive-ar') {
+        try {
+            const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
+            if (settingsString) {
+                const settings = JSON.parse(settingsString);
+                if (settings.mode === 'solid' && settings.color) {
+                    vrBackgroundColor = [
+                        settings.color.r / 255.0,
+                        settings.color.g / 255.0,
+                        settings.color.b / 255.0,
+                        1.0
+                    ];
+                } else if (settings.mode === '360' && settings.hasImage) {
+                    const cache = await caches.open(USER_IMAGE_CACHE_NAME);
+                    const response = await cache.match(USER_IMAGE_KEY);
+                    if (response) {
+                        const blob = await response.blob();
+                        const imageBitmap = await createImageBitmap(blob);
 
-                    vrBackgroundTexture = gl.createTexture();
-                    gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+                        vrBackgroundTexture = gl.createTexture();
+                        gl.bindTexture(gl.TEXTURE_2D, vrBackgroundTexture);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+                    }
                 }
             }
+        } catch (e) {
+            console.error("Could not load VR background settings", e);
         }
-    } catch (e) {
-        console.error("Could not load VR background settings", e);
     }
 
     await gl.makeXRCompatible();
