@@ -433,16 +433,36 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
 function processGltfScene(gl, gltf) {
     gltfRenderData = { models: [] };
-    // Ensure gltf.json and its properties exist before trying to access them
     if (!gltf.json || !gltf.json.scenes || gltf.json.scene === undefined) {
         console.error("Invalid glTF structure: a default scene is not defined.");
         return;
     }
     const defaultScene = gltf.json.scenes[gltf.json.scene];
+    const accessors = gltf.json.accessors;
+    const bufferViews = gltf.json.bufferViews;
+    const buffers = gltf.buffers;
 
-    // A recursive function to traverse the scene graph
+    // Helper to get TypedArray from accessor
+    const getTypedArrayForAccessor = (accessorId) => {
+        const accessor = accessors[accessorId];
+        const bufferView = bufferViews[accessor.bufferView];
+        const buffer = buffers[bufferView.buffer];
+        const componentTypeMap = {
+            5120: Int8Array,
+            5121: Uint8Array,
+            5122: Int16Array,
+            5123: Uint16Array,
+            5125: Uint32Array,
+            5126: Float32Array,
+        };
+        const TypedArray = componentTypeMap[accessor.componentType];
+        const byteOffset = (bufferView.byteOffset || 0) + (accessor.byteOffset || 0);
+        const numElements = accessor.count * (accessor.type.startsWith('VEC') ? parseInt(accessor.type.slice(3)) : (accessor.type === 'SCALAR' ? 1 : 0));
+        return new TypedArray(buffer, byteOffset, numElements);
+    };
+
     function traverseNode(node, parentMatrix) {
-        const localMatrix = node.matrix || glMatrix.mat4.create();
+        const localMatrix = node.matrix ? glMatrix.mat4.clone(node.matrix) : glMatrix.mat4.create();
         if (node.translation || node.rotation || node.scale) {
             const translation = node.translation || [0, 0, 0];
             const rotation = node.rotation || [0, 0, 0, 1];
@@ -456,42 +476,42 @@ function processGltfScene(gl, gltf) {
             const mesh = gltf.json.meshes[node.mesh];
             for (const primitive of mesh.primitives) {
                 const attributes = primitive.attributes;
-                if (!attributes.POSITION || !attributes.NORMAL) {
-                    continue;
-                }
+                if (attributes.POSITION === undefined) continue;
 
+                // --- Position Buffer ---
+                const positionData = getTypedArrayForAccessor(attributes.POSITION);
                 const positionBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, attributes.POSITION.value, gl.STATIC_DRAW);
+                gl.bufferData(gl.ARRAY_BUFFER, positionData, gl.STATIC_DRAW);
 
-                const normalBuffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, attributes.NORMAL.value, gl.STATIC_DRAW);
+                // --- Normal Buffer (optional but recommended) ---
+                let normalBuffer = null;
+                if (attributes.NORMAL !== undefined) {
+                    const normalData = getTypedArrayForAccessor(attributes.NORMAL);
+                    normalBuffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, normalData, gl.STATIC_DRAW);
+                }
 
+                // --- Index Buffer (optional) ---
                 let indexBuffer = null;
-                let vertexCount = attributes.POSITION.count;
+                let vertexCount = accessors[attributes.POSITION].count;
                 let indexType = null;
-
                 if (primitive.indices !== undefined) {
-                    const indexAccessor = gltf.json.accessors[primitive.indices];
-                    if (!indexAccessor || indexAccessor.value === undefined) {
-                        console.error("Primitive has indices but accessor or value is missing.", primitive);
-                        continue;
-                    }
-
+                    const indexAccessor = accessors[primitive.indices];
+                    const indexData = getTypedArrayForAccessor(primitive.indices);
                     indexBuffer = gl.createBuffer();
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexAccessor.value, gl.STATIC_DRAW);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
                     vertexCount = indexAccessor.count;
-
-                    // componentType is a WebGL enum value, e.g., 5123 for UNSIGNED_SHORT
-                    indexType = indexAccessor.componentType;
+                    indexType = indexAccessor.componentType; // e.g., 5123 for UNSIGNED_SHORT
                     if (indexType === gl.UNSIGNED_INT && !gl.getExtension('OES_element_index_uint')) {
                         console.error("32-bit indices not supported on this device.");
                         continue;
                     }
                 }
 
+                // --- Material / Color ---
                 let color = [0.8, 0.8, 0.8, 1.0]; // Default grey
                 if (primitive.material !== undefined) {
                     const material = gltf.json.materials[primitive.material];
@@ -525,7 +545,6 @@ function processGltfScene(gl, gltf) {
     for (const nodeIndex of defaultScene.nodes) {
         traverseNode(gltf.json.nodes[nodeIndex], rootMatrix);
     }
-    console.log("glTF scene processed into render data:", gltfRenderData);
 }
 
 function drawGltfScene(gl, programInfo, renderData, view) {
