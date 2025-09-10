@@ -101,6 +101,7 @@ class Hand {
             vec3.normalize(vec2, vec2);
 
             const angle = vec3.angle(vec1, vec2);
+            console.log(`Knuckle angle (${this.handedness}):`, angle * (180 / Math.PI)); // Log angle in degrees
 
             // Check if the angle is greater than 45 degrees (in radians)
             this.isIndexCurled = angle > Math.PI / 4;
