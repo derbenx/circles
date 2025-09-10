@@ -101,10 +101,22 @@ class Hand {
             vec3.normalize(vec2, vec2);
 
             const angle = vec3.angle(vec1, vec2);
-            console.log(`Knuckle angle (${this.handedness}):`, angle * (180 / Math.PI)); // Log angle in degrees
+            let isCurled = angle > (20 * Math.PI / 180); // 20 degrees
 
-            // Check if the angle is greater than 45 degrees (in radians)
-            this.isIndexCurled = angle > Math.PI / 4;
+            const thumbTipPose = this.jointPoses.get('thumb-tip');
+            const indexTipPose = this.jointPoses.get('index-finger-tip');
+            if (thumbTipPose && indexTipPose) {
+                const thumbTipPos = vec3.create();
+                mat4.getTranslation(thumbTipPos, thumbTipPose);
+                const indexTipPos = vec3.create();
+                mat4.getTranslation(indexTipPos, indexTipPose);
+                const distance = vec3.distance(thumbTipPos, indexTipPos);
+                if (distance < 0.05) { // If thumb and index are close (pinching)
+                    isCurled = false;
+                }
+            }
+
+            this.isIndexCurled = isCurled;
         } else {
             this.isIndexCurled = false;
         }
