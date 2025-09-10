@@ -29,6 +29,9 @@ img { width:25% }
     vertical-align: middle;
     margin-left: 10px;
 }
+button:hover, input[type=button]:hover, select:hover {
+    box-shadow: 0 0 10px 5px lightgreen;
+}
 </style>
 </head>
 <center><p><br></p><div id="hdr">
@@ -140,19 +143,19 @@ function frame(){
   iii=0;
   rbi++;
   rbi= rbi>rb.length-1 ? 0 : rbi;
-  
+
   tmp=[ rb[rbi][0],rb[rbi][1],rb[rbi][2]] ;
   tmp=x(tmp);
  } else {
   tmp=[rgb[lines-1][0],rgb[lines-1][1],rgb[lines-1][2]];
  }
- rgb.shift(); 
+ rgb.shift();
  rgb.push(tmp);
- 
+
  ctx.fillStyle="#000000";
  ctx.fillRect(0,0,mx,my);
  for (let i=0;i<lines;i++){
- 
+
  if (i<lines-1){
   for (let it=0;it<3;it++){
    if (rgb[i][it]==0) { rgb[i][it]=0 }
@@ -160,7 +163,7 @@ function frame(){
    else { rgb[i][it]=cvs[i] }
   }
  }
- 
+
   if (cd[i]==undefined && i>0){
    cd.push([cd[i-1][0]+step,cd[i-1][1]+step,cd[i-1][2]+step,cd[i-1][3]+step]);
   }

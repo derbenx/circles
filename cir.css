@@ -8,3 +8,7 @@ h1{ color:green; text-align:center; }
 #dbug{top:0;position:fixed;left:50;background:#ccc;border:1px solid red;padding:5px;font:50px bold;}
 #circtab td{padding:5px;}
 #btg { position:fixed; top:0px; }
+
+button:hover, input[type=button]:hover, select:hover {
+    box-shadow: 0 0 10px 5px lightgreen;
+}

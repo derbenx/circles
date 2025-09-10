@@ -141,7 +141,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     }
 
     await gl.makeXRCompatible();
-    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialias: true}) });
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, {antialiasing: true}) });
 
     let referenceSpace;
     try {
@@ -467,8 +467,16 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
 
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                // Apply the same downward rotation as the intersection test, but not for hands
-                if (!source.hand) {
+                if (source.profiles.includes('generic-hand-select')) {
+                    // Hand rotation
+                    glMatrix.mat4.rotate(rayMatrix, rayMatrix, -1.919, [1, 0, 0]); // -110 degrees
+                    if (source.handedness === 'left') {
+                        glMatrix.mat4.rotate(rayMatrix, rayMatrix, -0.5, [0, 1, 0]);
+                    } else {
+                        glMatrix.mat4.rotate(rayMatrix, rayMatrix, 0.5, [0, 1, 0]);
+                    }
+                } else {
+                    // Controller rotation
                     glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
                 }
                 glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
@@ -599,7 +607,7 @@ function drawTexturedSphere(gl, programInfo, bufferInfo, texture, modelMatrix, v
     gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.bind_texture(gl.TEXTURE_2D, texture);
     gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
 
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
@@ -1111,8 +1119,20 @@ function intersectPlane(transform, quadModelMatrix, source) {
     // Start with the base orientation
     const finalRot = quat.clone([transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
 
-    // If the source is not a hand, apply the downward rotation for controllers
-    if (!source.hand) {
+    if (source.profiles.includes('generic-hand-select')) {
+        // Hand rotation
+        const rotX = quat.create();
+        quat.setAxisAngle(rotX, [1, 0, 0], -1.919); // -110 degrees
+        const rotY = quat.create();
+        if (source.handedness === 'left') {
+            quat.setAxisAngle(rotY, [0, 1, 0], -0.5);
+        } else {
+            quat.setAxisAngle(rotY, [0, 1, 0], 0.5);
+        }
+        quat.multiply(finalRot, finalRot, rotX);
+        quat.multiply(finalRot, finalRot, rotY);
+    } else {
+        // Controller rotation
         const rotX = quat.create();
         quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
         quat.multiply(finalRot, finalRot, rotX);

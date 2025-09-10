@@ -738,20 +738,12 @@ function youWin() {
     }
 }
 
-// ... (The rest of the file is VR/AR and drawing logic that I have already reviewed and seems correct)
-// ... I will not include it here for brevity, but I have it in my context.
-// ... The final part of the file is the same as the last read_file output.
-// ... from getCardTexture onwards.
-// I will just append the rest of the file content from my memory.
-// ...
 const cardTextureCache = {};
 function getCardTexture(gl, cardFace) {
-    // Use a cache to avoid recreating textures
     if (cardTextureCache[cardFace]) {
         return cardTextureCache[cardFace];
     }
 
-    // Create an off-screen canvas to draw the card face
     const textureCanvas = document.createElement('canvas');
     const baseSize = 512;
     textureCanvas.width = baseSize;
@@ -759,16 +751,13 @@ function getCardTexture(gl, cardFace) {
 
     const ctx = textureCanvas.getContext('2d');
 
-    // Fill the entire canvas white to create the border
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
 
-    // Draw the card with a margin, effectively scaling it to 95% and centering it
     const cardSize = 256;
     const margin = (baseSize - cardSize) / 2;
     dcd(textureCanvas, margin, margin, cardFace, cardSize, co1, co2);
 
-    // Create a WebGL texture from the canvas
     const texture = initTexture(gl, textureCanvas);
     cardTextureCache[cardFace] = texture;
     return texture;
@@ -890,7 +879,8 @@ function rebuildLegacyArrays() {
     flow = masterDeck.filter(c => c.pile === 'flow').sort((a, b) => a.order - b.order).map(c => c.id);
 }
 
-function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view) {
+function drawCardWithMatrix(gl, programs, buffers, cardFace, modelMatrix, view)
+{
     const { textureProgramInfo } = programs;
     const { card } = buffers.pieceBuffers;
 

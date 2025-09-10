@@ -5,3 +5,7 @@ body { background:black; color:grey; overflow-y: hidden }
 #can, #spr { display: block; margin: auto; }
 #dbug{top:0;position:fixed;left:0;background:#ccc;border:1px solid red;padding:5px;}
 #btg { position:fixed; top:0px; }
+
+button:hover, input[type=button]:hover, select:hover {
+    box-shadow: 0 0 10px 5px lightgreen;
+}
