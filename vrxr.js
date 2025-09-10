@@ -51,7 +51,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
   const vrButton = document.getElementById("btn-vr");
   try {
     vrSession = await navigator.xr.requestSession("immersive-vr", {
-      optionalFeatures: ["local-floor"],
+      optionalFeatures: ["local-floor", "hand-tracking"],
     });
     inVR = true;
     vrButton.textContent = "Stop VR";
@@ -70,7 +70,7 @@ async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
     const xrButton = document.getElementById('btn-xr');
     try {
         arSession = await navigator.xr.requestSession('immersive-ar', {
-            optionalFeatures: ['dom-overlay'],
+            optionalFeatures: ['dom-overlay', 'hand-tracking'],
             domOverlay: { root: document.body }
         });
         inAR = true;
@@ -183,6 +183,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
     const buffers = { genericBuffers, pieceBuffers, controllerBuffers, texturedSphereBuffers };
 
+    const leftHand = new Hand('left', controllerBuffers);
+    const rightHand = new Hand('right', controllerBuffers);
+
     // --- FXAA Fullscreen Quad ---
     const fxaaQuadBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, fxaaQuadBuffer);
@@ -289,6 +292,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         session.requestAnimationFrame(onXRFrame);
 
         if (typeof draw === 'function') draw(1);
+
+        leftHand.update(frame, referenceSpace);
+        rightHand.update(frame, referenceSpace);
 
         const pose = frame.getViewerPose(referenceSpace);
         if (!pose) return;
@@ -414,6 +420,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textures.alertTexture, pose, view);
             }
 
+            leftHand.draw(gl, solidColorProgramInfo, view, drawSolid);
+            rightHand.draw(gl, solidColorProgramInfo, view, drawSolid);
+
             // --- 2. Render FBO texture to screen with FXAA ---
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
@@ -455,6 +464,9 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
 
     for (let i = 0; i < session.inputSources.length; i++) {
         const source = session.inputSources[i];
+        if (source.hand) {
+            continue;
+        }
         if (source.gripSpace) {
             const gripPose = frame.getPose(source.gripSpace, referenceSpace);
             if (gripPose) {
