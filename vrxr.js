@@ -44,12 +44,31 @@ let ignoreNextSelectEnd = false;
 let canvasModelMatrix = null;
 let vrIntersection = null;
 
+let handScriptLoaded = false;
+function loadHandScript() {
+    return new Promise((resolve, reject) => {
+        if (handScriptLoaded) {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'hand.js';
+        script.onload = () => {
+            handScriptLoaded = true;
+            resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 
 // --- Core VR/XR Logic ---
 
 async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
   const vrButton = document.getElementById("btn-vr");
   try {
+    await loadHandScript();
     vrSession = await navigator.xr.requestSession("immersive-vr", {
       optionalFeatures: ["local-floor", "hand-tracking"],
     });
@@ -69,6 +88,7 @@ async function activateVR(drawGameCallback, gameXx, gameYy, boardAspectRatio, on
 async function activateAR(drawGameCallback, gameXx, gameYy, boardAspectRatio, onEndCallback, buttonHandler) {
     const xrButton = document.getElementById('btn-xr');
     try {
+        await loadHandScript();
         arSession = await navigator.xr.requestSession('immersive-ar', {
             optionalFeatures: ['dom-overlay', 'hand-tracking'],
             domOverlay: { root: document.body }
@@ -293,8 +313,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
         if (typeof draw === 'function') draw(1);
 
-        leftHand.update(frame, referenceSpace);
-        rightHand.update(frame, referenceSpace);
+        leftHand.update(time, frame, referenceSpace);
+        rightHand.update(time, frame, referenceSpace);
 
         const pose = frame.getViewerPose(referenceSpace);
         if (!pose) return;

@@ -44,8 +44,7 @@ class Hand {
         this.controllerBuffers = controllerBuffers;
     }
 
-    update(frame, referenceSpace) {
-        const time = frame.session.animationFrame.time;
+    update(time, frame, referenceSpace) {
         if (time === this.lastUpdateTime) {
             return;
         }
