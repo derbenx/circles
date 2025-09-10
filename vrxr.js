@@ -316,12 +316,17 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         const leftHandGesture = leftHand.update(time, frame, referenceSpace);
         const rightHandGesture = rightHand.update(time, frame, referenceSpace);
 
-        if (vrIntersection) {
-            if (leftHandGesture.clickStart || rightHandGesture.clickStart) {
-                console.log("click start", vrIntersection.local);
-                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-                clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-            }
+        if (leftHandGesture.clickStart) {
+            buttonHandler(4, true, vrIntersection, 'left');
+        }
+        if (leftHandGesture.clickEnd) {
+            buttonHandler(4, false, vrIntersection, 'left');
+        }
+        if (rightHandGesture.clickStart) {
+            buttonHandler(4, true, vrIntersection, 'right');
+        }
+        if (rightHandGesture.clickEnd) {
+            buttonHandler(4, false, vrIntersection, 'right');
         }
 
         const pose = frame.getViewerPose(referenceSpace);

@@ -88,7 +88,7 @@ class Hand {
             glMatrix.mat4.getTranslation(metacarpalPosition, indexMetacarpalPose);
 
             const distance = vec3.distance(tipPosition, metacarpalPosition);
-            this.isIndexCurled = distance < 0.05;
+            this.isIndexCurled = distance < 0.15;
         } else {
             this.isIndexCurled = false;
         }
