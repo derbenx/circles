@@ -320,9 +320,6 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             if (leftHandGesture.clickStart || rightHandGesture.clickStart) {
                 console.log("click start", vrIntersection.local);
                 clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-            }
-            if (leftHandGesture.clickEnd || rightHandGesture.clickEnd) {
-                console.log("click end", vrIntersection.local);
                 clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
             }
         }

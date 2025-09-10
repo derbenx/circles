@@ -88,7 +88,7 @@ class Hand {
             glMatrix.mat4.getTranslation(metacarpalPosition, indexMetacarpalPose);
 
             const distance = vec3.distance(tipPosition, metacarpalPosition);
-            this.isIndexCurled = distance < 0.07;
+            this.isIndexCurled = distance < 0.05;
         } else {
             this.isIndexCurled = false;
         }
@@ -112,7 +112,7 @@ class Hand {
             const jointMatrix = glMatrix.mat4.clone(poseMatrix);
             glMatrix.mat4.scale(jointMatrix, jointMatrix, [JOINT_RADIUS, JOINT_RADIUS, JOINT_RADIUS]);
             let color = [0.8, 0.8, 0.8, 1.0];
-            if (jointName === 'index-finger-tip' && time - this.clickTime < 1000) {
+            if (jointName === 'index-finger-tip' && time - this.clickTime < 200) {
                 color = [0.0, 1.0, 0.0, 1.0]; // Green
             }
             drawSolid(gl, programInfo, this.controllerBuffers.sphere, jointMatrix, view, color);
