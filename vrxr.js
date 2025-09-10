@@ -100,17 +100,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     const USER_IMAGE_KEY = 'user-360-image';
     let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
     let vrBackgroundTexture = null;
-    let showClock = false;
-    let showClock24h = false;
 
-    try {
-        const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
-        if (settingsString) {
-            const settings = JSON.parse(settingsString);
-            showClock = settings.showClock || false;
-            showClock24h = settings.showClock24h || false;
-
-            if (mode !== 'immersive-ar') {
+    if (mode !== 'immersive-ar') {
+        try {
+            const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
+            if (settingsString) {
+                const settings = JSON.parse(settingsString);
                 if (settings.mode === 'solid' && settings.color) {
                     vrBackgroundColor = [
                         settings.color.r / 255.0,
@@ -135,32 +130,9 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                     }
                 }
             }
+        } catch (e) {
+            console.error("Could not load VR background settings", e);
         }
-
-        // --- Custom Hand Gesture Logic ---
-        for (const source of session.inputSources) {
-            if (source.hand) {
-                const handState = handStates[source.handedness];
-
-                const isCurrentlyPointing = isPointing(source.hand, frame, referenceSpace);
-                const isCurrentlyCurled = isIndexCurled(source.hand, frame, referenceSpace);
-
-                // Detect the transition from not-curled to curled, while in a pointing pose.
-                if (isCurrentlyPointing && handState.wasPointing && !handState.wasCurled && isCurrentlyCurled) {
-                    // Finger has gone from straight to curled while pointing
-                    if (vrIntersection) {
-                        console.log("Pointer curl click!");
-                        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-                        clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
-                    }
-                }
-
-                handState.wasPointing = isCurrentlyPointing;
-                handState.wasCurled = isCurrentlyCurled;
-            }
-        }
-    } catch (e) {
-        console.error("Could not load VR background settings", e);
     }
 
     await gl.makeXRCompatible();
@@ -227,11 +199,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     // --- Textures ---
     const alertTexture = initTexture(gl, createAlertCanvas());
     const pointerTexture = initTexture(gl, createPointerCanvas());
-    let clockTexture = null;
-    if (showClock) {
-        clockTexture = initDynamicTexture(gl, createClockCanvas());
-    }
-    const textures = { alertTexture, pointerTexture, clockTexture };
+    const textures = { alertTexture, pointerTexture };
 
     // --- VR interaction state ---
     let primaryButtonPressedLastFrame = false;
@@ -239,24 +207,15 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let buttonStatesLastFrame = {};
     let activeController = null;
     let lastActiveController = null;
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.5, -2.0];
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
-
-    // --- Hand Gesture State ---
-    let handStates = {
-        left: { wasPointing: false, wasCurled: false },
-        right: { wasPointing: false, wasCurled: false }
-    };
 
     function onSessionEnded(event) {
         if (vrBackgroundTexture) {
             gl.deleteTexture(vrBackgroundTexture);
             vrBackgroundTexture = null;
-        }
-        if (textures.clockTexture) {
-            gl.deleteTexture(textures.clockTexture);
         }
         if (buffers.texturedSphereBuffers) {
             gl.deleteBuffer(buffers.texturedSphereBuffers.position);
@@ -360,7 +319,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         if (activeController && activeController.gripSpace) {
             const gripPose = frame.getPose(activeController.gripSpace, referenceSpace);
             if (gripPose) {
-                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix, activeController);
+                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
                 if (intersection) {
                     vrIntersection = { ...intersection, gripPose, controller: activeController };
                 }
@@ -429,13 +388,10 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawTexturedSphere(gl, programs.texturedSphereProgramInfo, buffers.texturedSphereBuffers, vrBackgroundTexture, sphereModelMatrix, view);
             }
 
-            if (showClock) {
-                drawClock(gl, programs, buffers, textures, view, showClock24h);
-            }
             if (drawGameCallback) {
                 drawGameCallback(gl, programs, buffers, view);
             }
-            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view, mode);
+            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view);
             if (vrIntersection) {
                 drawCursor(gl, programs, buffers.genericBuffers, textures.pointerTexture, view);
             }
@@ -474,7 +430,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
 // --- Drawing Functions ---
 
-function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view, mode) {
+function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
     if (!session || !session.inputSources) {
         return;
     }
@@ -488,18 +444,14 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
             const gripPose = frame.getPose(source.gripSpace, referenceSpace);
             if (gripPose) {
                 // Draw controller sphere
-                if (mode !== 'immersive-ar') {
-                    const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                    glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
-                    drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, view, [0.8, 0.8, 0.8, 1.0]);
-                }
+                const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
+                drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, view, [0.8, 0.8, 0.8, 1.0]);
 
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                // Apply the same downward rotation as the intersection test, but not for hands
-                if (!source.hand) {
-                    glMatrix.mat4.rotate(rayMatrix, rayMatrix, Math.PI / 6, [1, 0, 0]);
-                }
+                // Apply the same downward rotation as the intersection test
+                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
                 glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
                 drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
@@ -543,25 +495,6 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
     //glMatrix.mat4.rotate(alertModelMatrix, alertModelMatrix, Math.PI, [0, 1, 0]);
     glMatrix.mat4.scale(alertModelMatrix, alertModelMatrix, [1.0, 0.5, 1.0]);
     drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view);
-}
-
-function drawClock(gl, programs, buffers, textures, view, use24h) {
-    // This creates a new canvas every frame, which is not ideal for performance,
-    // but it's the simplest way to update the time text for now.
-    const clockCanvas = createClockCanvas(use24h);
-    updateDynamicTexture(gl, textures.clockTexture, clockCanvas);
-
-    const clockModelMatrix = glMatrix.mat4.create();
-    // Use the main canvas's model matrix to position the clock relative to it
-    glMatrix.mat4.copy(clockModelMatrix, getCanvasModelMatrix());
-
-    // Position it above the board. The y-translation might need tweaking.
-    glMatrix.mat4.translate(clockModelMatrix, clockModelMatrix, [0, 1.5, 0]);
-
-    // Scale the clock to an appropriate size.
-    glMatrix.mat4.scale(clockModelMatrix, clockModelMatrix, [0.4, 0.1, 1]); // Adjust width and height
-
-    drawTextured(gl, programs.textureProgramInfo, buffers.genericBuffers.quad, textures.clockTexture, clockModelMatrix, view);
 }
 
 
@@ -1068,21 +1001,6 @@ function updateTexture(gl, texture, source) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
 }
 
-function initDynamicTexture(gl, source) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    return texture;
-}
-
-function updateDynamicTexture(gl, texture, source) {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
-}
-
 function createAlertCanvas(message = "You Won!") {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -1109,43 +1027,16 @@ function createPointerCanvas() {
     return canvas;
 }
 
-function createClockCanvas(use24h = false) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-
-    // Semi-transparent background
-    ctx.fillStyle = "rgba(20, 20, 20, 0.7)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // White text
-    ctx.fillStyle = "white";
-    ctx.font = "bold 48px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    const now = new Date();
-    const options = { hour12: !use24h };
-    const timeString = now.toLocaleTimeString([], options);
-    ctx.fillText(timeString, canvas.width / 2, canvas.height / 2);
-
-    return canvas;
-}
-
-function intersectPlane(transform, quadModelMatrix, source) {
+function intersectPlane(transform, quadModelMatrix) {
     const { vec3, mat4, quat } = glMatrix;
     const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
 
-    // Start with the base orientation
-    const finalRot = quat.clone([transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
+    // Create a quaternion for the downward rotation
+    const rotX = quat.create();
+    quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
 
-    // If the source is not a hand, apply the downward rotation for controllers
-    if (!source.hand) {
-        const rotX = quat.create();
-        quat.setAxisAngle(rotX, [1, 0, 0], Math.PI / 6); // 30 degrees
-        quat.multiply(finalRot, finalRot, rotX);
-    }
+    // Combine the controller's orientation with the downward rotation
+    const finalRot = quat.multiply(quat.create(), [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w], rotX);
 
     // Get the forward direction from the final rotation
     const rayDirection = vec3.fromValues(0, 0, -1);
@@ -1171,57 +1062,6 @@ function intersectPlane(transform, quadModelMatrix, source) {
     }
     return null;
 }
-
-function isPointing(hand, frame, referenceSpace) {
-    // This is a simple heuristic. It checks if the index finger is extended
-    // while the other three fingers are curled towards the wrist.
-    const wristPose = frame.getJointPose(hand.get('wrist'), referenceSpace);
-    const indexTipPose = frame.getJointPose(hand.get('index-finger-tip'), referenceSpace);
-    const indexMcpPose = frame.getJointPose(hand.get('index-finger-phalanx-proximal'), referenceSpace);
-    const middleTipPose = frame.getJointPose(hand.get('middle-finger-tip'), referenceSpace);
-    const ringTipPose = frame.getJointPose(hand.get('ring-finger-tip'), referenceSpace);
-    const pinkyTipPose = frame.getJointPose(hand.get('pinky-finger-tip'), referenceSpace);
-
-    if (!wristPose || !indexTipPose || !indexMcpPose || !middleTipPose || !ringTipPose || !pinkyTipPose) {
-        return false;
-    }
-
-    const distSq = (p1, p2) => {
-        const dx = p1.x - p2.x;
-        const dy = p1.y - p2.y;
-        const dz = p1.z - p2.z;
-        return dx * dx + dy * dy + dz * dz;
-    };
-
-    // Heuristic checks. These thresholds are estimates and may need tuning.
-    const isIndexExtended = distSq(indexTipPose.transform.position, indexMcpPose.transform.position) > 0.005;
-    const isMiddleCurled = distSq(middleTipPose.transform.position, wristPose.transform.position) < 0.015;
-    const isRingCurled = distSq(ringTipPose.transform.position, wristPose.transform.position) < 0.015;
-    const isPinkyCurled = distSq(pinkyTipPose.transform.position, wristPose.transform.position) < 0.015;
-
-    return isIndexExtended && isMiddleCurled && isRingCurled && isPinkyCurled;
-}
-
-function isIndexCurled(hand, frame, referenceSpace) {
-    // A simple heuristic to check if the index finger is curled.
-    // It compares the distance between the fingertip and the knuckle at the base of the finger.
-    const tipPose = frame.getJointPose(hand.get('index-finger-tip'), referenceSpace);
-    const mcpPose = frame.getJointPose(hand.get('index-finger-phalanx-proximal'), referenceSpace);
-
-    if (!tipPose || !mcpPose) return false;
-
-    const distSq = (p1, p2) => {
-        const dx = p1.x - p2.x;
-        const dy = p1.y - p2.y;
-        const dz = p1.z - p2.z;
-        return dx * dx + dy * dy + dz * dz;
-    };
-
-    // This threshold is an estimate and may need tuning.
-    // A smaller distance means the finger is more curled.
-    return distSq(tipPose.transform.position, mcpPose.transform.position) < 0.005;
-}
-
 
 // --- Geometry Creation ---
 

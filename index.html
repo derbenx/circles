@@ -57,12 +57,6 @@ These games are procedurally generated content, which means endless fun.
         <input type="radio" id="vr-bg-scene" name="vr-bg-option" value="scene">
         <label for="vr-bg-scene">3D Scene</label>
     </div>-->
-    <div>
-        <input type="checkbox" id="vr-xr-clock">
-        <label for="vr-xr-clock">VR/XR Clock</label>
-        <input type="checkbox" id="vr-xr-clock-24h" style="margin-left: 20px;">
-        <label for="vr-xr-clock-24h">24h</label>
-    </div>
     <hr>
     <div id="vr-bg-solid-options">
         <p>Choose background color: <span id="vr-bg-color-swatch" class="color-swatch"></span></p>
@@ -76,8 +70,6 @@ These games are procedurally generated content, which means endless fun.
         <p>Select a 360-degree JPG image:</p>
         <button id="browse-360-button">Browse</button>
         <input type="file" id="file-input-360" accept=".jpg,.jpeg" style="display: none;" />
-        <span id="file-360-name" style="margin-left: 10px;"></span>
-        <button id="delete-360-button" style="display: none; margin-left: 10px;">Delete</button>
     </div>
     <div id="vr-bg-scene-options" style="display:none;">
         <p>Work in Progress</p>
@@ -222,10 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const swatch = document.getElementById('vr-bg-color-swatch');
     const browseButton = document.getElementById('browse-360-button');
     const fileInput = document.getElementById('file-input-360');
-    const fileNameSpan = document.getElementById('file-360-name');
-    const deleteButton = document.getElementById('delete-360-button');
-    const clockCheckbox = document.getElementById('vr-xr-clock');
-    const clock24hCheckbox = document.getElementById('vr-xr-clock-24h');
 
     // --- Functions ---
     function updateSwatch(color) {
@@ -238,19 +226,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadSettings() {
         const saved = localStorage.getItem(VR_SETTINGS_KEY);
-        const defaults = {
+        return saved ? JSON.parse(saved) : {
             mode: 'solid',
-            color: { r: 0, g: 0, b: 0 },
-            hasImage: false,
-            imageName: null,
-            showClock: false,
-            showClock24h: false
+            color: { r: 0, g: 0, b: 0 }
         };
-        const settings = saved ? JSON.parse(saved) : defaults;
-        return { ...defaults, ...settings };
     }
 
-    async function updateUiFromSettings(settings) {
+    function updateUiFromSettings(settings) {
         // Set radio button
         const radio = document.querySelector(`input[name="vr-bg-option"][value="${settings.mode}"]`);
         if (radio) {
@@ -258,34 +240,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Set slider values
-        if (settings.color) {
-            rSlider.value = settings.color.r;
-            gSlider.value = settings.color.g;
-            bSlider.value = settings.color.b;
-            updateSwatch(settings.color);
-        }
+        rSlider.value = settings.color.r;
+        gSlider.value = settings.color.g;
+        bSlider.value = settings.color.b;
+
+        // Update swatch
+        updateSwatch(settings.color);
 
         // Show/hide option panels
         solidOptions.style.display = settings.mode === 'solid' ? 'block' : 'none';
         imageOptions.style.display = settings.mode === '360' ? 'block' : 'none';
         sceneOptions.style.display = settings.mode === 'scene' ? 'block' : 'none';
-
-        // Update 360 image UI
-        if (settings.mode === '360') {
-            const cache = await caches.open(USER_IMAGE_CACHE_NAME);
-            const response = await cache.match(USER_IMAGE_KEY);
-            if (response && settings.hasImage) {
-                fileNameSpan.textContent = settings.imageName || 'Cached image';
-                deleteButton.style.display = 'inline-block';
-            } else {
-                fileNameSpan.textContent = '';
-                deleteButton.style.display = 'none';
-            }
-        }
-
-        // Update clock checkbox
-        clockCheckbox.checked = settings.showClock;
-        clock24hCheckbox.checked = settings.showClock24h;
     }
 
     // --- Event Listeners ---
@@ -330,47 +295,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const cache = await caches.open(USER_IMAGE_CACHE_NAME);
             const response = new Response(file);
             await cache.put(USER_IMAGE_KEY, response);
-            console.log('360 image saved successfully!');
+            alert('360 image saved successfully!');
 
+            // Also update settings to indicate an image is stored
             const currentSettings = loadSettings();
             currentSettings.hasImage = true;
-            currentSettings.imageName = file.name;
             saveSettings(currentSettings);
-            await updateUiFromSettings(currentSettings);
 
         } catch (err) {
             console.error('Error saving image to cache:', err);
             alert('Could not save image. See console for details.');
         }
-    });
-
-    deleteButton.addEventListener('click', async () => {
-        try {
-            const cache = await caches.open(USER_IMAGE_CACHE_NAME);
-            await cache.delete(USER_IMAGE_KEY);
-            console.log('Cached 360 image deleted.');
-
-            const currentSettings = loadSettings();
-            currentSettings.hasImage = false;
-            currentSettings.imageName = null;
-            saveSettings(currentSettings);
-            await updateUiFromSettings(currentSettings);
-        } catch (err) {
-            console.error('Error deleting image from cache:', err);
-            alert('Could not delete image. See console for details.');
-        }
-    });
-
-    clockCheckbox.addEventListener('change', () => {
-        const currentSettings = loadSettings();
-        currentSettings.showClock = clockCheckbox.checked;
-        saveSettings(currentSettings);
-    });
-
-    clock24hCheckbox.addEventListener('change', () => {
-        const currentSettings = loadSettings();
-        currentSettings.showClock24h = clock24hCheckbox.checked;
-        saveSettings(currentSettings);
     });
 
     // --- Initial State ---
