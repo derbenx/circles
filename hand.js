@@ -47,6 +47,8 @@ class Hand {
         this.wasIndexPinchingLastFrame = false;
         this.isMiddlePinching = false;
         this.wasMiddlePinchingLastFrame = false;
+
+        this.pinchThreshold = 0.02; // Fingers must be within 2cm to be considered pinching
     }
 
     update(time, frame, referenceSpace) {
@@ -91,7 +93,7 @@ class Hand {
             const indexTipPos = vec3.create();
             mat4.getTranslation(indexTipPos, indexTipPose);
             const distance = vec3.distance(thumbTipPos, indexTipPos);
-            this.isIndexPinching = distance < 0.05;
+            this.isIndexPinching = distance < this.pinchThreshold;
         } else {
             this.isIndexPinching = false;
         }
@@ -103,7 +105,7 @@ class Hand {
             const middleTipPos = vec3.create();
             mat4.getTranslation(middleTipPos, middleTipPose);
             const distance = vec3.distance(thumbTipPos, middleTipPos);
-            this.isMiddlePinching = distance < 0.05;
+            this.isMiddlePinching = distance < this.pinchThreshold;
         } else {
             this.isMiddlePinching = false;
         }

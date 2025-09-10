@@ -320,16 +320,16 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
         // Middle finger pinch (CLICK)
         if (leftHandGesture.middlePinchStart) {
-            if (buttonHandler) buttonHandler(4, true, vrIntersection, 'left');
-        }
-        if (leftHandGesture.middlePinchEnd) {
-            if (buttonHandler) buttonHandler(4, false, vrIntersection, 'left');
+            if (buttonHandler) {
+                buttonHandler(4, true, vrIntersection, 'left');
+                buttonHandler(4, false, vrIntersection, 'left');
+            }
         }
         if (rightHandGesture.middlePinchStart) {
-            if (buttonHandler) buttonHandler(4, true, vrIntersection, 'right');
-        }
-        if (rightHandGesture.middlePinchEnd) {
-            if (buttonHandler) buttonHandler(4, false, vrIntersection, 'right');
+            if (buttonHandler) {
+                buttonHandler(4, true, vrIntersection, 'right');
+                buttonHandler(4, false, vrIntersection, 'right');
+            }
         }
 
         // Index finger pinch (DRAG)
@@ -677,7 +677,7 @@ function drawTexturedSphere(gl, programInfo, bufferInfo, texture, modelMatrix, v
     gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bind_texture(gl.TEXTURE_2D, texture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
 
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, view.projectionMatrix);
