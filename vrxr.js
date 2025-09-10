@@ -318,9 +318,11 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
         if (vrIntersection) {
             if (leftHandGesture.clickStart || rightHandGesture.clickStart) {
+                console.log("click start", vrIntersection.local);
                 clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
             }
             if (leftHandGesture.clickEnd || rightHandGesture.clickEnd) {
+                console.log("click end", vrIntersection.local);
                 clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
             }
         }
@@ -449,8 +451,8 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 drawAlert(gl, textureProgramInfo, buffers.genericBuffers, textures.alertTexture, pose, view);
             }
 
-            leftHand.draw(gl, solidColorProgramInfo, view, drawSolid);
-            rightHand.draw(gl, solidColorProgramInfo, view, drawSolid);
+            leftHand.draw(gl, solidColorProgramInfo, view, drawSolid, time);
+            rightHand.draw(gl, solidColorProgramInfo, view, drawSolid, time);
 
             // --- 2. Render FBO texture to screen with FXAA ---
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);

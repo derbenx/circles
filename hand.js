@@ -45,6 +45,7 @@ class Hand {
 
         this.isIndexCurled = false;
         this.wasIndexCurledLastFrame = false;
+        this.clickTime = 0;
     }
 
     update(time, frame, referenceSpace) {
@@ -95,10 +96,14 @@ class Hand {
         const clickStart = this.isIndexCurled && !this.wasIndexCurledLastFrame;
         const clickEnd = !this.isIndexCurled && this.wasIndexCurledLastFrame;
 
+        if (clickStart) {
+            this.clickTime = this.lastUpdateTime;
+        }
+
         return { clickStart, clickEnd };
     }
 
-    draw(gl, programInfo, view, drawSolid) {
+    draw(gl, programInfo, view, drawSolid, time) {
         if (this.jointPoses.size === 0) {
             return;
         }
@@ -106,7 +111,11 @@ class Hand {
         for (const [jointName, poseMatrix] of this.jointPoses) {
             const jointMatrix = glMatrix.mat4.clone(poseMatrix);
             glMatrix.mat4.scale(jointMatrix, jointMatrix, [JOINT_RADIUS, JOINT_RADIUS, JOINT_RADIUS]);
-            drawSolid(gl, programInfo, this.controllerBuffers.sphere, jointMatrix, view, [0.8, 0.8, 0.8, 1.0]);
+            let color = [0.8, 0.8, 0.8, 1.0];
+            if (jointName === 'index-finger-tip' && time - this.clickTime < 1000) {
+                color = [0.0, 1.0, 0.0, 1.0]; // Green
+            }
+            drawSolid(gl, programInfo, this.controllerBuffers.sphere, jointMatrix, view, color);
         }
 
         for (const startJoint in handBoneConnections) {
