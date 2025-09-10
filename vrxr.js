@@ -101,12 +101,14 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let vrBackgroundColor = [0.0, 0.0, 0.0, 1.0]; // Default black
     let vrBackgroundTexture = null;
     let showClock = false;
+    let showClock24h = false;
 
     try {
         const settingsString = localStorage.getItem(VR_SETTINGS_KEY);
         if (settingsString) {
             const settings = JSON.parse(settingsString);
             showClock = settings.showClock || false;
+            showClock24h = settings.showClock24h || false;
 
             if (mode !== 'immersive-ar') {
                 if (settings.mode === 'solid' && settings.color) {
@@ -214,7 +216,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let buttonStatesLastFrame = {};
     let activeController = null;
     let lastActiveController = null;
-    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.0, -2.0];
+    let vrCanvasPosition = (mode === 'immersive-ar') ? [0, 0.0, -2.0] : [0, 1.5, -2.0];
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
@@ -329,7 +331,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         if (activeController && activeController.gripSpace) {
             const gripPose = frame.getPose(activeController.gripSpace, referenceSpace);
             if (gripPose) {
-                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix);
+                const intersection = intersectPlane(gripPose.transform, canvasModelMatrix, activeController);
                 if (intersection) {
                     vrIntersection = { ...intersection, gripPose, controller: activeController };
                 }
@@ -399,12 +401,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
             }
 
             if (showClock) {
-                drawClock(gl, programs, buffers, textures, view);
+                drawClock(gl, programs, buffers, textures, view, showClock24h);
             }
             if (drawGameCallback) {
                 drawGameCallback(gl, programs, buffers, view);
             }
-            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view);
+            drawControllers(gl, solidColorProgramInfo, controllerBuffers, session, frame, referenceSpace, view, mode);
             if (vrIntersection) {
                 drawCursor(gl, programs, buffers.genericBuffers, textures.pointerTexture, view);
             }
@@ -443,7 +445,7 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
 
 // --- Drawing Functions ---
 
-function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view) {
+function drawControllers(gl, programInfo, buffers, session, frame, referenceSpace, view, mode) {
     if (!session || !session.inputSources) {
         return;
     }
@@ -457,14 +459,18 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
             const gripPose = frame.getPose(source.gripSpace, referenceSpace);
             if (gripPose) {
                 // Draw controller sphere
-                const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
-                drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, view, [0.8, 0.8, 0.8, 1.0]);
+                if (mode !== 'immersive-ar') {
+                    const controllerMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
+                    glMatrix.mat4.scale(controllerMatrix, controllerMatrix, [0.03, 0.03, 0.03]);
+                    drawSolid(gl, programInfo, buffers.sphere, controllerMatrix, view, [0.8, 0.8, 0.8, 1.0]);
+                }
 
                 // Draw controller ray
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
-                // Apply the same downward rotation as the intersection test
-                glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
+                // Apply the same downward rotation as the intersection test, but not for hands
+                if (!source.hand) {
+                    glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
+                }
                 glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
                 drawSolid(gl, programInfo, buffers.stick, rayMatrix, view, [0.0, 1.0, 0.0, 0.8]);
@@ -510,10 +516,10 @@ function drawAlert(gl, programInfo, buffers, texture, pose, view) {
     drawTextured(gl, programInfo, buffers.quad, texture, alertModelMatrix, view);
 }
 
-function drawClock(gl, programs, buffers, textures, view) {
+function drawClock(gl, programs, buffers, textures, view, use24h) {
     // This creates a new canvas every frame, which is not ideal for performance,
     // but it's the simplest way to update the time text for now.
-    const clockCanvas = createClockCanvas();
+    const clockCanvas = createClockCanvas(use24h);
     updateDynamicTexture(gl, textures.clockTexture, clockCanvas);
 
     const clockModelMatrix = glMatrix.mat4.create();
@@ -1074,7 +1080,7 @@ function createPointerCanvas() {
     return canvas;
 }
 
-function createClockCanvas() {
+function createClockCanvas(use24h = false) {
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 128;
@@ -1091,22 +1097,26 @@ function createClockCanvas() {
     ctx.textBaseline = "middle";
 
     const now = new Date();
-    const timeString = now.toLocaleTimeString();
+    const options = { hour12: !use24h };
+    const timeString = now.toLocaleTimeString([], options);
     ctx.fillText(timeString, canvas.width / 2, canvas.height / 2);
 
     return canvas;
 }
 
-function intersectPlane(transform, quadModelMatrix) {
+function intersectPlane(transform, quadModelMatrix, source) {
     const { vec3, mat4, quat } = glMatrix;
     const rayOrigin = vec3.fromValues(transform.position.x, transform.position.y, transform.position.z);
 
-    // Create a quaternion for the downward rotation
-    const rotX = quat.create();
-    quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
+    // Start with the base orientation
+    const finalRot = quat.clone([transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w]);
 
-    // Combine the controller's orientation with the downward rotation
-    const finalRot = quat.multiply(quat.create(), [transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w], rotX);
+    // If the source is not a hand, apply the downward rotation for controllers
+    if (!source.hand) {
+        const rotX = quat.create();
+        quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
+        quat.multiply(finalRot, finalRot, rotX);
+    }
 
     // Get the forward direction from the final rotation
     const rayDirection = vec3.fromValues(0, 0, -1);

@@ -60,6 +60,8 @@ These games are procedurally generated content, which means endless fun.
     <div>
         <input type="checkbox" id="vr-xr-clock">
         <label for="vr-xr-clock">VR/XR Clock</label>
+        <input type="checkbox" id="vr-xr-clock-24h" style="margin-left: 20px;">
+        <label for="vr-xr-clock-24h">24h</label>
     </div>
     <hr>
     <div id="vr-bg-solid-options">
@@ -223,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileNameSpan = document.getElementById('file-360-name');
     const deleteButton = document.getElementById('delete-360-button');
     const clockCheckbox = document.getElementById('vr-xr-clock');
+    const clock24hCheckbox = document.getElementById('vr-xr-clock-24h');
 
     // --- Functions ---
     function updateSwatch(color) {
@@ -240,7 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
             color: { r: 0, g: 0, b: 0 },
             hasImage: false,
             imageName: null,
-            showClock: false
+            showClock: false,
+            showClock24h: false
         };
         const settings = saved ? JSON.parse(saved) : defaults;
         return { ...defaults, ...settings };
@@ -281,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update clock checkbox
         clockCheckbox.checked = settings.showClock;
+        clock24hCheckbox.checked = settings.showClock24h;
     }
 
     // --- Event Listeners ---
@@ -359,6 +364,12 @@ document.addEventListener('DOMContentLoaded', () => {
     clockCheckbox.addEventListener('change', () => {
         const currentSettings = loadSettings();
         currentSettings.showClock = clockCheckbox.checked;
+        saveSettings(currentSettings);
+    });
+
+    clock24hCheckbox.addEventListener('change', () => {
+        const currentSettings = loadSettings();
+        currentSettings.showClock24h = clock24hCheckbox.checked;
         saveSettings(currentSettings);
     });
 
