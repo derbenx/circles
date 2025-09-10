@@ -43,9 +43,10 @@ class Hand {
         this.lastUpdateTime = 0;
         this.controllerBuffers = controllerBuffers;
 
-        this.isIndexCurled = false;
-        this.wasIndexCurledLastFrame = false;
-        this.clickTime = 0;
+        this.isIndexPinching = false;
+        this.wasIndexPinchingLastFrame = false;
+        this.isMiddlePinching = false;
+        this.wasMiddlePinchingLastFrame = false;
     }
 
     update(time, frame, referenceSpace) {
@@ -76,59 +77,43 @@ class Hand {
             this.jointPoses.clear();
         }
 
-        this.wasIndexCurledLastFrame = this.isIndexCurled;
+        this.wasIndexPinchingLastFrame = this.isIndexPinching;
+        this.wasMiddlePinchingLastFrame = this.isMiddlePinching;
 
-        const metacarpalPose = this.jointPoses.get('index-finger-metacarpal');
-        const proximalPose = this.jointPoses.get('index-finger-phalanx-proximal');
-        const intermediatePose = this.jointPoses.get('index-finger-phalanx-intermediate');
+        const thumbTipPose = this.jointPoses.get('thumb-tip');
+        const indexTipPose = this.jointPoses.get('index-finger-tip');
+        const middleTipPose = this.jointPoses.get('middle-finger-tip');
 
-        if (metacarpalPose && proximalPose && intermediatePose) {
+        if (thumbTipPose && indexTipPose) {
             const { vec3, mat4 } = glMatrix;
-
-            const metacarpalPos = vec3.create();
-            mat4.getTranslation(metacarpalPos, metacarpalPose);
-
-            const proximalPos = vec3.create();
-            mat4.getTranslation(proximalPos, proximalPose);
-
-            const intermediatePos = vec3.create();
-            mat4.getTranslation(intermediatePos, intermediatePose);
-
-            const vec1 = vec3.subtract(vec3.create(), proximalPos, metacarpalPos);
-            const vec2 = vec3.subtract(vec3.create(), intermediatePos, proximalPos);
-
-            vec3.normalize(vec1, vec1);
-            vec3.normalize(vec2, vec2);
-
-            const angle = vec3.angle(vec1, vec2);
-            let isCurled = angle > (20 * Math.PI / 180); // 20 degrees
-
-            const thumbTipPose = this.jointPoses.get('thumb-tip');
-            const indexTipPose = this.jointPoses.get('index-finger-tip');
-            if (thumbTipPose && indexTipPose) {
-                const thumbTipPos = vec3.create();
-                mat4.getTranslation(thumbTipPos, thumbTipPose);
-                const indexTipPos = vec3.create();
-                mat4.getTranslation(indexTipPos, indexTipPose);
-                const distance = vec3.distance(thumbTipPos, indexTipPos);
-                if (distance < 0.05) { // If thumb and index are close (pinching)
-                    isCurled = false;
-                }
-            }
-
-            this.isIndexCurled = isCurled;
+            const thumbTipPos = vec3.create();
+            mat4.getTranslation(thumbTipPos, thumbTipPose);
+            const indexTipPos = vec3.create();
+            mat4.getTranslation(indexTipPos, indexTipPose);
+            const distance = vec3.distance(thumbTipPos, indexTipPos);
+            this.isIndexPinching = distance < 0.05;
         } else {
-            this.isIndexCurled = false;
+            this.isIndexPinching = false;
         }
 
-        const clickStart = this.isIndexCurled && !this.wasIndexCurledLastFrame;
-        const clickEnd = !this.isIndexCurled && this.wasIndexCurledLastFrame;
-
-        if (clickStart) {
-            this.clickTime = this.lastUpdateTime;
+        if (thumbTipPose && middleTipPose) {
+            const { vec3, mat4 } = glMatrix;
+            const thumbTipPos = vec3.create();
+            mat4.getTranslation(thumbTipPos, thumbTipPose);
+            const middleTipPos = vec3.create();
+            mat4.getTranslation(middleTipPos, middleTipPose);
+            const distance = vec3.distance(thumbTipPos, middleTipPos);
+            this.isMiddlePinching = distance < 0.05;
+        } else {
+            this.isMiddlePinching = false;
         }
 
-        return { clickStart, clickEnd };
+        const indexPinchStart = this.isIndexPinching && !this.wasIndexPinchingLastFrame;
+        const indexPinchEnd = !this.isIndexPinching && this.wasIndexPinchingLastFrame;
+        const middlePinchStart = this.isMiddlePinching && !this.wasMiddlePinchingLastFrame;
+        const middlePinchEnd = !this.isMiddlePinching && this.wasMiddlePinchingLastFrame;
+
+        return { indexPinchStart, indexPinchEnd, middlePinchStart, middlePinchEnd };
     }
 
     draw(gl, programInfo, view, drawSolid, time) {
@@ -139,10 +124,15 @@ class Hand {
         for (const [jointName, poseMatrix] of this.jointPoses) {
             const jointMatrix = glMatrix.mat4.clone(poseMatrix);
             glMatrix.mat4.scale(jointMatrix, jointMatrix, [JOINT_RADIUS, JOINT_RADIUS, JOINT_RADIUS]);
-            let color = [0.8, 0.8, 0.8, 1.0];
-            if (jointName === 'index-finger-tip' && time - this.clickTime < 200) {
-                color = [0.0, 1.0, 0.0, 1.0]; // Green
+            let color = [0.8, 0.8, 0.8, 1.0]; // Default color
+
+            if (this.isIndexPinching && (jointName === 'index-finger-tip' || jointName === 'thumb-tip')) {
+                color = [1.0, 0.0, 0.0, 1.0]; // Red for index pinch
             }
+            if (this.isMiddlePinching && (jointName === 'middle-finger-tip' || jointName === 'thumb-tip')) {
+                color = [0.0, 1.0, 0.0, 1.0]; // Green for middle pinch
+            }
+
             drawSolid(gl, programInfo, this.controllerBuffers.sphere, jointMatrix, view, color);
         }
 

@@ -316,17 +316,42 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
         const leftHandGesture = leftHand.update(time, frame, referenceSpace);
         const rightHandGesture = rightHand.update(time, frame, referenceSpace);
 
-        if (leftHandGesture.clickStart) {
-            buttonHandler(4, true, vrIntersection, 'left');
+        // --- Custom Pinch Gestures ---
+
+        // Middle finger pinch (CLICK)
+        if (leftHandGesture.middlePinchStart) {
+            if (buttonHandler) buttonHandler(4, true, vrIntersection, 'left');
         }
-        if (leftHandGesture.clickEnd) {
-            buttonHandler(4, false, vrIntersection, 'left');
+        if (leftHandGesture.middlePinchEnd) {
+            if (buttonHandler) buttonHandler(4, false, vrIntersection, 'left');
         }
-        if (rightHandGesture.clickStart) {
-            buttonHandler(4, true, vrIntersection, 'right');
+        if (rightHandGesture.middlePinchStart) {
+            if (buttonHandler) buttonHandler(4, true, vrIntersection, 'right');
         }
-        if (rightHandGesture.clickEnd) {
-            buttonHandler(4, false, vrIntersection, 'right');
+        if (rightHandGesture.middlePinchEnd) {
+            if (buttonHandler) buttonHandler(4, false, vrIntersection, 'right');
+        }
+
+        // Index finger pinch (DRAG)
+        if (leftHandGesture.indexPinchStart) {
+             if (vrIntersection && typeof clkd === 'function') {
+                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+             }
+        }
+        if (leftHandGesture.indexPinchEnd) {
+            if (vrIntersection && typeof clku === 'function') {
+                clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+            }
+        }
+        if (rightHandGesture.indexPinchStart) {
+             if (vrIntersection && typeof clkd === 'function') {
+                clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+             }
+        }
+        if (rightHandGesture.indexPinchEnd) {
+            if (vrIntersection && typeof clku === 'function') {
+                clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+            }
         }
 
         const pose = frame.getViewerPose(referenceSpace);
