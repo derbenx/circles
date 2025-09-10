@@ -77,18 +77,33 @@ class Hand {
         }
 
         this.wasIndexCurledLastFrame = this.isIndexCurled;
-        const indexTipPose = this.jointPoses.get('index-finger-tip');
-        const indexMetacarpalPose = this.jointPoses.get('index-finger-metacarpal');
 
-        if (indexTipPose && indexMetacarpalPose) {
-            const { vec3 } = glMatrix;
-            const tipPosition = vec3.create();
-            glMatrix.mat4.getTranslation(tipPosition, indexTipPose);
-            const metacarpalPosition = vec3.create();
-            glMatrix.mat4.getTranslation(metacarpalPosition, indexMetacarpalPose);
+        const metacarpalPose = this.jointPoses.get('index-finger-metacarpal');
+        const proximalPose = this.jointPoses.get('index-finger-phalanx-proximal');
+        const intermediatePose = this.jointPoses.get('index-finger-phalanx-intermediate');
 
-            const distance = vec3.distance(tipPosition, metacarpalPosition);
-            this.isIndexCurled = distance < 0.15;
+        if (metacarpalPose && proximalPose && intermediatePose) {
+            const { vec3, mat4 } = glMatrix;
+
+            const metacarpalPos = vec3.create();
+            mat4.getTranslation(metacarpalPos, metacarpalPose);
+
+            const proximalPos = vec3.create();
+            mat4.getTranslation(proximalPos, proximalPose);
+
+            const intermediatePos = vec3.create();
+            mat4.getTranslation(intermediatePos, intermediatePose);
+
+            const vec1 = vec3.subtract(vec3.create(), proximalPos, metacarpalPos);
+            const vec2 = vec3.subtract(vec3.create(), intermediatePos, proximalPos);
+
+            vec3.normalize(vec1, vec1);
+            vec3.normalize(vec2, vec2);
+
+            const angle = vec3.angle(vec1, vec2);
+
+            // Check if the angle is greater than 45 degrees (in radians)
+            this.isIndexCurled = angle > Math.PI / 4;
         } else {
             this.isIndexCurled = false;
         }
