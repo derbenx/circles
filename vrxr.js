@@ -136,6 +136,29 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
                 }
             }
         }
+
+        // --- Custom Hand Gesture Logic ---
+        for (const source of session.inputSources) {
+            if (source.hand) {
+                const handState = handStates[source.handedness];
+
+                const isCurrentlyPointing = isPointing(source.hand, frame, referenceSpace);
+                const isCurrentlyCurled = isIndexCurled(source.hand, frame, referenceSpace);
+
+                // Detect the transition from not-curled to curled, while in a pointing pose.
+                if (isCurrentlyPointing && handState.wasPointing && !handState.wasCurled && isCurrentlyCurled) {
+                    // Finger has gone from straight to curled while pointing
+                    if (vrIntersection) {
+                        console.log("Pointer curl click!");
+                        clkd({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+                        clku({ preventDefault: () => {}, stopPropagation: () => {} }, vrIntersection.local);
+                    }
+                }
+
+                handState.wasPointing = isCurrentlyPointing;
+                handState.wasCurled = isCurrentlyCurled;
+            }
+        }
     } catch (e) {
         console.error("Could not load VR background settings", e);
     }
@@ -220,6 +243,12 @@ async function runXRRendering(session, mode, drawGameCallback, gameXx, gameYy, b
     let vrCanvasRotationY = 0;
     canvasModelMatrix = glMatrix.mat4.create();
     let sessionActive = true;
+
+    // --- Hand Gesture State ---
+    let handStates = {
+        left: { wasPointing: false, wasCurled: false },
+        right: { wasPointing: false, wasCurled: false }
+    };
 
     function onSessionEnded(event) {
         if (vrBackgroundTexture) {
@@ -469,7 +498,7 @@ function drawControllers(gl, programInfo, buffers, session, frame, referenceSpac
                 const rayMatrix = glMatrix.mat4.clone(gripPose.transform.matrix);
                 // Apply the same downward rotation as the intersection test, but not for hands
                 if (!source.hand) {
-                    glMatrix.mat4.rotate(rayMatrix, rayMatrix, -Math.PI / 6, [1, 0, 0]);
+                    glMatrix.mat4.rotate(rayMatrix, rayMatrix, Math.PI / 6, [1, 0, 0]);
                 }
                 glMatrix.mat4.translate(rayMatrix, rayMatrix, [0, 0, -0.5]);
                 glMatrix.mat4.scale(rayMatrix, rayMatrix, [0.005, 0.005, 1.0]);
@@ -1114,7 +1143,7 @@ function intersectPlane(transform, quadModelMatrix, source) {
     // If the source is not a hand, apply the downward rotation for controllers
     if (!source.hand) {
         const rotX = quat.create();
-        quat.setAxisAngle(rotX, [1, 0, 0], -Math.PI / 6); // -30 degrees
+        quat.setAxisAngle(rotX, [1, 0, 0], Math.PI / 6); // 30 degrees
         quat.multiply(finalRot, finalRot, rotX);
     }
 
@@ -1142,6 +1171,57 @@ function intersectPlane(transform, quadModelMatrix, source) {
     }
     return null;
 }
+
+function isPointing(hand, frame, referenceSpace) {
+    // This is a simple heuristic. It checks if the index finger is extended
+    // while the other three fingers are curled towards the wrist.
+    const wristPose = frame.getJointPose(hand.get('wrist'), referenceSpace);
+    const indexTipPose = frame.getJointPose(hand.get('index-finger-tip'), referenceSpace);
+    const indexMcpPose = frame.getJointPose(hand.get('index-finger-phalanx-proximal'), referenceSpace);
+    const middleTipPose = frame.getJointPose(hand.get('middle-finger-tip'), referenceSpace);
+    const ringTipPose = frame.getJointPose(hand.get('ring-finger-tip'), referenceSpace);
+    const pinkyTipPose = frame.getJointPose(hand.get('pinky-finger-tip'), referenceSpace);
+
+    if (!wristPose || !indexTipPose || !indexMcpPose || !middleTipPose || !ringTipPose || !pinkyTipPose) {
+        return false;
+    }
+
+    const distSq = (p1, p2) => {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = p1.z - p2.z;
+        return dx * dx + dy * dy + dz * dz;
+    };
+
+    // Heuristic checks. These thresholds are estimates and may need tuning.
+    const isIndexExtended = distSq(indexTipPose.transform.position, indexMcpPose.transform.position) > 0.005;
+    const isMiddleCurled = distSq(middleTipPose.transform.position, wristPose.transform.position) < 0.015;
+    const isRingCurled = distSq(ringTipPose.transform.position, wristPose.transform.position) < 0.015;
+    const isPinkyCurled = distSq(pinkyTipPose.transform.position, wristPose.transform.position) < 0.015;
+
+    return isIndexExtended && isMiddleCurled && isRingCurled && isPinkyCurled;
+}
+
+function isIndexCurled(hand, frame, referenceSpace) {
+    // A simple heuristic to check if the index finger is curled.
+    // It compares the distance between the fingertip and the knuckle at the base of the finger.
+    const tipPose = frame.getJointPose(hand.get('index-finger-tip'), referenceSpace);
+    const mcpPose = frame.getJointPose(hand.get('index-finger-phalanx-proximal'), referenceSpace);
+
+    if (!tipPose || !mcpPose) return false;
+
+    const distSq = (p1, p2) => {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = p1.z - p2.z;
+        return dx * dx + dy * dy + dz * dz;
+    };
+
+    // This threshold is an estimate and may need tuning.
+    // A smaller distance means the finger is more curled.
+    return distSq(tipPose.transform.position, mcpPose.transform.position) < 0.005;
+}
+
 
 // --- Geometry Creation ---
 
