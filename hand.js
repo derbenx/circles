@@ -42,11 +42,14 @@ class Hand {
         this.jointPoses = new Map();
         this.lastUpdateTime = 0;
         this.controllerBuffers = controllerBuffers;
+
+        this.isIndexCurled = false;
+        this.wasIndexCurledLastFrame = false;
     }
 
     update(time, frame, referenceSpace) {
         if (time === this.lastUpdateTime) {
-            return;
+            return {};
         }
         this.lastUpdateTime = time;
 
@@ -71,6 +74,28 @@ class Hand {
         } else {
             this.jointPoses.clear();
         }
+
+        this.wasIndexCurledLastFrame = this.isIndexCurled;
+        const indexTipPose = this.jointPoses.get('index-finger-tip');
+        const indexMetacarpalPose = this.jointPoses.get('index-finger-metacarpal');
+
+        if (indexTipPose && indexMetacarpalPose) {
+            const { vec3 } = glMatrix;
+            const tipPosition = vec3.create();
+            glMatrix.mat4.getTranslation(tipPosition, indexTipPose);
+            const metacarpalPosition = vec3.create();
+            glMatrix.mat4.getTranslation(metacarpalPosition, indexMetacarpalPose);
+
+            const distance = vec3.distance(tipPosition, metacarpalPosition);
+            this.isIndexCurled = distance < 0.07;
+        } else {
+            this.isIndexCurled = false;
+        }
+
+        const clickStart = this.isIndexCurled && !this.wasIndexCurledLastFrame;
+        const clickEnd = !this.isIndexCurled && this.wasIndexCurledLastFrame;
+
+        return { clickStart, clickEnd };
     }
 
     draw(gl, programInfo, view, drawSolid) {
