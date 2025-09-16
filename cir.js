@@ -21,10 +21,11 @@ let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 843516
 
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
 const colorInputs = ['red', 'green', 'blue'];
-let customColors = [
+const defaultCustomColors = [
     '#dd0000', '#cccc00', '#0000cc', '#8800dd', '#00cccc',
     '#dd7700', '#00cc00', '#666666', '#ff88cc'
 ];
+let customColors = [...defaultCustomColors];
 let selectedSwatchIndex = 0;
 
 loadCirclesSettings();
@@ -253,9 +254,16 @@ function handleColorSliderChange() {
     saveCustomColors();
 }
 
+function handleResetColors() {
+    customColors = [...defaultCustomColors];
+    saveCustomColors();
+    initializeColorPicker(); // Re-render swatches and re-apply listeners
+    handleSwatchClick(0); // Pre-select the first swatch again
+}
+
 function initializeColorPicker() {
     const swatchContainer = document.getElementById('color-swatches');
-    swatchContainer.innerHTML = '';
+    swatchContainer.innerHTML = ''; // Clear previous swatches
     for (let i = 0; i < 9; i++) {
         const swatch = document.createElement('div');
         swatch.className = 'color-swatch';
@@ -265,9 +273,14 @@ function initializeColorPicker() {
         swatchContainer.appendChild(swatch);
     }
 
+    // Set up event listeners
     colorInputs.forEach(id => {
         document.getElementById(id).oninput = handleColorSliderChange;
     });
+    document.getElementById('reset-colors-btn').onclick = handleResetColors;
+
+    // Pre-select the first swatch to make the editor visible by default
+    handleSwatchClick(0);
 }
 
 function saveCustomColors() {
