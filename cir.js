@@ -48,6 +48,16 @@ document.getElementById("rat").onchange = function(){
     saveCirclesSettings();
 }
 
+function showPanel(panelIdToShow) {
+    const allPanels = ['wrp', 'circsetup', 'circhelp'];
+    allPanels.forEach(panelId => {
+        const panel = document.getElementById(panelId);
+        if (panel) {
+            panel.style.display = (panelId === panelIdToShow) ? 'block' : 'none';
+        }
+    });
+}
+
 document.getElementById("sgcirc").onclick = function(){ sav('save original game to play from start?') }
 document.getElementById("spcirc").onclick = function(){ sav('save your progress to play later?',1) }
 document.getElementById("ldcirc").onclick = function(){ openFileDialog('.dbs',loadr) }
@@ -55,22 +65,17 @@ document.getElementById("circstart").onclick = function(){ wipe(); }
 document.getElementById("circstart2").onclick = function(){ wipe(); }
 window.addEventListener('resize', function(event) { rstim=setTimeout(scale,150); }, true);
 
-document.getElementById("circtogsetup").onclick = function(){
-    const cirtog = document.getElementById("circsetup");
-    const wrpDiv = document.getElementById("wrp");
-    if (cirtog.style.display !== "none") {
-        cirtog.style.display = "none";
-        wrpDiv.style.display = "block";
-    } else {
-        cirtog.style.display = "block";
-        wrpDiv.style.display = "none";
-    }
-}
-document.getElementById("circtoghelp").onclick = function(){
- var cirtog=document.getElementById("circhelp");
- if (cirtog.style.display !== "none") { cirtog.style.display = "none"; }
- else {  cirtog.style.display = "block"; }
-}
+document.getElementById("circtogsetup").onclick = function() {
+    const settingsPanel = document.getElementById("circsetup");
+    const isVisible = settingsPanel.style.display !== 'none';
+    showPanel(isVisible ? 'wrp' : 'circsetup');
+};
+
+document.getElementById("circtoghelp").onclick = function() {
+    const helpPanel = document.getElementById("circhelp");
+    const isVisible = helpPanel.style.display !== 'none';
+    showPanel(isVisible ? 'wrp' : 'circhelp');
+};
 for (var tmp=1;tmp<9;tmp++){
  document.getElementById("v"+tmp).onclick = function(e){ butt(e.target.id.replace("v", "")); }
 }
@@ -104,9 +109,7 @@ function wipe(){
 
 function newg(){
  //document.getElementById('version-display').value = ver;
- document.getElementById("circhelp").style.display='none';
- document.getElementById("circsetup").style.display='none';
- document.getElementById("wrp").style.display = "block";
+ showPanel('wrp');
  var elem = document.getElementById("spr").style.display='block';
  done=0;
 
