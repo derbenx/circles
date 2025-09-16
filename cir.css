@@ -64,3 +64,8 @@ button:hover, input[type=button]:hover, select:hover {
     overflow-y: auto;
     padding: 0 20px;
 }
+
+.active-toggle {
+    border: 2px solid lightgreen !important; /* Use important to override existing styles if necessary */
+    box-shadow: 0 0 10px 3px lightgreen;
+}

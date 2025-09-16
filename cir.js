@@ -56,6 +56,10 @@ function showPanel(panelIdToShow) {
             panel.style.display = (panelId === panelIdToShow) ? 'block' : 'none';
         }
     });
+
+    // Toggle the active class on buttons based on which panel is shown
+    document.getElementById('circtogsetup').classList.toggle('active-toggle', panelIdToShow === 'circsetup');
+    document.getElementById('circtoghelp').classList.toggle('active-toggle', panelIdToShow === 'circhelp');
 }
 
 document.getElementById("sgcirc").onclick = function(){ sav('save original game to play from start?') }
