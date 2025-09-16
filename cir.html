@@ -43,6 +43,31 @@
 <tr><td>Movement:</td><td><input id='mov' type='range' min='2' max='4' value='2'></td><td><span id='mov-val'>2</span></td><td>Movement complexity</td></tr>
 <tr><td>Rotation:</td><td><input id='rot' type='range' min='0' max='3' value='1'></td><td><span id='rot-val'>1</span></td><td>Rotation complexity.</td></tr>
 <tr><td>Colours:</td><td><input id='clr' type='range' min='2' max='9' value='5'></td><td><span id='clr-val'>5</span></td><td>Colours used.</td></tr>
+<tr>
+    <td valign="top">Custom<br>Colours:</td>
+    <td colspan="3">
+        <div id="color-swatches">
+            <!-- Swatches will be dynamically generated here -->
+        </div>
+        <div id="color-editor" style="display: none;">
+            <div class="slider-container">
+                <label for="red">R:</label>
+                <input type="range" id="red" min="0" max="255">
+                <span class="slider-val" id="red-val"></span>
+            </div>
+            <div class="slider-container">
+                <label for="green">G:</label>
+                <input type="range" id="green" min="0" max="255">
+                <span class="slider-val" id="green-val"></span>
+            </div>
+            <div class="slider-container">
+                <label for="blue">B:</label>
+                <input type="range" id="blue" min="0" max="255">
+                <span class="slider-val" id="blue-val"></span>
+            </div>
+        </div>
+    </td>
+</tr>
 <tr><td>Percent:</td><td><input id='pct' type='range' min='20' max='80' step='5' value='55'></td><td><span id='pct-val'>55</span>%</td><td>Filled tile space percentage.</td></tr>
 <tr><td>Fixed:</td><td><input id='pnt' type='range' min='0' max='9' value='1'></td><td><span id='pnt-val'>1</span></td><td>Will randomly place up to set number of fixed tiles.</td></tr>
 <tr><td id="rat-label">Ratio: Square</td><td colspan="2"><input type="checkbox" id="rat"></td><td>Square will be same number of squares on every device<br>Screen will grow with available screen size.</td></tr>

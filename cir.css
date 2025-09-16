@@ -12,3 +12,49 @@ h1{ color:green; text-align:center; }
 button:hover, input[type=button]:hover, select:hover {
     box-shadow: 0 0 10px 5px lightgreen;
 }
+
+#color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.color-swatch {
+    width: 25px;
+    height: 25px;
+    border: 1px solid #555;
+    cursor: pointer;
+}
+
+.color-swatch.selected {
+    border: 2px solid #fff;
+    box-shadow: 0 0 5px #fff;
+}
+
+#color-editor {
+    padding: 10px;
+    border: 1px solid #333;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.slider-container label {
+    min-width: 20px;
+}
+
+.slider-container input[type="range"] {
+    flex-grow: 1;
+    margin: 0 10px;
+}
+
+.slider-val {
+    min-width: 30px;
+    text-align: right;
+}

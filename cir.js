@@ -20,8 +20,16 @@ var xx,yy,grid,ww,hh,sz,xxx,yyy,outt; //from json
 let lvl=['',' 32091550',' 42152550',' 54141551',' 64332551',' 74341551',' 84351601',' 94360701','154340801'];
 
 const inputs = ['wxh', 'mov', 'rot', 'clr', 'pct', 'pnt'];
+const colorInputs = ['red', 'green', 'blue'];
+let customColors = [
+    '#dd0000', '#cccc00', '#0000cc', '#8800dd', '#00cccc',
+    '#dd7700', '#00cc00', '#666666', '#ff88cc'
+];
+let selectedSwatchIndex = 0;
 
 loadCirclesSettings();
+loadCustomColors();
+initializeColorPicker();
 inputs.forEach(id => {
     const slider = document.getElementById(id);
     const display = document.getElementById(`${id}-val`);
@@ -202,6 +210,75 @@ function updateAllSliderDisplays() {
     const ratCheckbox = document.getElementById('rat');
     const ratLabel = document.getElementById('rat-label');
     ratLabel.textContent = ratCheckbox.checked ? "Ratio: Screen" : "Ratio: Square";
+}
+
+function updateColorSliders(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    document.getElementById('red').value = r;
+    document.getElementById('green').value = g;
+    document.getElementById('blue').value = b;
+
+    document.getElementById('red-val').textContent = r;
+    document.getElementById('green-val').textContent = g;
+    document.getElementById('blue-val').textContent = b;
+}
+
+function handleSwatchClick(index) {
+    selectedSwatchIndex = index;
+    const swatches = document.querySelectorAll('.color-swatch');
+    swatches.forEach((swatch, i) => {
+        swatch.classList.toggle('selected', i === index);
+    });
+
+    document.getElementById('color-editor').style.display = 'block';
+    updateColorSliders(customColors[index]);
+}
+
+function handleColorSliderChange() {
+    const r = document.getElementById('red').value;
+    const g = document.getElementById('green').value;
+    const b = document.getElementById('blue').value;
+
+    document.getElementById('red-val').textContent = r;
+    document.getElementById('green-val').textContent = g;
+    document.getElementById('blue-val').textContent = b;
+
+    const hex = "#" + (+r).toString(16).padStart(2, '0') + (+g).toString(16).padStart(2, '0') + (+b).toString(16).padStart(2, '0');
+
+    customColors[selectedSwatchIndex] = hex;
+    document.querySelector(`.color-swatch[data-index='${selectedSwatchIndex}']`).style.backgroundColor = hex;
+    saveCustomColors();
+}
+
+function initializeColorPicker() {
+    const swatchContainer = document.getElementById('color-swatches');
+    swatchContainer.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = customColors[i];
+        swatch.dataset.index = i;
+        swatch.onclick = () => handleSwatchClick(i);
+        swatchContainer.appendChild(swatch);
+    }
+
+    colorInputs.forEach(id => {
+        document.getElementById(id).oninput = handleColorSliderChange;
+    });
+}
+
+function saveCustomColors() {
+    localStorage.setItem('circlesCustomColors', JSON.stringify(customColors));
+}
+
+function loadCustomColors() {
+    const savedColors = localStorage.getItem('circlesCustomColors');
+    if (savedColors) {
+        customColors = JSON.parse(savedColors);
+    }
 }
 
 function butt(x){
@@ -438,19 +515,32 @@ function rotate(x,y,t=1){
  }
 }
 
-function gc(cc,f=0){
- var o='#fffff0';
- if (cc=='g'){ o='#008800' }
- if (cc=='r'){ o='#dd0000' }
- if (cc=='y'){ o='#cccc00' }
- if (cc=='b'){ o='#0000cc' }
- if (cc=='v'){ o='#8800dd' }
- if (cc=='c'){ o='#00cccc' }
- if (cc=='p'){ o='#dd7700' }
- if (cc=='l'){ o='#00cc00' }
- if (cc=='e'){ o='#666666' }
- if (f==1){ o= [...o.slice(1).match(/../g).map(h => parseInt(h, 16) / 255), 1]; } //convert hex to 0-1 VR
- return o;
+function gc(cc, f = 0) {
+    // Grid color is kept separate and is not customizable for now.
+    if (cc === 'g') {
+        return f === 1 ? [0, 0.533, 0, 1] : '#008800';
+    }
+
+    const colorIndex = col.indexOf(cc);
+    // The 'col' string starts with 'g' for the grid, which is at index 0.
+    // The piece colors (r, y, b, etc.) start from index 1.
+    // Our `customColors` array is 0-indexed and holds the 9 piece colors.
+    // So, we subtract 1 from the found index to map correctly.
+    const customColorIndex = colorIndex - 1;
+
+    let o = '#ffffff'; // Default to white if something goes wrong
+
+    if (customColorIndex >= 0 && customColorIndex < customColors.length) {
+        o = customColors[customColorIndex];
+    }
+
+    if (f === 1) { // Convert hex to 0-1 VR format
+        const r = parseInt(o.slice(1, 3), 16) / 255;
+        const g = parseInt(o.slice(3, 5), 16) / 255;
+        const b = parseInt(o.slice(5, 7), 16) / 255;
+        return [r, g, b, 1];
+    }
+    return o;
 }
 function drci(rad,x,y,p,s=0) {
  if (rad<4) { return; }
