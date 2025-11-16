@@ -354,7 +354,7 @@ function scale(){
     else if (t1==4) {t1=3;}
     if (t2==2) {t2=3;}
     else if (t2==3) {t2=2;}
-    tgrd[y][x]=t1+t2+grid[x][y].slice(3,6)+grid[x][y].slice(2,3);
+    tgrd[y][x]=t1+t2+grid[x][y].slice(5,6)+grid[x][y].slice(2,5);
    }
    tgrd[y].reverse();
   }
