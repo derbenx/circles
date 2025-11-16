@@ -194,7 +194,7 @@ function dbstart(json){
    outt=outt+"!"+x+"x"+y+"="+grid[x][y];
   }
  }
- 
+
  //console.log(grid);
  //console.log('ot: '+outt);
  sCook('orig',outt);
@@ -286,7 +286,7 @@ function clku(evn){
   done=1;
   setTimeout(fini, 300);
   //fini();
- } 
+ }
 }
 function clkd(evn){
  if (done) { return; }
@@ -300,7 +300,7 @@ function clkd(evn){
  gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  //console.log('DD',mx,my,"g",gx,gy);
  //db.value='d:'+gx+'x'+gy;
- //console.log(grid[gx][gy]); 
+ //console.log(grid[gx][gy]);
  if (grid[gx][gy].charAt(0)>1) {
   drag='y';
  }
@@ -334,62 +334,77 @@ function main(){
  spr.addEventListener("touchmove", movr, {passive: true});
  draw();
 }
-function scale(){
- var iw=window.innerWidth;
- var ih=window.innerHeight-(document.getElementById('hdr').getBoundingClientRect().height*3);
- //ratio >1=hori <1=vert
- var sc1=iw/ih;
- var sc2=xx/yy;
- //console.log(sc1,sc2);
- if (sc2!=1 && ( (sc1>1 && sc2<1) || (sc1<1 && sc2>=1) ) ) {
-  //console.log('flip');
-  var tgrd = new Array(yy).fill(null).map(()=>new Array(xx).fill(null));
-  for (var y=0;y<yy;y++){
-   for (var x=0;x<xx;x++){
-    //console.log(y,x,grid[x][y].slice(0,1));
-    //if first digit 3/4 chg to 4/3
-    var t1=grid[x][y].slice(0,1);
-    var t2=grid[x][y].slice(1,2);
-    if (t1==3) {t1=4;}
-    else if (t1==4) {t1=3;}
-    if (t2==2) {t2=3;}
-    else if (t2==3) {t2=2;}
-    tgrd[y][x]=t1+t2+grid[x][y].slice(3,6)+grid[x][y].slice(2,3);
-   }
-   tgrd[y].reverse();
+function scale() {
+  var iw = window.innerWidth;
+  var ih = window.innerHeight - (document.getElementById('hdr').getBoundingClientRect().height * 3);
+  var sc1 = iw / ih;
+  var sc2 = xx / yy;
+
+  if (sc2 !== 1 && ((sc1 > 1 && sc2 < 1) || (sc1 < 1 && sc2 >= 1))) {
+    var old_xx = xx;
+    var old_yy = yy;
+
+    // Create a new column-major grid with swapped dimensions
+    var tgrd = new Array(old_yy).fill(null).map(() => new Array(old_xx).fill(null));
+
+    for (var y = 0; y < old_yy; y++) {
+      for (var x = 0; x < old_xx; x++) {
+        var piece = grid[x][y];
+
+        // Handle piece property changes for orientation
+        var t1 = piece.slice(0, 1);
+        var t2 = piece.slice(1, 2);
+        if (t1 === '3') { t1 = '4'; }
+        else if (t1 === '4') { t1 = '3'; }
+        if (t2 === '2') { t2 = '3'; }
+        else if (t2 === '3') { t2 = '2'; }
+
+        // Clockwise rotation of piece colors:
+        // new_left=old_down, new_up=old_left, new_right=old_up, new_down=old_right
+        var rotated_piece_colors = piece.slice(5, 6) + piece.slice(2, 5);
+        var rotated_piece = t1 + t2 + rotated_piece_colors;
+
+        // Clockwise rotation of position: (x, y) -> (old_yy - 1 - y, x)
+        var new_x = old_yy - 1 - y;
+        var new_y = x;
+
+        tgrd[new_x][new_y] = rotated_piece;
+      }
+    }
+
+    // Update dimensions and grid
+    xx = old_yy;
+    yy = old_xx;
+    grid = tgrd;
+    sc2 = xx / yy;
   }
-  xx=grid[0].length
-  yy=grid.length
-  grid=tgrd;
-  sc2=xx/yy;
- }
- var tv=sc1>sc2 ? yy : xx;
- var tz=window.innerWidth/tv*scal;
- ww=tz*xx;
- hh=tz*yy;
- if (sc1>sc2){
-  //console.log('scr land');
-  ww=ih/yy*xx*scal;
-  hh=ih/yy*yy*scal;
- }else{
-  //console.log('scr port');
-  ww=iw/xx*xx*scal;
-  hh=iw/xx*yy*scal;
- }
 
- //console.log(sc1,sc2)
- //console.log(xx,yy,ww,hh,sc1,sc2);
+  // --- Rest of the function is for scaling and drawing, remains the same ---
+  var tv = sc1 > sc2 ? yy : xx;
+  var tz = window.innerWidth / tv * scal;
+  ww = tz * xx;
+  hh = tz * yy;
+  if (sc1 > sc2) {
+    ww = ih / yy * xx * scal;
+    hh = ih / yy * yy * scal;
+  } else {
+    ww = iw / xx * xx * scal;
+    hh = iw / xx * yy * scal;
+  }
 
- xxx=ww/xx;yyy=hh/yy;
- sz=xxx<yyy ? xxx*0.48 : yyy*0.48;
- var sc=document.getElementById("rat").selectedIndex;
- spr.width=ww; spr.height=hh;
- can.width=ww; can.height=hh;
- wrp.style.height=(hh+5)+'px';
- draw(1);
+  xxx = ww / xx;
+  yyy = hh / yy;
+  sz = xxx < yyy ? xxx * 0.48 : yyy * 0.48;
+  var sc = document.getElementById("rat").selectedIndex;
+  spr.width = ww;
+  spr.height = hh;
+  can.width = ww;
+  can.height = hh;
+  wrp.style.height = (hh + 5) + 'px';
+  draw(1);
 }
 function draw(pri=0){ //priority, drag low, drop high.
- 
+
  var fc= new Date();
  var fps = 1000 / (fc - fo);
  fo = fc;
@@ -418,7 +433,7 @@ function draw(pri=0){ //priority, drag low, drop high.
      drci(sz,mx,(y*yyy)+(yyy/2),grid[x][y],1);
     }
    }else{
-    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]); 
+    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]);
    }
    ctx.lineWidth = 3;
    ctx.strokeStyle = "green";
@@ -427,7 +442,7 @@ function draw(pri=0){ //priority, drag low, drop high.
  }
 }
 function rd(x,y=0){
- return Math.floor(Math.random()*x)+y; 
+ return Math.floor(Math.random()*x)+y;
 }
 function rotate(x,y,t=1){
  pos=grid[x][y];
@@ -470,7 +485,7 @@ function drci(rad,x,y,p,s=0) {
  if (pp.charAt(0)>0) {
  //console.log('big');
   tmp.beginPath();
-  
+
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI, false);
   tmp.fillStyle = gc(col.charAt(0));
   tmp.fill();
@@ -479,7 +494,7 @@ function drci(rad,x,y,p,s=0) {
   tmp.strokeStyle = s==1 ? 'red' : ol;
   tmp.lineWidth = 3;
   tmp.stroke();
- 
+
  rx=rad/3;
  $i=0;
 
@@ -496,9 +511,9 @@ function drci(rad,x,y,p,s=0) {
    tmp.strokeStyle = 'black';
    tmp.moveTo(x-(rad/3), y);
    tmp.lineTo(x+(rad/3), y);
-   tmp.stroke(); 
+   tmp.stroke();
   }
- 
+
  $i++;
  if (pp.charAt($i)!='0') {
   //click: 0=nothing 1=rotate:O 2=flipH:U 3=flipV:C
@@ -523,13 +538,13 @@ function drci(rad,x,y,p,s=0) {
    tmp.lineWidth = 3;
    tmp.stroke();
   }
-  
+
  }
   $i++;
  //2+: tag colors 0=null ryvb
  if (pp.charAt($i)!='0') {
   //console.log('left');
-  
+
   tmp.beginPath();
   tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -542,7 +557,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('up');
-  
+
   tmp.beginPath();
   tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -555,7 +570,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('righ');
-  
+
   tmp.beginPath();
   tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -568,7 +583,7 @@ function drci(rad,x,y,p,s=0) {
 $i++;
  if (pp.charAt($i)!='0') {
   //console.log('down');
-  
+
   tmp.beginPath();
   tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -707,9 +722,9 @@ function loadr(event){
   sCook('prog',result);
   sCook('orig',result);
   // start game
-  newg() 
+  newg()
  });
- reader.readAsText(file); 
+ reader.readAsText(file);
 }
 function openFileDialog(accept, callback) {
  var inputElement = document.createElement("input");
