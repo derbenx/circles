@@ -343,25 +343,38 @@ function scale(){
  //console.log(sc1,sc2);
  if (sc2!=1 && ( (sc1>1 && sc2<1) || (sc1<1 && sc2>=1) ) ) {
   //console.log('flip');
-  var tgrd = new Array(yy).fill(null).map(()=>new Array(xx).fill(null));
-  for (var y=0;y<yy;y++){
-   for (var x=0;x<xx;x++){
-    //console.log(y,x,grid[x][y].slice(0,1));
-    //if first digit 3/4 chg to 4/3
-    var t1=grid[x][y].slice(0,1);
-    var t2=grid[x][y].slice(1,2);
-    if (t1==3) {t1=4;}
-    else if (t1==4) {t1=3;}
-    if (t2==2) {t2=3;}
-    else if (t2==3) {t2=2;}
-    tgrd[y][x]=t1+t2+grid[x][y].slice(3,6)+grid[x][y].slice(2,3);
-   }
-   tgrd[y].reverse();
+  var old_xx = xx;
+  var old_yy = yy;
+  // new grid is column-major, with dimensions swapped
+  var tgrd = new Array(old_yy).fill(null).map(() => new Array(old_xx).fill(null));
+
+  for (var y = 0; y < old_yy; y++) {
+    for (var x = 0; x < old_xx; x++) {
+      // Rotate the piece data
+      var t1 = grid[x][y].slice(0, 1);
+      var t2 = grid[x][y].slice(1, 2);
+      if (t1 == 3) { t1 = 4; }
+      else if (t1 == 4) { t1 = 3; }
+      if (t2 == 2) { t2 = 3; }
+      else if (t2 == 3) { t2 = 2; }
+
+      // Clockwise rotation of piece colors:
+      // new_left=old_down, new_up=old_left, new_right=old_up, new_down=old_right
+      var rotated_piece_colors = grid[x][y].slice(5, 6) + grid[x][y].slice(2, 5);
+      var rotated_piece = t1 + t2 + rotated_piece_colors;
+
+      // Clockwise rotation of position:
+      var new_x = y;
+      var new_y = old_xx - 1 - x;
+      tgrd[new_x][new_y] = rotated_piece;
+    }
   }
-  xx=grid[0].length
-  yy=grid.length
-  grid=tgrd;
-  sc2=xx/yy;
+
+  // Update dimensions and grid
+  xx = old_yy;
+  yy = old_xx;
+  grid = tgrd;
+  sc2 = xx / yy;
  }
  var tv=sc1>sc2 ? yy : xx;
  var tz=window.innerWidth/tv*scal;
