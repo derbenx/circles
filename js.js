@@ -341,8 +341,8 @@ document.getElementById("pct").onchange = saveSettings;
 document.getElementById("sgcirc").onclick = function(){ sav('save original game to play from start?') }
 document.getElementById("spcirc").onclick = function(){ sav('save your progress to play later?',1) }
 document.getElementById("ldcirc").onclick = function(){ openFileDialog('.dbs',loadr) }
-document.getElementById("circstart").onclick = function(){ wipe(); }
-document.getElementById("circstart2").onclick = function(){ wipe(); }
+document.getElementById("circstart").onclick = function(){ wipe(true); }
+document.getElementById("circstart2").onclick = function(){ wipe(true); }
 window.addEventListener('resize', function(event) { rstim=setTimeout(scale,150); }, true);
 
 document.getElementById("circtogsetup").onclick = function(){
@@ -359,7 +359,7 @@ for (var tmp=1;tmp<9;tmp++){
  document.getElementById("v"+tmp).onclick = function(e){ butt(e.target.id.replace("v", "")); }
 }
 loadSettings();
-newg();
+loadGame();
 
 function saveSettings() {
     const settings = {
@@ -409,20 +409,22 @@ function ttf(){ // time to finish
  document.getElementById("ttf").innerHTML=est;
 }
 
-function wipe(){
+function wipe(isNewGame = false){
     for (let i = 0; i < 40; i++) {
         localStorage.removeItem(`puzzProgressRow${i}`);
     }
     localStorage.removeItem("originalPuzzle");
-    newg();
+    if(isNewGame) newg();
 }
 
-function newg() {
+function loadGame() {
     // Reset the UI and game state.
     document.getElementById("circhelp").style.display = 'none';
     document.getElementById("circsetup").style.display = 'none';
     document.getElementById("spr").style.display = 'block';
     done = 0;
+
+    const saveButton = document.getElementById('sgcirc');
 
     // Check for saved progress in localStorage.
     let originalPuzzle = gStore("originalPuzzle");
@@ -461,12 +463,22 @@ function newg() {
             }
             scale();
             main();
+            saveButton.textContent = '-Save Game-';
+            saveButton.disabled = true;
         } catch (e) {
             console.error("Failed to load saved data. Wiping and starting new game.", e);
             wipe(); // Wipe corrupted data
             return; // Exit and restart via wipe()
         }
     } else {
+        // If no saved data, do nothing. The user will be presented with a blank screen
+        // and can start a new game.
+        saveButton.textContent = '-Save Game-';
+        saveButton.disabled = true;
+    }
+}
+
+function newg() {
         // If no saved data, generate a new puzzle.
         const rat = document.getElementById("rat").value * 1;
         const ts = document.getElementById("wxh").value * 1;
@@ -500,7 +512,6 @@ function newg() {
 
         const puzzleData = generatePuzzle(options);
         dbstart(puzzleData);
-    }
 }
 
 function dbstart(data) {
@@ -538,6 +549,9 @@ function dbstart(data) {
 
     scale();
     main();
+    const saveButton = document.getElementById('sgcirc');
+    saveButton.textContent = '-Save Original-';
+    saveButton.disabled = false;
 }
 
 function butt(x){
@@ -610,7 +624,7 @@ function clku(evn){
   }
  drag='n';
  }
- 
+
   // Save the updated rows to localStorage.
   const sourceRow = gx;
   const destRow = tx;
@@ -643,7 +657,7 @@ function clku(evn){
   done=1;
   setTimeout(fini, 300);
   //fini();
- } 
+ }
 }
 function clkd(evn){
  if (done) { return; }
@@ -657,7 +671,7 @@ function clkd(evn){
  gx=Math.floor((mx/ww)*xx); gy=Math.floor((my/hh)*yy);
  //console.log('DD',mx,my,"g",gx,gy);
  //db.value='d:'+gx+'x'+gy;
- //console.log(grid[gx][gy]); 
+ //console.log(grid[gx][gy]);
  if (grid[gx][gy].charAt(0)>1) {
   drag='y';
  }
@@ -721,6 +735,11 @@ function scale(){
   yy=grid.length
   grid=tgrd;
   sc2=xx/yy;
+    // Clear all old progress rows to prevent stale data from being loaded.
+    for (let i = 0; i < 40; i++) {
+        localStorage.removeItem(`puzzProgressRow${i}`);
+    }
+
     for (let i = 0; i < xx; i++) {
         let rowStr = "";
         if (i === 0) {
@@ -758,7 +777,7 @@ function scale(){
  draw(1);
 }
 function draw(pri=0){ //priority, drag low, drop high.
- 
+
  var fc= new Date();
  var fps = 1000 / (fc - fo);
  fo = fc;
@@ -787,7 +806,7 @@ function draw(pri=0){ //priority, drag low, drop high.
      drci(sz,mx,(y*yyy)+(yyy/2),grid[x][y],1);
     }
    }else{
-    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]); 
+    drci(sz,(x*xxx)+(xxx/2),(y*yyy)+(yyy/2),grid[x][y]);
    }
    ctx.lineWidth = 3;
    ctx.strokeStyle = "green";
@@ -796,7 +815,7 @@ function draw(pri=0){ //priority, drag low, drop high.
  }
 }
 function rd(x,y=0){
- return Math.floor(Math.random()*x)+y; 
+ return Math.floor(Math.random()*x)+y;
 }
 function rotate(x,y,t=1){
  pos=grid[x][y];
@@ -839,7 +858,7 @@ function drci(rad,x,y,p,s=0) {
  if (pp.charAt(0)>0) {
  //console.log('big');
   tmp.beginPath();
-  
+
   tmp.arc(x, y, rad-3, 0, 2 * Math.PI, false);
   tmp.fillStyle = gc(col.charAt(0));
   tmp.fill();
@@ -848,7 +867,7 @@ function drci(rad,x,y,p,s=0) {
   tmp.strokeStyle = s==1 ? 'red' : ol;
   tmp.lineWidth = 3;
   tmp.stroke();
- 
+
  rx=rad/3;
  $i=0;
 
@@ -865,9 +884,9 @@ function drci(rad,x,y,p,s=0) {
    tmp.strokeStyle = 'black';
    tmp.moveTo(x-(rad/3), y);
    tmp.lineTo(x+(rad/3), y);
-   tmp.stroke(); 
+   tmp.stroke();
   }
- 
+
  $i++;
  if (pp.charAt($i)!='0') {
   //click: 0=nothing 1=rotate:O 2=flipH:U 3=flipV:C
@@ -892,13 +911,13 @@ function drci(rad,x,y,p,s=0) {
    tmp.lineWidth = 3;
    tmp.stroke();
   }
-  
+
  }
   $i++;
  //2+: tag colors 0=null ryvb
  if (pp.charAt($i)!='0') {
   //console.log('left');
-  
+
   tmp.beginPath();
   tmp.arc(x-rad, y, rx, 1.5 * Math.PI, .5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -911,7 +930,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('up');
-  
+
   tmp.beginPath();
   tmp.arc(x, y-rad, rx, 0, 1 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -924,7 +943,7 @@ function drci(rad,x,y,p,s=0) {
  $i++;
  if (pp.charAt($i)!='0') {
   //console.log('righ');
-  
+
   tmp.beginPath();
   tmp.arc(x+rad, y, rx, .5 * Math.PI, 1.5 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -937,7 +956,7 @@ function drci(rad,x,y,p,s=0) {
 $i++;
  if (pp.charAt($i)!='0') {
   //console.log('down');
-  
+
   tmp.beginPath();
   tmp.arc(x, y+rad, rx, 1 * Math.PI, 2 * Math.PI, false);
   tmp.fillStyle = gc(pp.charAt($i));
@@ -1108,7 +1127,7 @@ function loadr(event){
     }
     sStore(`puzzProgressRow${i}`, compress(rowStr));
   }
-  newg();
+  loadGame();
  });
  reader.readAsText(file);
 }
