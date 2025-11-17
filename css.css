@@ -1,3 +1,4 @@
+html,body { overscroll-behavior: none; }
 body { background-color:black; color:grey; overflow-y: hidden }
 h1{ color:green; text-align:center; }
 #debug { position:fixed;top:0px;left:0px; }
