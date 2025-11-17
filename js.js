@@ -419,6 +419,7 @@ function wipe(){
 
 function newg() {
     // Reset the UI and game state.
+    document.getElementById("sgcirc").disabled = false;
     document.getElementById("circhelp").style.display = 'none';
     document.getElementById("circsetup").style.display = 'none';
     document.getElementById("spr").style.display = 'block';
@@ -693,7 +694,7 @@ function main(){
 }
 function scale(){
  var iw=window.innerWidth;
- var ih=window.innerHeight-(document.getElementById('hdr').getBoundingClientRect().height*3);
+ var ih=window.innerHeight;
  //ratio >1=hori <1=vert
  var sc1=iw/ih;
  var sc2=xx/yy;
@@ -1013,18 +1014,13 @@ function sav(msg = 'Click Ok to save this game.', sav = 0) {
     var aa = document.createElement('a');
     var temp = "";
     if (sav == 1) {
-        // To assemble a valid save file, we must reconstruct the full puzzle string.
-        // Each `puzzProgressRow` is stored compressed and contains data for only one column,
-        // including a prepended size identifier (e.g., "15!0x0=...").
-        // A simple concatenation of these compressed chunks would be invalid.
-        // Therefore, we decompress each chunk, assemble the full plaintext string,
-        // and then recompress it once to create a valid, downloadable file.
-        let fullPuzzleString = decompress(gStore('puzzProgressRow0'));
-        for (let i = 1; i < xx; i++) {
-            let columnData = decompress(gStore(`puzzProgressRow${i}`));
-            fullPuzzleString += columnData.substring(columnData.indexOf('!'));
-        }
-        temp = fullPuzzleString;
+        // When saving progress, always rebuild the string from the live grid
+        // to ensure that rotations are accounted for.
+        temp = xx + grid.flat().reduce((acc, val, index) => {
+            const x = Math.floor(index / yy);
+            const y = index % yy;
+            return acc + `!${x}x${y}=${val}`;
+        }, '');
     } else {
         const originalPuzzle = gStore('originalPuzzle');
         if (!originalPuzzle) {
@@ -1109,6 +1105,7 @@ function loadr(event){
     sStore(`puzzProgressRow${i}`, compress(rowStr));
   }
   newg();
+  document.getElementById("sgcirc").disabled = true;
  });
  reader.readAsText(file);
 }
